@@ -1,0 +1,96 @@
+﻿<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=utf-8">
+
+<!--script language="javascript" src="../lib/easyui/jquery.min.js" type="text/javascript"></script-->
+<script src="../lib/jquery-1.11.1.js"></script>
+
+<link rel="stylesheet" type="text/css" href="../lib/easyui/themes/default/easyui.css">
+<link rel="stylesheet" type="text/css" href="../lib/easyui/themes/icon.css">
+<link rel="stylesheet" type="text/css" href="style.css">
+<script language="javascript" src="../lib/easyui/jquery.easyui.min.js" type="text/javascript" charset="utf-8"></script>
+<script language="javascript" src="../lib/easyui/locale/easyui-lang-zh_CN.js" type="text/javascript" charset="utf-8"></script>
+
+<!--script src="../jdcloud-wui.js"></script-->
+<!-- WEBCC_BEGIN MERGE -->
+<script src="../src/doc.js"></script>
+<script src="../src/common.js"></script>
+<script src="../src/commonjq.js"></script>
+<script src="../src/app.js"></script>
+<script src="../src/callSvr.js"></script>
+<script src="../src/wui-showPage.js"></script>
+<script src="../src/wui.js"></script>
+<script src="../src/wui-name.js"></script>
+<script src="../src/jquery-mycombobox.js"></script>
+<!-- WEBCC_END -->
+
+<script src="common.js"></script>
+<script src="app.js"></script>
+<script src="index.js"></script>
+</head>
+
+<body class="easyui-layout">
+<div id="divNoScript"><font color=red>您的浏览器禁用了脚本，不能使用本系统!</font></div>
+<script language="javascript">$("#divNoScript").hide();</script>
+
+<div id="menu" region="west" split="true" title="选择操作" style="width:150px;padding:10px;">
+	<!--a href="#pageHome" class="easyui-linkbutton" icon="icon-ok">首页</a><br/><br/-->
+	<!--a href="?logout" class="easyui-linkbutton" icon="icon-ok">修改密码</a><br/><br/-->
+	<a href="?logout" class="easyui-linkbutton" icon="icon-ok">退出系统</a><br/><br/>
+
+	<div class="perm-admin" style="display:none">
+		<hr>
+		<a href="#pageEmployee" class="easyui-linkbutton" icon="icon-ok">员工管理</a><br/><br/>
+		<a href="#pageUser" class="easyui-linkbutton" icon="icon-ok">用户管理</a><br/><br/>
+		<a href="#pageOrder" class="easyui-linkbutton" icon="icon-ok">订单管理</a><br/><br/>
+
+		<hr>
+		<a href="#pageQuery" class="easyui-linkbutton" icon="icon-ok">查询语句</a><br/><br/>
+
+	</div>
+</div>
+
+<div region="center" title="欢迎使用">
+	<div id="my-tabMain" class="easyui-tabs" fit=true>
+	</div>
+</div>
+
+<div id="my-pages" style="display:none">
+
+	<div class="pageHome" title="首页" style="padding:5px" my-initfn="initPageHome">
+		<h2 class="my-title">管理端</h2>
+
+		<h3>我的信息</h3>
+		<table id="tblAdmin" style="width:auto;height:auto">
+			<thead>
+				<tr>
+					<th data-options="field:'id'">编号</th>
+					<th data-options="field:'uname'">登录用户名</th>
+				</tr>
+			</thead>
+		</table>
+	</div>
+
+	<div id="dlgLogin" title="超级管理员登录" style="padding:20px 40px 20px 40px;width:350px;height:200px;">  
+		<form method="POST">
+			<table>
+				<tr>
+					<td>登录名</td>
+					<td><input name="uname" class="easyui-validatebox" data-options="required:true,validType:'uname'"></td>
+				</tr>
+				<tr>
+					<td>密码</td>
+					<td><input type=password name="pwd" class="easyui-validatebox" data-options="required:true,validType:'pwd'"></td>
+				</tr>
+			</table>
+		</form>
+	</div>
+
+</div>
+
+<div id=block class=block></div>
+
+</body>
+
+</html>
+<!-- vim: set foldmethod=marker: -->
