@@ -11,7 +11,7 @@ js: $(OUT)
 doc: $(DOC)
 
 $(DOC): $(OUT)
-	php tool/jdcloud-gendoc.phar $< > $@
+	php tool/jdcloud-gendoc.phar $< | perl -pe 's/\bMUI\b/WUI/g' > $@
 
 $(OUT): example/index.html src/*
 	perl tool/webcc_merge.pl $< > $(OUT)
