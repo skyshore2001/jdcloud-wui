@@ -96,7 +96,7 @@ self.options = {
 function parseArgs()
 {
 	if (location.search) {
-		g_args = self.parseQuery(location.search.substr(1));
+		g_args = mCommon.parseQuery(location.search.substr(1));
 		if (g_args.test || g_args._test) {
 			g_args._test = 1;
 			alert("测试模式!");
@@ -342,7 +342,7 @@ function logout(dontReload)
 	g_data.userInfo = null;
 	self.callSvr("logout", function (data) {
 		if (! dontReload)
-			reloadSite();
+			mCommon.reloadSite();
 	});
 }
 
