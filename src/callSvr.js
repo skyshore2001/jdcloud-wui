@@ -77,6 +77,9 @@ mockData中每项可以直接是数据，也可以是一个函数：fn(param, po
 可以通过MUI.options.mockDelay设置模拟调用接口的网络延时。
 @see MUI.options.mockDelay
 
+模拟数据可直接返回[code, data]格式的JSON数组，框架会将其序列化成JSON字符串，以模拟实际场景。
+如果要查看调用与返回数据日志，可在浏览器控制台中设置 MUI.options.logAction=true，在控制台中查看日志。
+
 如果设置了MUI.callSvrExt，调用名(ac)中应包含扩展(ext)的名字，例：
 
 	MUI.callSvrExt['zhanda'] = {...};
@@ -289,6 +292,7 @@ function defDataProc(rv)
 
 		if (this.noex)
 		{
+			this.lastError = rv;
 			self.lastError = ctx;
 			return false;
 		}
@@ -351,7 +355,8 @@ function getBaseUrl()
 	var params = {id: 100};
 	var url = makeUrl("Ordr.set", params);
 
-注意：调用该函数生成的url在结尾有标志字符串"zz=1", 如"../api.php/login?_app=user&zz=1"
+注意：函数返回的url是字符串包装对象，可能含有这些属性：{makeUrl=true, action?, params?}
+这样可通过url.action得到原始的参数。
 
 支持callSvr扩展，如：
 
@@ -392,15 +397,13 @@ function makeUrl(action, params)
 		}
 	}
 
-	if (/^http/.test(action)) {
+	// 有makeUrl属性表示已调用过makeUrl
+	if (action.makeUrl || /^http/.test(action)) {
 		if (params == null)
 			return action;
-		return mCommon.appendParam(action, $.param(params));
+		var url = mCommon.appendParam(action, $.param(params));
+		return makeUrlObj(url);
 	}
-
-	// 避免重复调用
-	if (action.indexOf("zz=1") >0)
-		return action;
 
 	if (params == null)
 		params = {};
@@ -451,8 +454,23 @@ function makeUrl(action, params)
 		params._app = self.options.appName;
 	if (g_args._debug)
 		params._debug = g_args._debug;
-	params.zz = 1; // zz标记
-	return mCommon.appendParam(url, $.param(params));
+	var ret = mCommon.appendParam(url, $.param(params));
+	return makeUrlObj(ret);
+
+	function makeUrlObj(url)
+	{
+		var o = new Object(url);
+		o.makeUrl = true;
+		if (action.makeUrl) {
+			o.action = action.action;
+			o.params = $.extend({}, action.params, params);
+		}
+		else {
+			o.action = action;
+			o.params = params;
+		}
+		return o;
+	}
 }
 
 /**
@@ -488,7 +506,7 @@ function makeUrl(action, params)
 
 @key callSvr.noex 调用接口时忽略出错，可由回调函数fn自己处理错误。
 
-当后端返回错误时, 回调`fn(false)`（参数data=false）. 可通过 MUI.lastError.ret 取到返回的原始数据。
+当后端返回错误时, 回调`fn(false)`（参数data=false）. 可通过 MUI.lastError.ret 或 this.lastError 取到返回的原始数据。
 
 例：
 
@@ -503,7 +521,8 @@ function makeUrl(action, params)
 
 	callSvr("User.get", function (data) {
 		if (data === false) { // 仅当设置noex且服务端返回错误时可返回false
-			// var originalData = MUI.lastError.ret;
+			// var originalData = MUI.lastError.ret; 或
+			// var originalData = this.lastError;
 			return;
 		}
 		foo(data);
@@ -822,14 +841,20 @@ function callSvr(ac, params, fn, postParams, userOptions)
 	mCommon.assert(ac != null, "*** bad param `ac`");
 
 	var ext = null;
-	var ac0 = ac;
+	var ac0 = ac.action || ac; // ac可能是makeUrl生成过的
+	var m;
 	if ($.isArray(ac)) {
+		// 兼容[ac, ext]格式, 不建议使用，可用"{ext}:{ac}"替代
 		mCommon.assert(ac.length == 2, "*** bad ac format, require [ac, ext]");
 		ext = ac[1];
 		if (ext != 'default')
 			ac0 = ext + ':' + ac[0];
 		else
 			ac0 = ac[0];
+	}
+	// "{ext}:{ac}"格式，注意区分"http://xxx"格式
+	else if (m = ac.match(/^(\w+):(\w.*)/)) {
+		ext = m[1];
 	}
 	else if (self.callSvrExt['default']) {
 		ext = 'default';
@@ -842,7 +867,7 @@ function callSvr(ac, params, fn, postParams, userOptions)
 	}
 
 	var url = makeUrl(ac, params);
-	var ctx = {ac: ac, tm: new Date()};
+	var ctx = {ac: ac0, tm: new Date()};
 	if (userOptions && userOptions.noLoadingImg)
 		ctx.noLoadingImg = 1;
 	if (ext) {
@@ -852,9 +877,13 @@ function callSvr(ac, params, fn, postParams, userOptions)
 		ctx.isMock = true;
 		ctx.getMockData = function () {
 			var d = self.mockData[ac0];
+			var param1 = $.extend({}, url.params);
+			var postParam1 = $.extend({}, postParams);
 			if ($.isFunction(d)) {
-				d = d(params||{}, postParams||{});
+				d = d(param1, postParam1);
 			}
+			if (self.options.logAction)
+				console.log({ac: ac0, ret: d, params: param1, postParams: postParam1, userOptions: userOptions});
 			return d;
 		}
 	}
@@ -913,6 +942,8 @@ function callSvrMock(opt, isSyncCall)
 	function callSvrMock1() 
 	{
 		var data = opt_.ctx_.getMockData();
+		if (typeof(data) != "string")
+			data = JSON.stringify(data);
 		var rv = defDataProc.call(opt_, data);
 		if (rv != null)
 		{

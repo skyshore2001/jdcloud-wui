@@ -50,9 +50,10 @@ function initPageQuery()
 
 			if (data === false) {
 				if (this.lastError) {
-					data = "Error " + this.lastError[0] + ": " + this.lastError[1];
-					if (this.lastError[2]) {
-						data += "\n" + this.lastError[2];
+					var ret = this.lastError;
+					data = "Error " + ret[0] + ": " + ret[1];
+					if (ret[2]) {
+						data += "\n" + ret[2];
 					}
 				}
 			}

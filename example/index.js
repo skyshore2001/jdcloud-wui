@@ -4,6 +4,9 @@ var g_data = {}; // { userInfo={id,uname} }
 
 // ====== data-options {{{
 var Formatter = {
+	dt: function (value, row) {
+		return dtStr(value);
+	},
 	userId: function (value, row) {
 		if (value)
 			return WUI.makeLinkTo("#dlgUser", value);

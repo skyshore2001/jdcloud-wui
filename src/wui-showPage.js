@@ -75,6 +75,55 @@ function reloadTmp(jtbl, url, queryParams)
 	opt.queryParams = param_bak;
 }
 
+// 筋斗云协议的若干列表格式转为easyui-datagrid的列表格式
+// 支持 [], { @list}, { @h, @d}格式 => {total, @rows}
+function jdListToDgList(data)
+{
+	var ret = data;
+	// support simple array
+	if ($.isArray(data)) {
+		ret = {
+			total: data.length,
+			rows: data
+		};
+	}
+	else if ($.isArray(data.list)) {
+		ret = {
+			total: data.total || data.list.length,
+			rows: data.list
+		};
+	}
+	// support compressed table format: {h,d}
+	else if (data.h !== undefined)
+	{
+		var arr = mCommon.rs2Array(data);
+		ret = {
+			total: data.total || arr.length,
+			rows: arr
+		};
+	}
+	return ret;
+}
+
+// 筋斗云协议的列表转为数组，支持 [], {list}, {h,d}格式
+function jdListToArray(data)
+{
+	var ret = data;
+	// support simple array
+	if ($.isArray(data)) {
+		ret = data;
+	}
+	else if ($.isArray(data.list)) {
+		ret = data.list;
+	}
+	// support compressed table format: {h,d}
+	else if (data.h !== undefined)
+	{
+		ret = mCommon.rs2Array(data);
+	}
+	return ret;
+}
+
 /** 
 @fn WUI.reloadRow(jtbl, rowData)
 @param rowData must be the original data from table row
@@ -84,32 +133,42 @@ function reloadRow(jtbl, rowData)
 {
 	jtbl.datagrid("loading");
 	var opt = jtbl.datagrid("options");
-	self.callSvr(opt.url, function (data) {
+	self.callSvr(opt.url, api_queryOne, {cond: "id=" + rowData.id});
+
+	function api_queryOne(data) 
+	{
 		jtbl.datagrid("loaded");
 		var idx = jtbl.datagrid("getRowIndex", rowData);
-		if (idx != -1 && data.length == 1) {
+		var objArr = jdListToArray(data);
+		if (idx != -1 && objArr.length == 1) {
 			// NOTE: updateRow does not work, must use the original rowData
 // 			jtbl.datagrid("updateRow", {index: idx, row: data[0]});
 			for (var k in rowData) 
 				delete rowData[k];
-			$.extend(rowData, data[0]);
+			$.extend(rowData, objArr[0]);
 			jtbl.datagrid("refreshRow", idx);
 		}
-	}, {cond: "id=" + rowData.id, wantArray: 1});
+	}
 }
 
 function appendRow(jtbl, id)
 {
 	jtbl.datagrid("loading");
 	var opt = jtbl.datagrid("options");
-	self.callSvr(opt.url, function (data) {
+	self.callSvr(opt.url, api_queryOne, {cond: "id=" + id});
+
+	function api_queryOne(data)
+	{
 		jtbl.datagrid("loaded");
-		var row = data[0];
+		var objArr = jdListToArray(data);
+		if (objArr.length != 1)
+			return;
+		var row = objArr[0];
 		if (opt.sortOrder == "desc")
 			jtbl.datagrid("insertRow", {index:0, row: row});
 		else
 			jtbl.datagrid("appendRow", row);
-	}, {cond: "id=" + id, wantArray: 1});
+	}
 }
 
 function tabid(title)
@@ -464,35 +523,33 @@ function showDlg(jdlg, opt)
 	function fnOk()
 	{
 		if (opt.url) {
-			jfrm.form('submit', {
-				url: opt.url,
-				onSubmit: function () {
-					var ret = opt.validate? jfrm.form("validate"): true;
-					if (! ret)
-						return false;
-
-					var ev = $.Event("savedata");
-					jfrm.trigger(ev, [formMode, opt.data]);
-					if (ev.isDefaultPrevented())
-						return false;
-
-					if (opt.onSubmit && opt.onSubmit(jfrm) === false)
-						return false;
-
-					self.enterWaiting();
-					return ret;
-				},
-				success: function (data) {
-					self.leaveWaiting();
-					if (typeof data == "string")
-						data = self.defDataProc.call(this, data);
-					if (data != null && opt.onOk) {
-						opt.onOk.call(jdlg, data);
-						jfrm.trigger('retdata', [data, formMode]);
-					}
-				}
-			});
+			submitForm();
 			opt.onAfterSubmit && opt.onAfterSubmit(jfrm);
+
+			function submitForm() 
+			{
+				var ret = opt.validate? jfrm.form("validate"): true;
+				if (! ret)
+					return false;
+
+				var ev = $.Event("savedata");
+				jfrm.trigger(ev, [formMode, opt.data]);
+				if (ev.isDefaultPrevented())
+					return false;
+
+				if (opt.onSubmit && opt.onSubmit(jfrm) === false)
+					return false;
+
+				var data = mCommon.getFormData(jfrm);
+				callSvr(opt.url, success, data);
+			}
+			function success (data)
+			{
+				if (data != null && opt.onOk) {
+					opt.onOk.call(jdlg, data);
+					jfrm.trigger('retdata', [data, formMode]);
+				}
+			}
 		}
 		else
 			opt.onOk && opt.onOk.call(jdlg);
@@ -901,8 +958,8 @@ function showObjDlg(jdlg, mode, opt)
 			if (! b)
 				return;
 
-			url = self.makeUrl([obj, 'del'], {id: id});
-			self.callSvr(url, function(data) {
+			var ac = obj + ".del";
+			self.callSvr(ac, {id: id}, function(data) {
 				if (jd.jtbl)
 					reload(jd.jtbl);
 				self.app_show('删除成功!');
@@ -1162,25 +1219,39 @@ $.extend($.fn.combobox.defaults, {
 	textField: 'text'
 });
 
+function dgLoader(param, success, error)
+{
+	var jo = $(this);
+	var opts = jo.datagrid("options");
+	if (opts.data) {
+		return defaultDgLoader.apply(this, arguments);
+	}
+	var param1 = {};
+	for (var k in param) {
+	/* TODO: enable _page param in interface obj.query, disable rows/page
+		if (k === "rows") {
+			param1._pagesz = param[k];
+		}
+		else if (k === "page") {
+			param1._page = param[k];
+		}
+	*/
+		if (k === "sort") {
+			param1.orderby = param.sort + " " + param.order;
+		}
+		else if (k === "order") {
+		}
+		else {
+			param1[k] = param[k];
+		}
+	}
+	callSvr(opts.url, param1, success);
+	// TODO: 调用失败时调用error？
+}
+
 function dgLoadFilter(data)
 {
-	var ret = data;
-	// support simple array
-	if ($.isArray(data)) {
-		ret = {
-			total: data.length,
-			rows: data
-		}
-	}
-	// support my row set
-	else if (data.h !== undefined)
-	{
-		var arr = mCommon.rs2Array(data);
-		ret = {
-			total: data.total || arr.length,
-			rows: arr
-		}
-	}
+	var ret = jdListToDgList(data);
 	var isOnePage = (ret.total == ret.rows.length);
 	// 隐藏pager: 一页能显示完且不超过5条.
 	$(this).datagrid("getPager").toggle(! (isOnePage && ret.total <= 5));
@@ -1200,6 +1271,7 @@ function resetPageNumber(jtbl)
 	}
 }
 
+var defaultDgLoader = $.fn.datagrid.defaults.loader;
 $.extend($.fn.datagrid.defaults, {
 // 		fit: true,
 // 		width: 1200,
@@ -1215,6 +1287,7 @@ $.extend($.fn.datagrid.defaults, {
 	pageList: [20,30,50],
 
 	loadFilter: dgLoadFilter,
+	loader: dgLoader,
 
 	onLoadError: self.ctx.defAjaxErrProc,
 	onBeforeSortColumn: function (sort, order) {
