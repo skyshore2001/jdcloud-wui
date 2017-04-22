@@ -11,11 +11,11 @@ js: $(OUT)
 doc: $(DOC)
 
 $(DOC): $(OUT)
-	jdcloud-doc $<
+	php tool/jdcloud-gendoc.phar $< > $@
 
 $(OUT): example/index.html src/*
 	perl tool/webcc_merge.pl $< > $(OUT)
 
 $(OUT_MIN): $(OUT)
-	tool/jsmin < $< > $@
+	sh -c tool/jsmin < $< > $@
 

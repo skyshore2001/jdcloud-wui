@@ -13,8 +13,9 @@ if (! /WEBCC_BEGIN \s+ MERGE .*?$ (.*) ^.*WEBCC_END/xms) {
 $_ = $1;
 s/<!--.*?-->//gs;
 
-while (/src="(.*?)"/g) {
-	outputOne($1);
+my @files = /src="(.*?)"/g;
+for (@files) {
+	outputOne($_);
 }
 print "// vi: foldmethod=marker\n";
 
