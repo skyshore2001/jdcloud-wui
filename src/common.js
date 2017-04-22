@@ -233,6 +233,9 @@ function parseDate(str)
 		return null;
 	if (str instanceof Date)
 		return str;
+	if (/Z$/.test(str)) { // "2017-04-22T16:22:50.778Z", 部分浏览器不支持 "2017-04-22T00:00:00+0800"
+		return new Date(str);
+	}
 	var ms = str.match(/^(\d+)(?:[-\/.](\d+)(?:[-\/.](\d+))?)?/);
 	if (ms == null)
 		return null;
@@ -267,6 +270,20 @@ function parseDate(str)
 	var dt = new Date(y, m, d, h, n, s);
 	if (isNaN(dt.getYear()))
 		return null;
+	// 时区
+	ms = str.match(/([+-])(\d{1,4})$/);
+	if (ms != null) {
+		var sign = (ms[1] == "-"? -1: 1);
+		var cnt = ms[2].length;
+		var n = parseInt(ms[2].replace(/^0+/, ''));
+		if (isNaN(n))
+			n = 0;
+		else if (cnt > 2)
+			n = Math.floor(n/100);
+		var tzOffset = sign*n*60 + dt.getTimezoneOffset();
+		if (tzOffset)
+			dt.addMin(-tzOffset);
+	}
 	return dt;
 }
 
