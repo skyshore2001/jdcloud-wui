@@ -410,6 +410,8 @@ function mainInit()
 注：要关闭当前Tab，可以直接用WUI.tabClose().
 */
 	self.tabMain = $('#my-tabMain');   
+	// TODO: auto container
+	mCommon.assert(self.tabMain.size()==1, "require #my-tabMain as container");
 
 	var opt = self.tabMain.tabs('options');
 	$.extend(opt, {

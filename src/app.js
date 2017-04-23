@@ -114,8 +114,19 @@ function fixPageCss(css, selector)
 self.app_abort = app_abort;
 function app_abort()
 {
-	throw("abort");
+	throw new DirectReturn();
 }
+
+/**
+@class DirectReturn
+
+直接返回. 用法:
+
+	throw new DirectReturn();
+
+可直接调用app_abort();
+*/
+window.DirectReturn = function () {}
 
 /**
 @fn MUI.setOnError()
@@ -130,7 +141,7 @@ function setOnError()
 	window.onerror = function (msg, script, line, col, errObj) {
 		if (fn && fn.apply(this, arguments) === true)
 			return true;
-		if (/abort$/.test(msg))
+		if (errObj instanceof DirectReturn || /abort$/.test(msg) || (!script && !line))
 			return true;
 		debugger;
 		var content = msg + " (" + script + ":" + line + ":" + col + ")";

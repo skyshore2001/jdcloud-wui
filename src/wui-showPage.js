@@ -6,6 +6,8 @@ self.ctx = self.ctx || {};
 
 var mCommon = jdModule("jdcloud.common");
 
+mCommon.assert($.fn.combobox, "require jquery-easyui lib.");
+
 // dlg中与数据库表关联的字段的name应以_开头，故调用add_转换；
 // 但如果字段名中间有"__"表示非关联到表的字段，不做转换，这之后该字段不影响数据保存。
 function add_(o)

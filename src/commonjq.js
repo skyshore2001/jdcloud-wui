@@ -3,6 +3,7 @@ function ns_jdcloud_commonjq()
 {
 var self = this;
 
+self.assert(window.jQuery, "require jquery lib.");
 /**
 @fn getFormData(jo)
 

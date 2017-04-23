@@ -459,7 +459,7 @@ function makeUrl(action, params)
 
 	function makeUrlObj(url)
 	{
-		var o = new Object(url);
+		var o = new String(url);
 		o.makeUrl = true;
 		if (action.makeUrl) {
 			o.action = action.action;
