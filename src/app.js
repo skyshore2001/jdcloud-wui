@@ -1,4 +1,4 @@
-function ns_jdcloud_app()
+function JdcloudApp()
 {
 var self = this;
 self.ctx = self.ctx || {};
@@ -50,7 +50,7 @@ function evalAttr(jo, name, ctx)
 			val = eval(val1);
 		}
 		catch (ex) {
-			app_alert("属性`" + name + "'格式错误: " + val, "e");
+			self.app_alert("属性`" + name + "'格式错误: " + val, "e");
 			val = null;
 		}
 	}
@@ -148,7 +148,7 @@ function setOnError()
 		if (errObj && errObj.stack)
 			content += "\n" + errObj.stack.toString();
 		if (self.syslog)
-			syslog("fw", "ERR", content);
+			self.syslog("fw", "ERR", content);
 	}
 }
 setOnError();

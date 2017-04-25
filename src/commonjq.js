@@ -1,5 +1,5 @@
-jdModule("jdcloud.common", ns_jdcloud_commonjq);
-function ns_jdcloud_commonjq()
+jdModule("jdcloud.common", JdcloudCommonJq);
+function JdcloudCommonJq()
 {
 var self = this;
 
@@ -213,7 +213,7 @@ self.setDateBox = setDateBox;
 function setDateBox(jo, defDateFn)
 {
 	jo.blur(function () {
-		var dt = parseDate(this.value);
+		var dt = self.parseDate(this.value);
 		if (dt == null) {
 			if (defDateFn)
 				dt = defDateFn();
@@ -236,7 +236,7 @@ self.setTimeBox = setTimeBox;
 function setTimeBox(jo, defTimeFn)
 {
 	jo.blur(function () {
-		var dt = parseTime(this.value);
+		var dt = self.parseTime(this.value);
 		if (dt == null) {
 			if (defTimeFn)
 				dt = defTimeFn();
