@@ -1,5 +1,5 @@
-jdModule("jdcloud.common", ns_jdcloud_common);
-function ns_jdcloud_common()
+jdModule("jdcloud.common", JdcloudCommon);
+function JdcloudCommon()
 {
 var self = this;
 
@@ -845,7 +845,7 @@ function initModule()
 }
 initModule();
 
-}/*ns_jdcloud_common*/
+}/*jdcloud common*/
 
 /**
 @fn jdModule(name, fn)

@@ -1,6 +1,6 @@
 DOC=jdcloud-wui.html
-OUT=jdcloud-wui.js
-OUT_MIN=jdcloud-wui.min.js
+OUT=lib/jdcloud-wui.js
+OUT_MIN=lib/jdcloud-wui.min.js
 
 all: $(OUT) $(OUT_MIN) $(DOC)
 

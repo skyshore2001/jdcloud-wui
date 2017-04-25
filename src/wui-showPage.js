@@ -1,4 +1,4 @@
-function ns_jdcloud_wui_showPage()
+function JdcloudPage()
 {
 var self = this;
 // 模块内共享
@@ -543,7 +543,7 @@ function showDlg(jdlg, opt)
 					return false;
 
 				var data = mCommon.getFormData(jfrm);
-				callSvr(opt.url, success, data);
+				self.callSvr(opt.url, success, data);
 			}
 			function success (data)
 			{
@@ -1247,7 +1247,7 @@ function dgLoader(param, success, error)
 			param1[k] = param[k];
 		}
 	}
-	callSvr(opts.url, param1, success);
+	self.callSvr(opts.url, param1, success);
 	// TODO: 调用失败时调用error？
 }
 

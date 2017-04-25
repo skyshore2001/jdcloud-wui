@@ -1,13 +1,13 @@
-jdModule("jdcloud.wui", ns_jdcloud_wui);
-function ns_jdcloud_wui()
+jdModule("jdcloud.wui", JdcloudWui);
+function JdcloudWui()
 {
 var self = this;
 var mCommon = jdModule("jdcloud.common");
 
 // 子模块
-ns_jdcloud_app.call(self);
-ns_jdcloud_callSvr.call(self);
-ns_jdcloud_wui_showPage.call(self);
+JdcloudApp.call(self);
+JdcloudCall.call(self);
+JdcloudPage.call(self);
 
 // ====== global {{{
 /**
@@ -290,7 +290,7 @@ function initClient()
 			if (e.js) {
 				// plugin dir
 				var js = BASE_URL + 'plugin/' + k + '/' + e.js;
-				loadScript(js, null, true);
+				mCommon.loadScript(js, null, true);
 			}
 		});
 	});
