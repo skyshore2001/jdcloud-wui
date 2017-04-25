@@ -18,7 +18,6 @@ ctx: {ac, tm, tv, ret}
 self.lastError = null;
 var m_tmBusy;
 var m_manualBusy = 0;
-var m_jLoader;
 var m_appVer;
 
 /**
