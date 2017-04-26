@@ -1,6 +1,9 @@
-DOC=jdcloud-wui.html
-OUT=lib/jdcloud-wui.js
-OUT_MIN=lib/jdcloud-wui.min.js
+VER=1.0
+NAME=jdcloud-wui
+DOC=$(NAME).html
+OUT=lib/$(NAME).js
+OUT_MIN=lib/$(NAME).min.js
+CMT="$(NAME) version $(VER)"
 
 all: $(OUT) $(OUT_MIN) $(DOC)
 
@@ -14,8 +17,8 @@ $(DOC): $(OUT)
 	php tool/jdcloud-gendoc.phar $< | perl -pe 's/\bMUI\b/WUI/g' > $@
 
 $(OUT): example/index.html src/*
-	perl tool/webcc_merge.pl $< > $(OUT)
+	P_CMT="$(NAME) version $(VER)" perl tool/webcc_merge.pl $< > $(OUT)
 
 $(OUT_MIN): $(OUT)
-	sh -c tool/jsmin < $< > $@
+	sh -c 'tool/jsmin $(CMT) < $< > $@'
 
