@@ -7,11 +7,13 @@ jdcloud-wui是用于创建H5单页应用的技术框架，尤其适用于搭建�
 
 它一般与筋斗云后端服务结合使用，可以使用以下开源框架实现筋斗云后端服务：
 
-- jdclud-php (筋斗云后端php版本)
-- jdclud-java (筋斗云后端java版本)
-- jdclud-cs (筋斗云后端.net版本)
+- [jdclud-php](https://github.com/skyshore2001/jdcloud-php) (筋斗云后端php版本)
+- [jdclud-java](https://github.com/skyshore2001/jdcloud-java) (筋斗云后端java版本)
+- [jdclud-cs](https://github.com/skyshore2001/jdcloud-cs) (筋斗云后端.net版本)
 
-如果要创建手机H5应用程序，可以使用筋斗云移动端单页应用框架`jdcloud-mui`.
+这些后端框架提供符合[业务查询协议](https://github.com/skyshore2001/daca/blob/master/BQP.md)的接口。
+
+如果要创建手机H5应用程序，可以使用筋斗云移动端单页应用框架[jdcloud-mui](https://github.com/skyshore2001/jdcloud-mui).
 
 ## 使用方法
 
@@ -39,39 +41,39 @@ lib目录包含框架的主程序 lib/jdcloud-wui.js (相应的压缩版本为li
 ## 框架页
 
 在示例应用中，index.html为框架页，大致如下：
+```html
+引入jquery及jquery-easyui的库 ...
+引入jdcloud-wui库：<script src="../lib/jdcloud-wui.min.js"></script>
+引入h5应用自身逻辑，如 index.js
 
-	引入jquery及jquery-easyui的库 ...
-	引入jdcloud-wui库：<script src="../lib/jdcloud-wui.min.js"></script>
-	引入h5应用自身逻辑，如 index.js
+引入模拟接口数据：在没有后端服务时，框架支持模拟接口数据。正式上线时应删除。
+<script src="mocktable.js"></script>
+<script src="mockdata.js"></script>
 
-	引入模拟接口数据：在没有后端服务时，框架支持模拟接口数据。正式上线时应删除。
-	<script src="mocktable.js"></script>
-	<script src="mockdata.js"></script>
+主体部分使用jquery-easyui的界面布局。
+<body class="easyui-layout">
+	<div id="menu" region="west" split="true" title="选择操作">
+		这里是菜单列表
+	</div>
 
-	主体部分使用jquery-easyui的界面布局。
-	<body class="easyui-layout">
-		<div id="menu" region="west" split="true" title="选择操作">
-			这里是菜单列表
+	<div region="center" title="欢迎使用">
+		<div id="my-tabMain" class="easyui-tabs" fit="true">
+			这里是逻辑页展现区，注意id必须为"my-tabMain"，在程序中可通过WUI.tabMain来访问。
 		</div>
+	</div>
 
-		<div region="center" title="欢迎使用">
-			<div id="my-tabMain" class="easyui-tabs" fit="true">
-				这里是逻辑页展现区，注意id必须为"my-tabMain"，在程序中可通过WUI.tabMain来访问。
-			</div>
+	<div id="my-pages" style="display:none">
+		页面和对话框定义区，注意id必须为"my-pages"。
+		<div class="pageHome" title="首页" my-initfn="initPageHome">
+			class为页面名，一个页面可以有多个实例，例如显示“商户A的订单”与显示“商户B的订单”可以使用相同的订单页面，
+			同时以两个标签页显示。
 		</div>
-
-		<div id="my-pages" style="display:none">
-			页面和对话框定义区，注意id必须为"my-pages"。
-			<div class="pageHome" title="首页" my-initfn="initPageHome">
-				class为页面名，一个页面可以有多个实例，例如显示“商户A的订单”与显示“商户B的订单”可以使用相同的订单页面，
-				同时以两个标签页显示。
-			</div>
-			<div id="dlgLogin" title="超级管理员登录">  
-				id为对话框名，因而一个对话框只有一个实例。
-			</div>
+		<div id="dlgLogin" title="超级管理员登录">  
+			id为对话框名，因而一个对话框只有一个实例。
 		</div>
-	</body>
-
+	</div>
+</body>
+```
 在"my-pages"这个div中可以定义内置模块，不过一般不建议使用内置模块。
 
 一般逻辑页和对话框都以外部模块的方式在外部page目录中定义，使用时以ajax方式动态加载。
@@ -82,18 +84,19 @@ lib目录包含框架的主程序 lib/jdcloud-wui.js (相应的压缩版本为li
 ## 定义列表页
 
 在文件page/pageOrder.html中定义逻辑页：
-
-	<div title="订单管理" wui-script="pageOrder.js" my-initfn="initPageOrder">
-		<table id="tblOrder" style="width:auto;height:auto">
-			<thead><tr>
-				<th data-options="field:'id', sortable:true, sorter:intSort">编号</th>
-				<th data-options="field:'userId', sortable:true, formatter:Formatter.userId">用户编号</th>
-				<th data-options="field:'status', sortable:true, formatter:OrderColumns.statusStr, styler:OrderColumns.statusStyler">状态</th>
-				<th data-options="field:'dscr'">描述</th>
-				<th data-options="field:'cmt'">用户备注</th>
-			</tr></thead>
-		</table>
-	</div>
+```html
+<div title="订单管理" wui-script="pageOrder.js" my-initfn="initPageOrder">
+	<table id="tblOrder" style="width:auto;height:auto">
+		<thead><tr>
+			<th data-options="field:'id', sortable:true, sorter:intSort">编号</th>
+			<th data-options="field:'userId', sortable:true, formatter:Formatter.userId">用户编号</th>
+			<th data-options="field:'status', sortable:true, formatter:OrderColumns.statusStr, styler:OrderColumns.statusStyler">状态</th>
+			<th data-options="field:'dscr'">描述</th>
+			<th data-options="field:'cmt'">用户备注</th>
+		</tr></thead>
+	</table>
+</div>
+```
 
 逻辑页面下包含了一个table，用于显示订单列表。里面每列对应订单的相关属性。
 
@@ -103,35 +106,37 @@ lib目录包含框架的主程序 lib/jdcloud-wui.js (相应的压缩版本为li
 - 无须像内置模块那样用`class="pageOrder"`指定页面名，框架在动态加载后会自动根据页面文件名称设置页面类名。
 
 在html文件的div中（注意一定要写在页面的div内）可以添加style样式标签：
-
-	<div>
-		<style>
-		table {
-			background-color: #ddd;
-		}
-		</style>
-		<table>...</table>
-	</div>
+```html
+<div>
+	<style>
+	table {
+		background-color: #ddd;
+	}
+	</style>
+	<table>...</table>
+</div>
+```
 
 在逻辑页模块中定义的样式（比如这里的table）只应用于当前逻辑页，框架会在加载它时自动限定样式作用范围。
 
 在文件page/pageOrder.js中定义逻辑，即页面的初始化函数(initfn)。
 初始化函数会在首次调用WUI.showPage时执行，且只会执行一次，一般用于初始化列表，设定事件处理等。
+```javascript
+function initPageOrder() 
+{
+	var jpage = $(this);
+	var jtbl = jpage.find("#tblOrder");
+	var jdlg = $("#dlgOrder");
 
-	function initPageOrder() 
-	{
-		var jpage = $(this);
-		var jtbl = jpage.find("#tblOrder");
-		var jdlg = $("#dlgOrder");
-
-		jtbl.datagrid({
-			url: WUI.makeUrl("Ordr.query"),
-			toolbar: WUI.dg_toolbar(jtbl, jdlg),
-			onDblClickRow: WUI.dg_dblclick(jtbl, jdlg),
-			sortName:'id',
-			sortOrder:'desc'
-		});
-	}
+	jtbl.datagrid({
+		url: WUI.makeUrl("Ordr.query"),
+		toolbar: WUI.dg_toolbar(jtbl, jdlg),
+		onDblClickRow: WUI.dg_dblclick(jtbl, jdlg),
+		sortName:'id',
+		sortOrder:'desc'
+	});
+}
+```
 
 订单列表页的初始化，需要将列表页(代码中jpage)、列表(代码中jtbl)与详情页(代码中jdlg)关联起来，实现对话增删改查各项功能。
 
@@ -152,23 +157,24 @@ lib目录包含框架的主程序 lib/jdcloud-wui.js (相应的压缩版本为li
 
 详情页展示为一个对话框。
 在文件page/dlgOrder.html中定义对话框UI（此处为展示原理已简化）：
-
-	<div my-obj="Ordr" title="用户订单">
-		<form method="POST">
-			订单号：<input name="id" disabled></td>
-			订单状态：
-						<select name="status" style="width:150px">
-							<option value="">&nbsp;</option>
-							<option value="CR">未付款</option>
-							<option value="PA">待服务(已付款)</option>
-							<option value="ST">正在服务</option>
-							<option value="RE">已服务(待评价)</option>
-							<option value="RA">已评价</option>
-							<option value="CA">已取消</option>
-						</select>
-			用户备注：<textarea name="cmt" rows=3 cols=30></textarea>
-		</form>
-	<div>
+```html
+<div my-obj="Ordr" title="用户订单">
+	<form method="POST">
+		订单号：<input name="id" disabled></td>
+		订单状态：
+					<select name="status" style="width:150px">
+						<option value="">&nbsp;</option>
+						<option value="CR">未付款</option>
+						<option value="PA">待服务(已付款)</option>
+						<option value="ST">正在服务</option>
+						<option value="RE">已服务(待评价)</option>
+						<option value="RA">已评价</option>
+						<option value="CA">已取消</option>
+					</select>
+		用户备注：<textarea name="cmt" rows=3 cols=30></textarea>
+	</form>
+<div>
+```
 
 对话框"my-obj"属性用于标识它对应的服务端对象（即数据模型）名。
 对象增删改查操作都会用到它，默认地，它会调用后端的"Ordr.add", "Ordr.query", "Ordr.set", "Ordr.del"接口，这些称为筋斗云通用对象接口。
@@ -198,26 +204,27 @@ lib目录包含框架的主程序 lib/jdcloud-wui.js (相应的压缩版本为li
 如果需要添加逻辑，也可以与列表页类似，通过`wui-script`属性和`my-initfn`属性分别指定了对话框的外部js脚本以及对话框初始化函数名。
 
 对话框初始化函数示例如下：
-
-	function initDlgOrder()
-	{
-		var jdlg = $(this);
-		var jfrm = jdlg.find("form");
-		jfrm.on("beforeshow", function(ev, formMode) {
-			// 根据formMode做页面初始化，如隐藏某些组件
-		})
-		.on("loaddata", function (ev, data, formMode) {
-			// data是列表页中一行对应的数据，框架自动根据此数据将对应属性填上值。
-			// 如果界面上展示的字段无法与属性直接对应，可以在该事件回调中设置。
-		})
-		.on("savedata", function (ev, formMode, initData) {
-			// 在form提交时，所有带name属性且不带disabled属性的对象值会被发往服务端。
-			// 此事件回调可以设置一些界面上无法与属性直接对应的内容。
-		})
-		.on("retdata", function (ev, data, formMode) {
-			// 处理返回数据data
-		});
-	}
+```javascript
+function initDlgOrder()
+{
+	var jdlg = $(this);
+	var jfrm = jdlg.find("form");
+	jfrm.on("beforeshow", function(ev, formMode) {
+		// 根据formMode做页面初始化，如隐藏某些组件
+	})
+	.on("loaddata", function (ev, data, formMode) {
+		// data是列表页中一行对应的数据，框架自动根据此数据将对应属性填上值。
+		// 如果界面上展示的字段无法与属性直接对应，可以在该事件回调中设置。
+	})
+	.on("savedata", function (ev, formMode, initData) {
+		// 在form提交时，所有带name属性且不带disabled属性的对象值会被发往服务端。
+		// 此事件回调可以设置一些界面上无法与属性直接对应的内容。
+	})
+	.on("retdata", function (ev, data, formMode) {
+		// 处理返回数据data
+	});
+}
+```
 
 通过form对象监听不同的事件来处理。
 
@@ -237,33 +244,38 @@ lib目录包含框架的主程序 lib/jdcloud-wui.js (相应的压缩版本为li
 假定服务端已有以下接口：
 
 	sendSms(phone, content)
-	phone:: 手机号
-	content:: 发送内容
+
+	参数：
+
+	- phone: 手机号
+	- content: 发送内容
 
 先定义对话框UI，在page/dlgSendSms.html中定义：
-
-	<div title="群发短信" style="width:500px;height:300px;">  
-		<form method="POST">
-			手机号：<input name="phone" data-options="required:true">
-			发送内容： <textarea rows=5 cols=30 name="content"></textarea>
-		</form>
-	</div>
+```html
+<div title="群发短信" style="width:500px;height:300px;">  
+	<form method="POST">
+		手机号：<input name="phone" data-options="required:true">
+		发送内容： <textarea rows=5 cols=30 name="content"></textarea>
+	</form>
+</div>
+```
 
 注意：每个带name属性的组件对应接口中的参数。
 
 可以在index.js中定义一个函数，调用WUI.showDlg显示该对话框：
-
-	function showDlgSendSms()
-	{
-		var jdlg = $("#dlgSendSms");
-		WUI.showDlg(jdlg, {
-			url: WUI.makeUrl("sendSms"),
-			onOk: function (data) {
-				WUI.closeDlg(jdlg);
-				app_show('操作成功!');
-			}
-		});
-	}
+```javascript
+function showDlgSendSms()
+{
+	var jdlg = $("#dlgSendSms");
+	WUI.showDlg(jdlg, {
+		url: WUI.makeUrl("sendSms"),
+		onOk: function (data) {
+			WUI.closeDlg(jdlg);
+			app_show('操作成功!');
+		}
+	});
+}
+```
 
 在showDlg的选项url中指定了接口为"sendSms"。操作成功后，显示一个消息。
 
@@ -323,7 +335,7 @@ jdcloud-wui的自动对象操作，以订单增删改查为例，需要后端提
 	callSvr(接口名, URL参数?可缺省, 回调函数, POST参数?可缺省)
 
 示例：
-
+```javascript
 	callSvr("Ordr.add", api_OrdrAdd, {dscr: "基础套餐", userId:1});
 	function api_OrdrAdd(data) {
 		var id = data;
@@ -335,6 +347,7 @@ jdcloud-wui的自动对象操作，以订单增删改查为例，需要后端提
 		var arr = WUI.rs2Array(data);
 		// 通过rs2Array函数转成常用的对象数据格式  arr= [ {id: 1, dscr: "订单1"}, {id: 2, dscr: "订单2"} ]
 	}
+```
 
 ## 模拟接口数据
 
@@ -342,7 +355,7 @@ jdcloud-wui的自动对象操作，以订单增删改查为例，需要后端提
 
 在开发时，当后端尚未开发完成时，也可以用模拟数据来测试应用，只要定义WUI.mockData即可。
 示例程序中的mockdata.js就是定义模拟接口数据，如
-
+```javascript
 	WUI.options.mockDelay = 200; // 模拟调用时间，毫秒
 	WUI.mockData = {
 		"login": [0, empTable.get(1)],
@@ -350,6 +363,7 @@ jdcloud-wui的自动对象操作，以订单增删改查为例，需要后端提
 		"execSql": [1, "未实现"]
 	};
 	userTable.regSvc(WUI.mockData); // 注册"用户"对象服务，提供 "User.query/add/set/del/get"这些接口。
-	
+```
+
 文件mocktable.js提供了一个简单的对象增删改查模拟服务的框架。
 
