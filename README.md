@@ -162,15 +162,15 @@ function initPageOrder()
 	<form method="POST">
 		订单号：<input name="id" disabled></td>
 		订单状态：
-					<select name="status" style="width:150px">
-						<option value="">&nbsp;</option>
-						<option value="CR">未付款</option>
-						<option value="PA">待服务(已付款)</option>
-						<option value="ST">正在服务</option>
-						<option value="RE">已服务(待评价)</option>
-						<option value="RA">已评价</option>
-						<option value="CA">已取消</option>
-					</select>
+		<select name="status" style="width:150px">
+			<option value="">&nbsp;</option>
+			<option value="CR">未付款</option>
+			<option value="PA">待服务(已付款)</option>
+			<option value="ST">正在服务</option>
+			<option value="RE">已服务(待评价)</option>
+			<option value="RA">已评价</option>
+			<option value="CA">已取消</option>
+		</select>
 		用户备注：<textarea name="cmt" rows=3 cols=30></textarea>
 	</form>
 <div>
