@@ -3,8 +3,11 @@
 var DEFAULT_SEP = ',';
 var g_data = {}; // {userInfo={id,...} }
 
-// ==== defines {{{
+$.extend(WUI.options, {
+	serverUrl: "../api.php"
+});
 
+// ==== defines {{{
 var OrderStatusStr = {
 	CR: "未付款", 
 	PA: "待服务", 
@@ -402,7 +405,7 @@ function onChooseFile()
 
 	var nothumb = jp.attr('wui-nothumb') !== undefined;
 
-	var dfd = $.getScriptWithCache("lib/lrz.mobile.min.js");
+	var dfd = WUI.loadScript("lib/lrz.mobile.min.js");
 	var picFiles = this.files;
 	var compress = !nothumb;
 
@@ -462,7 +465,7 @@ function onChooseFile()
 */
 function searchField(o, param)
 {
-	var jdlg = $(o).getAncestor(".window-body");
+	var jdlg = $(o).closest(".window-body");
 	var jtbl = jdlg.jdata().jtbl;
 	if (jtbl.size() == 0) {
 		app_alert("请先打开列表再查询", "w");
@@ -477,8 +480,6 @@ function searchField(o, param)
 //}}}
 
 // ==== functions {{{
-WUI.options.serverUrl = "http://localhost/jdcloud-php/api.php";
-
 function setAppTitle(title)
 {
 	if (document.title == "")
