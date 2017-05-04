@@ -39,9 +39,12 @@
 <script language="javascript">$("#divNoScript").hide();</script>
 
 <div id="menu" region="west" split="true" title="选择操作" style="width:200px;">
-	<!--a href="#pageHome" class="easyui-linkbutton" icon="icon-ok">首页</a><br/><br/-->
-	<!--a href="?logout" class="easyui-linkbutton" icon="icon-ok">修改密码</a><br/><br/-->
+<!--
+如果为菜单加图标，将图标和文字放到span中如：
+	<a href="?chpwd"><span><i class="fa fa-pencil-square-o"></i>修改密码</span></a>
 
+menu-expand-group下第一个a为菜单组标题，可加"expanded"类使其默认展开。
+-->
 	<a href="?logout"><span><i class="fa fa-user-times"></i>退出系统</span></a>
 
 	<div class="perm-admin" style="display:none">

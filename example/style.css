@@ -11,6 +11,10 @@ form table {
 	width: 100%;
 }
 
+a {
+	cursor: pointer;
+}
+
 .block {
 	position:absolute;
 	top:0px;
