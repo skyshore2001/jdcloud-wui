@@ -1181,37 +1181,38 @@ self.dg_dblclick = function (jtbl, jdlg)
 //}}}
 
 /**
-@key .easyui-linkbutton
+@key a[href=#page]
+@key a[href=?fn]
 
-使用.easyui-linkbutton时，其中的a[href]字段会被框架特殊处理：
+页面中的a[href]字段会被框架特殊处理：
 
-	<a href="#pageHome" class="easyui-linkbutton" icon="icon-ok">首页</a>
-	<a href="?showDlgSendSms" class="easyui-linkbutton" icon="icon-ok">群发短信</a>
+	<a href="#pageHome">首页</a>
+	<a href="?logout">退出登录</a>
 
-- href="#pageXXX"开头的，会调用 WUI.showPage("#pageXXX");
+- href="#pageXXX"开头的，点击时会调用 WUI.showPage("#pageXXX");
 - href="?fn"，会直接调用函数 fn();
-
-也可以使用 data-type="easyui-linkbutton", 如
-
-	<a href="#pageHome" data-type="easyui-linkbutton" icon="icon-ok">首页</a>
-
 */
-function link_onclick()
+self.m_enhanceFn["a[href^=#]"] = enhanceAnchor;
+function enhanceAnchor(jo)
 {
-	var href = $(this).attr("href");
-	if (href.search(/^#(page\w+)$/) >= 0) {
-		var pageName = RegExp.$1;
-		WUI.showPage.call(this, pageName);
-		return false;
-	}
-	else if (href.search(/^\?(\w+)$/) >= 0) {
-		var fn = RegExp.$1;
-		fn = eval(fn);
-		if (fn)
-			fn.call(this);
-		return false;
-	}
-	return true;
+	if (jo.attr("onclick"))
+		return;
+
+	jo.click(function (ev) {
+		var href = $(this).attr("href");
+		if (href.search(/^#(page\w+)$/) >= 0) {
+			var pageName = RegExp.$1;
+			WUI.showPage.call(this, pageName);
+			return false;
+		}
+		else if (href.search(/^\?(\w+)$/) >= 0) {
+			var fn = RegExp.$1;
+			fn = eval(fn);
+			if (fn)
+				fn.call(this);
+			return false;
+		}
+	});
 }
 
 // ---- easyui setup {{{
@@ -1427,9 +1428,22 @@ $.extend($.fn.tabs.defaults, {
 */
 // }}}
 
-$(function () {
-	$('.easyui-linkbutton').click(link_onclick);
-	$('[data-type="easyui-linkbutton"]').click(link_onclick);
-});
+function main()
+{
+	self.title = document.title;
+	self.container = $(".wui-container");
+	if (self.container.size() == 0)
+		self.container = $(document.body);
+	self.enhanceWithin(self.container);
+
+	// 在muiInit事件中可以调用showPage.
+	self.container.trigger("wuiInit");
+
+// 	// 根据hash进入首页
+// 	if (self.showFirstPage)
+// 		showPage();
+}
+
+$(main);
 
 }

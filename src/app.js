@@ -153,5 +153,54 @@ function setOnError()
 }
 setOnError();
 
+// ------ enhanceWithin {{{
+/**
+@var MUI.m_enhanceFn
+*/
+self.m_enhanceFn = {}; // selector => enhanceFn
+
+/**
+@fn MUI.enhanceWithin(jparent)
+*/
+self.enhanceWithin = enhanceWithin;
+function enhanceWithin(jp)
+{
+	$.each(self.m_enhanceFn, function (sel, fn) {
+		var jo = jp.find(sel);
+		if (jp.is(sel))
+			jo = jo.add(jp);
+		if (jo.size() == 0)
+			return;
+		jo.each(function (i, e) {
+			var je = $(e);
+			var opt = getOptions(je);
+			if (opt.enhanced)
+				return;
+			opt.enhanced = true;
+			fn(je);
+		});
+	});
+}
+
+/**
+@fn MUI.getOptions(jo)
+*/
+self.getOptions = getOptions;
+function getOptions(jo)
+{
+	var opt = jo.data("muiOptions");
+	if (opt === undefined) {
+		opt = {};
+		jo.data("muiOptions", opt);
+	}
+	return opt;
+}
+
+$(document).on("pagecreate", function (ev) {
+	var jpage = $(ev.target);
+	enhanceWithin(jpage);
+});
+//}}}
+
 }
 // vi: foldmethod=marker
