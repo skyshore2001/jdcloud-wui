@@ -477,6 +477,37 @@ function searchField(o, param)
 	WUI.reload(jtbl, null, queryParams);
 }
 
+function enhanceMenu()
+{
+	var MENU_ITEM_HEIGHT = 47;
+
+	var jo = $('#menu');
+	jo.find("a").addClass("my-menu-item");
+	jo.find(".menu-expand-group").each(function () {
+		$(this).find("a:first")
+			.addClass("menu-item-head")
+			.click(menu_onexpand)
+			.append('<i class="fa fa-angle-down" aria-hidden="true"></i>')
+			.each(function () {
+				if ($(this).hasClass("expanded")) {
+					$(this).removeClass("expanded");
+					menu_onexpand.call(this);
+				}
+			});
+	});
+
+	// add event handler to menu items
+	function menu_onexpand(ev) {
+		$(this).toggleClass('expanded');
+		var $expandContainer = $(this).next();
+		var containerHeight = !$expandContainer.height() && $expandContainer.children().length * MENU_ITEM_HEIGHT || 0;
+		$expandContainer.css({
+			height: containerHeight + 'px'
+		});
+	}
+}
+$(enhanceMenu);
+
 //}}}
 
 // ==== functions {{{

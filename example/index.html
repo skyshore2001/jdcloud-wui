@@ -8,11 +8,13 @@
 <link rel="stylesheet" type="text/css" href="../lib/easyui/themes/default/easyui.css">
 <link rel="stylesheet" type="text/css" href="../lib/easyui/themes/icon.css">
 <link rel="stylesheet" type="text/css" href="style.css">
+<link rel="stylesheet" type="text/css" href="font-icon/css/font-awesome.css">
+
 <script language="javascript" src="../lib/easyui/jquery.easyui.min.js" type="text/javascript" charset="utf-8"></script>
 <script language="javascript" src="../lib/easyui/locale/easyui-lang-zh_CN.js" type="text/javascript" charset="utf-8"></script>
 
-<script src="../lib/jdcloud-wui.min.js"></script>
-<!-- WEBCC_BEGIN MERGE 
+<!--script src="../lib/jdcloud-wui.min.js"></script-->
+<!-- WEBCC_BEGIN MERGE -->
 <script src="../src/doc.js"></script>
 <script src="../src/common.js"></script>
 <script src="../src/commonjq.js"></script>
@@ -22,7 +24,7 @@
 <script src="../src/wui.js"></script>
 <script src="../src/wui-name.js"></script>
 <script src="../src/jquery-mycombobox.js"></script>
-WEBCC_END -->
+<!-- WEBCC_END -->
 
 <script src="app.js"></script>
 <script src="index.js"></script>
@@ -36,19 +38,29 @@ WEBCC_END -->
 <div id="divNoScript"><font color=red>您的浏览器禁用了脚本，不能使用本系统!</font></div>
 <script language="javascript">$("#divNoScript").hide();</script>
 
-<div id="menu" region="west" split="true" title="选择操作" style="width:150px;padding:10px;">
+<div id="menu" region="west" split="true" title="选择操作" style="width:200px;">
 	<!--a href="#pageHome" class="easyui-linkbutton" icon="icon-ok">首页</a><br/><br/-->
 	<!--a href="?logout" class="easyui-linkbutton" icon="icon-ok">修改密码</a><br/><br/-->
-	<a href="?logout" class="easyui-linkbutton" icon="icon-ok">退出系统</a><br/><br/>
+
+	<a href="?logout"><span><i class="fa fa-user-times"></i>退出系统</span></a>
 
 	<div class="perm-admin" style="display:none">
-		<hr>
-		<a href="#pageEmployee" class="easyui-linkbutton" icon="icon-ok">员工管理</a><br/><br/>
-		<a href="#pageUser" class="easyui-linkbutton" icon="icon-ok">用户管理</a><br/><br/>
-		<a href="#pageOrder" class="easyui-linkbutton" icon="icon-ok">订单管理</a><br/><br/>
 
-		<hr>
-		<a href="#pageQuery" class="easyui-linkbutton" icon="icon-ok">查询语句</a><br/><br/>
+		<div class="menu-expand-group">
+			<a class="expanded"><span><i class="fa fa-pencil-square-o"></i>运营管理</span></a>
+			<div class="menu-expandable">
+				<a href="#pageEmployee">员工管理</a>
+				<a href="#pageUser">用户管理</a>
+				<a href="#pageOrder">订单管理</a>
+			</div>
+		</div>
+
+		<div class="menu-expand-group">
+			<a><span><i class="fa fa-pencil-square-o"></i>工具</span></a>
+			<div class="menu-expandable">
+				<a href="#pageQuery">查询语句</a>
+			</div>
+		</div>
 
 	</div>
 </div>
