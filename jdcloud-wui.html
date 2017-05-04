@@ -33,7 +33,7 @@ code {
 </head>
 
 <h1>WUI</h1>
-<div>最后更新：2017-04-25</div>
+<div>最后更新：2017-05-04</div>
 <h2>Modules</h2>
 <div class="toc">
 <p><a href="#WUI">WUI (module)</a></p>
@@ -41,7 +41,6 @@ code {
 <h2>Keywords</h2>
 <div class="toc">
 <p><a href="##my-pages">#my-pages (key)</a></p>
-<p><a href="#.easyui-linkbutton">.easyui-linkbutton (key)</a></p>
 <p><a href="#.my-combobox">.my-combobox (key)</a></p>
 <p><a href="#.wui-dialog">.wui-dialog (key)</a></p>
 <p><a href="#.wui-page">.wui-page (key)</a></p>
@@ -66,12 +65,15 @@ code {
 <p><a href="#WUI.callSvrSync">WUI.callSvrSync (fn)</a></p>
 <p><a href="#WUI.defDataProc">WUI.defDataProc (fn)</a></p>
 <p><a href="#WUI.disableBatch">WUI.disableBatch (var)</a></p>
+<p><a href="#WUI.enhanceWithin">WUI.enhanceWithin (fn)</a></p>
 <p><a href="#WUI.enterWaiting">WUI.enterWaiting (fn)</a></p>
 <p><a href="#WUI.getBaseUrl">WUI.getBaseUrl (fn)</a></p>
+<p><a href="#WUI.getOptions">WUI.getOptions (fn)</a></p>
 <p><a href="#WUI.hideLoading">WUI.hideLoading (fn)</a></p>
 <p><a href="#WUI.lastError">WUI.lastError (var)</a></p>
 <p><a href="#WUI.leaveWaiting">WUI.leaveWaiting (fn)</a></p>
 <p><a href="#WUI.m_curBatch">WUI.m_curBatch (var)</a></p>
+<p><a href="#WUI.m_enhanceFn">WUI.m_enhanceFn (var)</a></p>
 <p><a href="#WUI.makeUrl">WUI.makeUrl (fn)</a></p>
 <p><a href="#WUI.mockData">WUI.mockData (var)</a></p>
 <p><a href="#WUI.setOnError">WUI.setOnError (fn)</a></p>
@@ -108,6 +110,8 @@ code {
 <p><a href="#WUI.tryAutoLogin">WUI.tryAutoLogin (fn)</a></p>
 <p><a href="#WUI.unloadDialog">WUI.unloadDialog (fn)</a></p>
 <p><a href="#WUI.unloadPage">WUI.unloadPage (fn)</a></p>
+<p><a href="#a[href=">a[href= (key)</a></p>
+<p><a href="#a[href=#page]">a[href=#page] (key)</a></p>
 <p><a href="#app_abort">app_abort (fn)</a></p>
 <p><a href="#app_alert">app_alert (fn)</a></p>
 <p><a href="#app_confirm">app_confirm (fn)</a></p>
@@ -958,6 +962,9 @@ $(o).jdata({hello:100, world:200});</code></pre><hr>
 <h2 id="WUI.setOnError">@fn WUI.setOnError()</h2>
 <p>一般框架自动设置onerror函数；如果onerror被其它库改写，应再次调用该函数。<br />
 allow throw(&quot;abort&quot;) as abort behavior.</p><hr>
+<h2 id="WUI.m_enhanceFn">@var WUI.m_enhanceFn</h2><hr>
+<h2 id="WUI.enhanceWithin">@fn WUI.enhanceWithin(jparent)</h2><hr>
+<h2 id="WUI.getOptions">@fn WUI.getOptions(jo)</h2><hr>
 <h2 id="WUI.lastError">@var WUI.lastError = ctx</h2>
 <p>出错时，取出错调用的上下文信息。</p>
 <p>ctx: {ac, tm, tv, ret}</p>
@@ -1549,16 +1556,15 @@ jtbl.datagrid(dgOpt);</code></pre><hr>
 <h2 id="WUI.dg_dblclick">@fn WUI.dg_dblclick(jtbl, jdlg)</h2>
 <p class="param"><strong>@param jdlg</strong>  可以是对话框的jquery对象，或selector如"#dlgOrder".</p>
 <p>设置双击datagrid行的回调，功能是打开相应的dialog</p><hr>
-<h2 id=".easyui-linkbutton">@key .easyui-linkbutton</h2>
-<p>使用.easyui-linkbutton时，其中的a[href]字段会被框架特殊处理：</p>
-<pre><code>&lt;a href="#pageHome" class="easyui-linkbutton" icon="icon-ok"&gt;首页&lt;/a&gt;
-&lt;a href="?showDlgSendSms" class="easyui-linkbutton" icon="icon-ok"&gt;群发短信&lt;/a&gt;</code></pre>
+<h2 id="a[href=#page]">@key a[href=#page]</h2>
+<p class="key"><strong>@key <a id="a[href=">a[href=</a></strong> ?fn]</p>
+<p>页面中的a[href]字段会被框架特殊处理：</p>
+<pre><code>&lt;a href="#pageHome"&gt;首页&lt;/a&gt;
+&lt;a href="?logout"&gt;退出登录&lt;/a&gt;</code></pre>
 <ul>
-<li>href=&quot;#pageXXX&quot;开头的，会调用 WUI.showPage(&quot;#pageXXX&quot;);</li>
+<li>href=&quot;#pageXXX&quot;开头的，点击时会调用 WUI.showPage(&quot;#pageXXX&quot;);</li>
 <li>href=&quot;?fn&quot;，会直接调用函数 fn();</li>
-</ul>
-<p>也可以使用 data-type=&quot;easyui-linkbutton&quot;, 如</p>
-<pre><code>&lt;a href="#pageHome" data-type="easyui-linkbutton" icon="icon-ok"&gt;首页&lt;/a&gt;</code></pre><hr>
+</ul><hr>
 <h2 id="isBusy">@var isBusy</h2>
 <p>标识应用当前是否正在与服务端交互。一般用于自动化测试。</p><hr>
 <h2 id="g_args">@var g_args</h2>
