@@ -336,6 +336,9 @@ function showPage(pageName, title, paramArr)
 		jpage.attr("wui-pageFile", pageFile);
 		jpage.addClass(pageClass).appendTo(jcontainer);
 
+		self.enhanceWithin(jpage);
+		$.parser.parse(jpage);
+
 		var val = jpage.attr("wui-script");
 		if (val != null) {
 			var path = getModulePath(val);
@@ -876,6 +879,9 @@ function loadDialog(jdlg, onLoad)
 		jdlg.find("style").attr("wui-origin", dlgId).appendTo(document.head);
 		jdlg.attr("id", dlgId).appendTo(jcontainer);
 		jdlg.attr("wui-pageFile", pageFile);
+
+		self.enhanceWithin(jdlg);
+		$.parser.parse(jdlg);
 
 		var val = jdlg.attr("wui-script");
 		if (val != null) {
