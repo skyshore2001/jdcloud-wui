@@ -860,7 +860,7 @@ function loadDialog(jdlg, onLoad)
 	}
 
 	var dlgId = jdlg.selector.substr(1);
-	var pageFile = "page/" + dlgId + ".html";
+	var pageFile = getModulePath(dlgId + ".html");
 	$.ajax(pageFile).then(function (html) {
 		var jcontainer = $("#my-pages");
 		// 注意：如果html片段中有script, 在append时会同步获取和执行(jquery功能)
