@@ -33,7 +33,7 @@ code {
 </head>
 
 <h1>WUI</h1>
-<div>最后更新：2017-05-04</div>
+<div>最后更新：2017-05-23</div>
 <h2>Modules</h2>
 <div class="toc">
 <p><a href="#WUI">WUI (module)</a></p>
@@ -41,6 +41,7 @@ code {
 <h2>Keywords</h2>
 <div class="toc">
 <p><a href="##my-pages">#my-pages (key)</a></p>
+<p><a href="#.easyui-validatebox">.easyui-validatebox (key)</a></p>
 <p><a href="#.my-combobox">.my-combobox (key)</a></p>
 <p><a href="#.wui-dialog">.wui-dialog (key)</a></p>
 <p><a href="#.wui-page">.wui-page (key)</a></p>
@@ -1565,6 +1566,25 @@ jtbl.datagrid(dgOpt);</code></pre><hr>
 <li>href=&quot;#pageXXX&quot;开头的，点击时会调用 WUI.showPage(&quot;#pageXXX&quot;);</li>
 <li>href=&quot;?fn&quot;，会直接调用函数 fn();</li>
 </ul><hr>
+<h2 id=".easyui-validatebox">@key .easyui-validatebox</h2>
+<p>为form中的组件加上该类，可以限制输入类型，如：</p>
+<pre><code>&lt;input name="amount" class="easyui-validatebox" data-options="required:true,validType:'number'" &gt;</code></pre>
+<p>validType还支持：</p>
+<ul>
+<li>number: 数字</li>
+<li>uname: 4-16位用户名，字母开头</li>
+<li>cellphone: 11位手机号</li>
+<li>datetime: 格式为&quot;年-月-日 时:分:秒&quot;，时间部分可忽略</li>
+</ul>
+<p>其它自定义规则(或改写上面规则)，可通过下列方式扩展：</p>
+<pre><code>$.extend($.fn.validatebox.defaults.rules, {
+    workday: {
+        validator: function(value) {
+            return value.match(/^[1-7,abc]+$/);
+        },
+        message: '格式例："1,3a,5b"表示周一,周三上午,周五下午.'
+    }
+});</code></pre><hr>
 <h2 id="isBusy">@var isBusy</h2>
 <p>标识应用当前是否正在与服务端交互。一般用于自动化测试。</p><hr>
 <h2 id="g_args">@var g_args</h2>
@@ -1654,8 +1674,13 @@ WUI.tabMain.tabs("close", idx);</code></pre>
 <pre><code>&lt;select name="empId" class="my-combobox" data-options="valueField: 'id', ..."&gt;&lt;/select&gt;</code></pre>
 <p>通过data-options可设置选项: { valueField, textField, url, formatter(row), loadFilter(data) }</p>
 <p>初始化：</p>
-<pre><code>$(".my-combobox").mycombobox();</code></pre>
+<pre><code>var jo = $(".my-combobox").mycombobox();</code></pre>
 <p>注意：使用WUI.showDlg显示的对话框中如果有.my-combobox组件，会在调用WUI.showDlg时自动初始化，无须再调用上述代码。</p>
+<p>操作：</p>
+<ul>
+<li>刷新列表： jo.trigger(&quot;refresh&quot;);</li>
+<li>标记刷新（下次打开时刷新）： jo.trigger(&quot;markRefresh&quot;);</li>
+</ul>
 <p>特性：</p>
 <ul>
 <li>初始化时调用url指定接口取数据并生成下拉选项。</li>
