@@ -17,9 +17,14 @@
 
 初始化：
 
-	$(".my-combobox").mycombobox();
+	var jo = $(".my-combobox").mycombobox();
 
 注意：使用WUI.showDlg显示的对话框中如果有.my-combobox组件，会在调用WUI.showDlg时自动初始化，无须再调用上述代码。
+
+操作：
+
+- 刷新列表： jo.trigger("refresh");
+- 标记刷新（下次打开时刷新）： jo.trigger("markRefresh");
 
 特性：
 
@@ -96,21 +101,25 @@ $.fn.mycombobox = function (force)
 	function initCombobox(i, o)
 	{
 		var jo = $(o);
-		if (!force && jo.prop("inited_"))
+		var opts = jo.prop("opts_");
+		if (!force && opts && !opts.dirty)
 			return;
-		jo.prop("inited_", true);
 
-		var opts = {};
 		var optStr = jo.data("options");
 		try {
-			if (optStr != null)
-			{
-				if (optStr.indexOf(":") > 0) {
-					opts = eval("({" + optStr + "})");
+			if (opts == null) {
+				if (optStr != null) {
+					if (optStr.indexOf(":") > 0) {
+						opts = eval("({" + optStr + "})");
+					}
+					else {
+						opts = eval("(" + optStr + ")");
+					}
 				}
 				else {
-					opts = eval("(" + optStr + ")");
+					opts = {};
 				}
+				jo.prop("opts_", opts);
 			}
 		}catch (e) {
 			alert("bad options for mycombobox: " + optStr);
@@ -118,55 +127,69 @@ $.fn.mycombobox = function (force)
 		if (opts.url) {
 			loadOptions();
 
-			function loadOptions()
-			{
-				jo.empty();
-				// 如果设置了name属性, 一般关联字段(故可以为空), 添加空值到首行
-				if (jo.attr("name"))
-					$("<option value=''></option>").appendTo(jo);
-
-				if (m_dataCache[opts.url] === undefined) {
-					self.callSvrSync(opts.url, applyData);
-				}
-				else {
-					applyData(m_dataCache[opts.url]);
-				}
-
-				function applyData(data) 
-				{
-					m_dataCache[opts.url] = data;
-					function getText(row)
-					{
-						if (opts.formatter) {
-							return opts.formatter(row);
-						}
-						else if (opts.textField) {
-							return row[opts.textField];
-						}
-						return row.id;
-					}
-					if (opts.loadFilter) {
-						data = opts.loadFilter.call(this, data);
-					}
-					$.each(data, function (i, row) {
-						var jopt = $("<option></option>")
-							.attr("value", row[opts.valueField])
-							.text(getText(row))
-							.appendTo(jo);
-					});
-				}
-			}
-
 			if (!jo.attr("ondblclick"))
 			{
 				jo.off("dblclick").dblclick(function () {
 					if (! confirm("刷新数据?"))
 						return false;
-					var val = jo.val();
-					loadOptions();
-					jo.val(val);
+					refresh();
 				});
 			}
+			jo.on("refresh", refresh);
+			jo.on("markRefresh", markRefresh);
+		}
+
+		function loadOptions()
+		{
+			jo.empty();
+			// 如果设置了name属性, 一般关联字段(故可以为空), 添加空值到首行
+			if (jo.attr("name"))
+				$("<option value=''></option>").appendTo(jo);
+
+			if (opts.dirty || m_dataCache[opts.url] === undefined) {
+				self.callSvrSync(opts.url, applyData);
+			}
+			else {
+				applyData(m_dataCache[opts.url]);
+			}
+		}
+
+		function applyData(data) 
+		{
+			m_dataCache[opts.url] = data;
+			opts.dirty = false;
+			function getText(row)
+			{
+				if (opts.formatter) {
+					return opts.formatter(row);
+				}
+				else if (opts.textField) {
+					return row[opts.textField];
+				}
+				return row.id;
+			}
+			if (opts.loadFilter) {
+				data = opts.loadFilter.call(this, data);
+			}
+			$.each(data, function (i, row) {
+				var jopt = $("<option></option>")
+					.attr("value", row[opts.valueField])
+					.text(getText(row))
+					.appendTo(jo);
+			});
+		}
+
+		function refresh()
+		{
+			var val = jo.val();
+			markRefresh();
+			loadOptions();
+			jo.val(val);
+		}
+
+		function markRefresh()
+		{
+			opts.dirty = true;
 		}
 	}
 };
