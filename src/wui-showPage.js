@@ -873,7 +873,7 @@ function loadDialog(jdlg, onLoad)
 		fixJdlg(jo);
 		// 限制css只能在当前页使用
 		jdlg.find("style").each(function () {
-			$(this).html( self.ctx.fixPageCss($(this).html(), selector) );
+			$(this).html( self.ctx.fixPageCss($(this).html(), jdlg.selector) );
 		});
 		// bugfix: 加载页面页背景图可能反复被加载
 		jdlg.find("style").attr("wui-origin", dlgId).appendTo(document.head);
