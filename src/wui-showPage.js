@@ -1342,7 +1342,32 @@ function checkIdCard(idcard)
 	return x == a[17].toLowerCase();
 }
 */
+/**
+@key .easyui-validatebox
 
+为form中的组件加上该类，可以限制输入类型，如：
+
+	<input name="amount" class="easyui-validatebox" data-options="required:true,validType:'number'" >
+
+validType还支持：
+
+- number: 数字
+- uname: 4-16位用户名，字母开头
+- cellphone: 11位手机号
+- datetime: 格式为"年-月-日 时:分:秒"，时间部分可忽略
+
+其它自定义规则(或改写上面规则)，可通过下列方式扩展：
+
+	$.extend($.fn.validatebox.defaults.rules, {
+		workday: {
+			validator: function(value) {
+				return value.match(/^[1-7,abc]+$/);
+			},
+			message: '格式例："1,3a,5b"表示周一,周三上午,周五下午.'
+		}
+	});
+
+*/
 var DefaultValidateRules = {
 	number: {
 		validator: function(v) {
