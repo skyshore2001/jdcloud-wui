@@ -646,7 +646,7 @@ function rs2Hash(rs, key)
 		h: ["id", "name"], 
 		d: [ [100, "Tom"], [101, "Jane"], [102, "Tom"] ] 
 	};
-	var hash = rs2Hash(rs, "name");  
+	var hash = rs2MultiHash(rs, "name");  
 
 	// 结果为
 	hash = {
