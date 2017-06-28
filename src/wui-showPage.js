@@ -984,9 +984,10 @@ function showObjDlg(jdlg, mode, opt)
 	if (mode == FormMode.forFind && jd.mode != FormMode.forFind) {
 		jfrm.find(":input[name]").each (function (i,e) {
 			var je = $(e);
-			je.jdata().bak = {
+			var bak = je.jdata().bak = {
 				bgcolor: je.css("backgroundColor"),
-				disabled: je.prop("disabled")
+				disabled: je.prop("disabled"),
+				type: null
 			}
 			if (je.attr("notforFind")) {
 				je.prop("disabled", true);
@@ -995,8 +996,14 @@ function showObjDlg(jdlg, mode, opt)
 			else {
 				je.prop("disabled", false);
 				je.css("backgroundColor", "#ffff00"); // "yellow";
+				var type = je.attr("type");
+				if (type && ["number", "date", "time", "datetime"].indexOf(type) >= 0) {
+					bak.type = type;
+					je.attr("type", "text");
+				}
 			}
-		})
+		});
+		jfrm.find(".easyui-validatebox").validatebox("disableValidation");
 	}
 	else if (jd.mode == FormMode.forFind && mode != FormMode.forFind) {
 		jfrm.find(":input[name]").each (function (i,e) {
@@ -1004,7 +1011,11 @@ function showObjDlg(jdlg, mode, opt)
 			var bak = je.jdata().bak;
 			je.prop("disabled", bak.disabled);
 			je.css("backgroundColor", bak.bgcolor);
+			if (bak.type) {
+				je.attr("type", bak.type);
+			}
 		})
+		jfrm.find(".easyui-validatebox").validatebox("enableValidation");
 	}
 
 	jd.mode = mode;
@@ -1219,6 +1230,80 @@ function enhanceAnchor(jo)
 			return false;
 		}
 	});
+}
+
+/**
+@fn WUI.getExportHandler(jtbl, ac, param?={})
+
+为数据表添加导出Excel菜单，如：
+
+	jtbl.datagrid({
+		url: WUI.makeUrl("User.query"),
+		toolbar: WUI.dg_toolbar(jtbl, jdlg, {text:'导出', iconCls:'icon-save', handler: getExportHandler(jtbl, "User.query") }),
+		onDblClickRow: WUI.dg_dblclick(jtbl, jdlg)
+	});
+
+默认是导出数据表中直接来自于服务端的字段，并应用表上的查询条件及排序。
+也可以通过设置param参数手工指定，如：
+
+	handler: getExportHandler(jtbl, "User.query", {res: "id 编号, name 姓名, createTm 注册时间", orderby: "createTm DESC"})
+
+注意：由于分页机制影响，会设置参数{pagesz: 9999}以便在一页中返回所有数据，而实际一页能导出的最大数据条数取决于后端设置（默认1000，参考后端文档 AccessControl::$maxPageSz）。
+
+@see WUI.getParamFromTable
+*/
+self.getExportHandler = getExportHandler;
+function getExportHandler(jtbl, ac, param)
+{
+	if (param == null)
+		param = {};
+
+	if (param.fmt === undefined)
+		param.fmt = "excel";
+	if (param.pagesz === undefined)
+		param.pagesz = 9999;
+
+	return function () {
+		var url = WUI.makeUrl(ac, getParamFromTable(jtbl, param));
+		window.open(url);
+	}
+}
+
+/**
+@fn WUI.getParamFromTable(jtbl, param?)
+
+根据数据表当前设置，获取查询参数。
+可能会设置{cond, orderby, res}参数。
+
+res参数从列设置中获取，如"id 编号,name 姓名", 特别地，如果列对应字段以"_"结尾，不会加入res参数。
+
+@see WUI.getExportHandler 导出Excel
+*/
+self.getParamFromTable = getParamFromTable;
+function getParamFromTable(jtbl, param)
+{
+	if (param == null)
+		param = {};
+
+	var opt = jtbl.datagrid("options");
+	$.extend(param, opt.queryParams);
+	if (param.orderby === undefined && opt.sortName) {
+		param.orderby = opt.sortName;
+		if (opt.sortOrder && opt.sortOrder.toLowerCase() != "asc")
+			param.orderby += " " + opt.sortOrder;
+	}
+	if (param.res === undefined) {
+		var res = '';
+		$.each(opt.columns[0], function (i, e) {
+			if (! e.field || e.field.substr(-1) == "_")
+				return;
+			if (res.length > 0)
+				res += ',';
+			res += e.field + " " + e.title;
+		});
+		param.res = res;
+	}
+	return param;
 }
 
 // ---- easyui setup {{{
