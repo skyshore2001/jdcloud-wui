@@ -731,13 +731,47 @@ function getAncestor(o, fn)
 	if (b)
 		url = appendParam(url, "b=" + b);
 
+	appendParam(url, $.param({a:1, b:3}));
+
+支持url中带有"?"或"#"，如
+
+	var url = "http://xxx/api.php?id=1#order";
+	appendParam(url, "pay=1"); // "http://xxx/api.php?id=1&pay=1#order";
+
 */
 self.appendParam = appendParam;
 function appendParam(url, param)
 {
 	if (param == null)
 		return url;
-	return url + (url.indexOf('?')>0? "&": "?") + param;
+	var ret;
+	var a = url.split("#");
+	if (a.length > 1) {
+		ret = a[0] + (url.indexOf('?')>0? "&": "?") + param + "#" + a[1];
+	}
+	else {
+		ret = url + (url.indexOf('?')>0? "&": "?") + param;
+	}
+	return ret;
+}
+
+/**
+@fn deleteParam(url, paramName)
+
+示例:
+
+	var url = "http://xxx/api.php?a=1&b=3&c=2";
+	var url1 = deleteParam(url, "b"); // "http://xxx/api.php?a=1&c=2";
+
+*/
+self.deleteParam = deleteParam;
+function deleteParam(url, paramName)
+{
+	var ret = url.replace(new RegExp('&?' + paramName + "=[^&#]+"), '');
+	if (ret.indexOf('?&') >=0) {
+		ret = ret.replace('?&', '?');
+	}
+	return ret;
 }
 
 /** @fn isWeixin()

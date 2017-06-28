@@ -179,7 +179,8 @@ function leaveWaiting(ctx)
 			ctx.tv2 = tv2;
 			console.log(ctx);
 		}
-		if ($.active == 0 && self.isBusy && m_manualBusy == 0) {
+		if ($.active <= 0 && self.isBusy && m_manualBusy == 0) {
+			$.active = 0;
 			self.isBusy = 0;
 			var tv = new Date() - m_tmBusy;
 			m_tmBusy = 0;
@@ -485,7 +486,8 @@ function makeUrl(action, params)
 
 - 指定{async:0}来做同步请求, 一般直接用callSvrSync调用来替代.
 - 指定{noex:1}用于忽略错误处理。
-- 指定{noLoadingImg:1}用于忽略loading图标.
+- 指定{noLoadingImg:1}用于忽略loading图标. 要注意如果之前已经调用callSvr显示了图标且图标尚未消失，则该选项无效，图标会在所有调用完成之后才消失(leaveWaiting)。
+ 要使隐藏图标不受本次调用影响，可在callSvr后手工调用`--$.active`。
 
 想为ajax选项设置缺省值，可以用callSvrExt中的beforeSend回调函数，也可以用$.ajaxSetup，
 但要注意：ajax的dataFilter/beforeSend选项由于框架已用，最好不要覆盖。
