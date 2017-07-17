@@ -22,3 +22,5 @@ $(OUT): example/index.html src/*
 $(OUT_MIN): $(OUT)
 	sh -c 'tool/jsmin $(CMT) < $< > $@'
 
+split:
+	@perl tool/webcc_split.pl $(OUT) src
