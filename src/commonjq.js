@@ -21,31 +21,92 @@ self.assert(window.jQuery, "require jquery lib.");
 		callSvr(ac, fn, getFormData(jf));
 	});
 
+如果在jo对象上指定了属性enctype="multipart/form-data"，则调用getFormData会返回FormData对象而非js对象，
+再调用callSvr时，会以"multipart/form-data"格式提交数据。
+示例：
+
+	<form method="POST" enctype='multipart/form-data'>
+		课程文档
+		<input name="pdf" type="file" accept="application/pdf">
+	</form>
+
 @see setFormData
  */
 self.getFormData = getFormData;
 function getFormData(jo)
 {
 	var data = {};
+	var isFormData = false;
+	if (jo.attr("enctype") == "multipart/form-data") {
+		isFormData = true;
+		data = new FormData();
+	}
 	var orgData = jo.data("origin_") || {};
-	jo.find("[name]:not([disabled])").each (function () {
-		var ji = $(this);
-		var name = ji.attr("name");
-		var content;
-		if (ji.is(":input"))
-			content = ji.val();
-		else
-			content = ji.html();
-
+	formItems(jo, function (name, content) {
+		var ji = this;
 		var orgContent = orgData[name];
 		if (orgContent == null)
 			orgContent = "";
 		if (content == null)
 			content = "";
 		if (content !== String(orgContent)) // 避免 "" == 0 或 "" == false
-			data[name] = content;
+		{
+			if (! isFormData) {
+				data[name] = content;
+			}
+			else {
+				if (ji.is(":file")) {
+					// 支持指定multiple，如  <input name="pdf" type="file" multiple accept="application/pdf">
+					$.each(ji.prop("files"), function (i, e) {
+						data.append(name, e);
+					});
+				}
+				else {
+					data.append(name, content);
+				}
+			}
+		}
 	});
 	return data;
+}
+
+/**
+@fn formItems(jo, cb)
+
+遍历jo下带name属性的有效控件，回调cb函数。
+
+注意:
+
+- 忽略有disabled属性的控件
+- 忽略未选中的checkbox/radiobutton
+
+@param cb(name, val) this=ji=当前jquery对象
+当cb返回false时可中断遍历。
+
+ */
+self.formItems = formItems;
+function formItems(jo, cb)
+{
+	jo.find("[name]:not([disabled])").each (function () {
+		var name = this.name;
+		if (! name)
+			return;
+
+		var ji = $(this);
+		var val;
+		if (ji.is(":input")) {
+			if (this.type == "checkbox" && !this.checked)
+				return;
+			if (this.type == "radio" && !this.checked)
+				return;
+			val = ji.val();
+		}
+		else {
+			val = ji.html();
+		}
+		if (cb.call(ji, name,  val) === false)
+			return false;
+	});
 }
 
 /**
