@@ -1199,7 +1199,7 @@ function useBatchCall(opt, tv)
 	if (m_curBatch != null)
 		return;
 	tv = tv || 0;
-	var batch = new MUI.batchCall(opt);
+	var batch = new self.batchCall(opt);
 	setTimeout(function () {
 		batch.commit();
 	}, tv);
