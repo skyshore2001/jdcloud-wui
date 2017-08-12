@@ -225,6 +225,11 @@ function parseTime(s)
 	var dt2 = parseDate("2012/01/01 20:00:09");
 	var dt3 = parseDate("2012.1.1 20:00");
 
+支持时区，时区格式可以是"+8", "+08", "+0800", "Z"这些，如
+
+	parseDate("2012-01-01T09:10:20.328+0800");
+	parseDate("2012-01-01T09:10:20Z");
+
  */
 self.parseDate = parseDate;
 function parseDate(str)
@@ -270,8 +275,8 @@ function parseDate(str)
 	var dt = new Date(y, m, d, h, n, s);
 	if (isNaN(dt.getYear()))
 		return null;
-	// 时区
-	ms = str.match(/([+-])(\d{1,4})$/);
+	// 时区(前面必须是时间如 00:00:00.328-02 避免误匹配 2017-08-11 当成-11时区
+	ms = str.match(/:[0-9.T]+([+-])(\d{1,4})$/);
 	if (ms != null) {
 		var sign = (ms[1] == "-"? -1: 1);
 		var cnt = ms[2].length;
@@ -746,11 +751,9 @@ function appendParam(url, param)
 		return url;
 	var ret;
 	var a = url.split("#");
+	ret = a[0] + (url.indexOf('?')>=0? "&": "?") + param;
 	if (a.length > 1) {
-		ret = a[0] + (url.indexOf('?')>0? "&": "?") + param + "#" + a[1];
-	}
-	else {
-		ret = url + (url.indexOf('?')>0? "&": "?") + param;
+		ret += "#" + a[1];
 	}
 	return ret;
 }

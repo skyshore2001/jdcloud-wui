@@ -248,13 +248,13 @@ function defDataProc(rv)
 		if (g_data.testMode != val) {
 			g_data.testMode = val;
 			if (g_data.testMode)
-				alert("测试模式!");
+				self.app_alert("测试模式!", {timeoutInterval:2000});
 		}
 		val = mCommon.parseValue(this.xhr_.getResponseHeader("X-Daca-Mock-Mode"));
 		if (g_data.mockMode != val) {
 			g_data.mockMode = val;
 			if (g_data.mockMode)
-				alert("模拟模式!");
+				self.app_alert("模拟模式!", {timeoutInterval:2000});
 		}
 	}
 
@@ -306,7 +306,8 @@ function defDataProc(rv)
 			return;
 		}
 		else if (rv[0] == E_AUTHFAIL) {
-			self.app_alert("验证失败，请检查输入是否正确!", "e");
+			var errmsg = rv[1] || "验证失败，请检查输入是否正确!";
+			self.app_alert(errmsg, "e");
 			return;
 		}
 		else if (rv[0] == E_ABORT) {
@@ -439,10 +440,10 @@ function makeUrl(action, params)
 		if (m_appVer === undefined)
 		{
 			var platform = "n";
-			if (isAndroid()) {
+			if (mCommon.isAndroid()) {
 				platform = "a";
 			}
-			else if (isIOS()) {
+			else if (mCommon.isIOS()) {
 				platform = "i";
 			}
 			m_appVer = platform + "/" + g_cordova;
