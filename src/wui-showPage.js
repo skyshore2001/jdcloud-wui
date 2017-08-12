@@ -1192,12 +1192,12 @@ function dgLoader(param, success, error)
 	}
 	var param1 = {};
 	for (var k in param) {
-	/* TODO: enable _page param in interface obj.query, disable rows/page
+	/* TODO: enable page param in interface obj.query, disable rows/page
 		if (k === "rows") {
-			param1._pagesz = param[k];
+			param1.pagesz = param[k];
 		}
 		else if (k === "page") {
-			param1._page = param[k];
+			param1.page = param[k];
 		}
 	*/
 		if (k === "sort") {
