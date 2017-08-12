@@ -33,7 +33,7 @@ code {
 </head>
 
 <h1>WUI</h1>
-<div>最后更新：2017-07-17</div>
+<div>最后更新：2017-08-12</div>
 <h2>Modules</h2>
 <div class="toc">
 <p><a href="#WUI">WUI (module)</a></p>
@@ -489,7 +489,7 @@ code {
 </ul>
 <p>如果需要禁用分页，可以设置：</p>
 <pre><code>jtbl.datagrid({
-    url: WUI.makeUrl("Ordr.query", {"_pagesz": 9999}), // 定义很大的pagesz, 一次取出所有
+    url: WUI.makeUrl("Ordr.query", {"pagesz": -1}), // -1表示取后端允许的最大数量
     pagination: false, // 禁用分页组件
     ...
 });</code></pre>
@@ -691,7 +691,10 @@ var dt2 = parseTime("10:11");</code></pre><hr>
 <p>示例：</p>
 <pre><code>var dt1 = parseDate("2012-01-01");
 var dt2 = parseDate("2012/01/01 20:00:09");
-var dt3 = parseDate("2012.1.1 20:00");</code></pre><hr>
+var dt3 = parseDate("2012.1.1 20:00");</code></pre>
+<p>支持时区，时区格式可以是&quot;+8&quot;, &quot;+08&quot;, &quot;+0800&quot;, &quot;Z&quot;这些，如</p>
+<pre><code>parseDate("2012-01-01T09:10:20.328+0800");
+parseDate("2012-01-01T09:10:20Z");</code></pre><hr>
 <h2 id="Date.add">@fn Date.add(sInterval, n)</h2>
 <p>为日期对象加几天/小时等。参数n为整数，可以为负数。</p>
 <p class="param"><strong>@param sInterval</strong>  Enum. 间隔单位. d-天; m-月; y-年; h-小时; n-分; s-秒</p>
