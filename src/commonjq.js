@@ -216,6 +216,11 @@ function setFormData(jo, data, opt)
 
 		loadScript("1.js", {async: false});
 		// 可立即使用1.js中定义的内容
+	
+	注意：如果是跨域加载，不支持同步调用（$.ajax的限制），如：
+
+		loadScript("http://oliveche.com/1.js", {async: false});
+		// 一旦跨域，选项{async:false}指定无效，不可立即使用1.js中定义的内容。
 
 如果要动态加载script，且使用后删除标签（里面定义的函数会仍然保留），建议直接使用`$.getScript`，它等同于：
 
