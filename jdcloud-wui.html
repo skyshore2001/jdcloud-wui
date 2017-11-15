@@ -33,7 +33,7 @@ code {
 </head>
 
 <h1>WUI</h1>
-<div>最后更新：2017-08-12</div>
+<div>最后更新：2017-11-15</div>
 <h2>Modules</h2>
 <div class="toc">
 <p><a href="#WUI">WUI (module)</a></p>
@@ -84,6 +84,7 @@ code {
 <p><a href="#Plugins.exists">Plugins.exists (fn)</a></p>
 <p><a href="#Plugins.list">Plugins.list (fn)</a></p>
 <p><a href="#WUI">WUI (module)</a></p>
+<p><a href="#WUI.app_alert">WUI.app_alert (fn)</a></p>
 <p><a href="#WUI.closeDlg">WUI.closeDlg (fn)</a></p>
 <p><a href="#WUI.dg_dblclick">WUI.dg_dblclick (fn)</a></p>
 <p><a href="#WUI.dg_toolbar">WUI.dg_toolbar (fn)</a></p>
@@ -115,7 +116,6 @@ code {
 <p><a href="#a[href=">a[href= (key)</a></p>
 <p><a href="#a[href=#page]">a[href=#page] (key)</a></p>
 <p><a href="#app_abort">app_abort (fn)</a></p>
-<p><a href="#app_alert">app_alert (fn)</a></p>
 <p><a href="#app_confirm">app_confirm (fn)</a></p>
 <p><a href="#app_show">app_show (fn)</a></p>
 <p><a href="#appendParam">appendParam (fn)</a></p>
@@ -1660,10 +1660,29 @@ g_args.dscr="上门洗车"; // 对字符串会自动进行URL解码。</code></p
 <li>pageHome: 首页的id, 默认为&quot;pageHome&quot;</li>
 <li>pageFolder: 子页面或对话框所在文件夹, 默认为&quot;page&quot;</li>
 </ul><hr>
-<h2 id="app_alert">@fn app_alert(msg, type?=i, fn?)</h2>
-<p class="param"><strong>@param type</strong>  String. "i"|"e"|"w"</p>
-<p class="param"><strong>@param fn</strong>  Function(). 用户点击确定后的回调。</p>
-<p>使用jQuery easyui弹出提示对话框.</p><hr>
+<h2 id="WUI.app_alert">@fn WUI.app_alert(msg, [type?=i], [fn?], opt?={timeoutInterval?, defValue?, onCancel()?})</h2>
+<p class="param"><strong>@param type</strong>  对话框类型: "i": info, 信息提示框; "e": error, 错误框; "w": warning, 警告框; "q"(与app_confirm一样): question, 确认框(会有"确定"和"取消"两个按钮); "p": prompt, 输入框</p>
+<p class="param"><strong>@param fn</strong>  Function(text?) 回调函数，当点击确定按钮时调用。当type="p" (prompt)时参数text为用户输入的内容。</p>
+<p class="param"><strong>@param opt</strong>  Object. 可选项。 timeoutInterval表示几秒后自动关闭对话框。defValue用于输入框(type=p)的缺省值.</p>
+<p>使用jQuery easyui弹出提示对话框.</p>
+<p>示例:</p>
+<pre><code>// 信息框，3s后自动点确定
+app_alert("操作成功", function () {
+    WUI.showPage("pageGenStat");
+}, {timeoutInterval: 3000});
+
+// 错误框
+app_alert("操作失败", "e");
+
+// 确认框(确定/取消)
+app_alert("立即付款?", "q", function () {
+    WUI.showPage("#pay");
+});
+
+// 输入框
+app_alert("输入要查询的名字:", "p", function (text) {
+    callSvr("Book.query", {cond: "name like '%" + text + "%'"});
+});</code></pre><hr>
 <h2 id="app_confirm">@fn app_confirm(msg, fn?)</h2>
 <p class="param"><strong>@param fn</strong>  Function(isOk). 用户点击确定或取消后的回调。</p>
 <p>使用jQuery easyui弹出确认对话框.</p><hr>
@@ -1745,9 +1764,10 @@ empId:: Integer. 员工编号，关联Employee.id字段。</code></pre>
 <p>在显示订单详情对话框时，这列显示为“分派给员工”，是一个列出所有员工的下拉列表框，可以这样写：</p>
 <pre><code>&lt;tr&gt;
     &lt;td&gt;分派给&lt;/td&gt;
-    &lt;td&gt;&lt;select name="empId" class="my-combobox" data-options="valueField:'id',textField:'name',url:WUI.makeUrl('Employee.query', {wantArray:1})"&gt;&lt;/select&gt;&lt;/td&gt;  
+    &lt;td&gt;&lt;select name="empId" class="my-combobox" data-options="valueField:'id',textField:'name',url:WUI.makeUrl('Employee.query', {res:'id,name',pagesz:-1})"&gt;&lt;/select&gt;&lt;/td&gt;  
 &lt;/tr&gt;</code></pre>
-<p>为了精确控制返回字段与显示格式，data-options可能更加复杂，一般建议写一个返回这些属性的函数，像这样：</p>
+<p>注意查询默认是有分页的（页大小一般为20条），用参数<code>{pagesz:-1}</code>使用服务器设置的最大的页大小（后端最大pagesz默认100，可使用maxPageSz参数调节）。<br />
+为了精确控制返回字段与显示格式，data-options可能更加复杂，一般建议写一个返回这些属性的函数，像这样：</p>
 <pre><code>    &lt;td&gt;&lt;select name="empId" class="my-combobox" data-options="ListOptions.Emp()"&gt;&lt;/select&gt;&lt;/td&gt;  </code></pre>
 <p>习惯上，可以把函数统一放在ListOptions变量中：</p>
 <pre><code>var ListOptions = {
@@ -1759,7 +1779,7 @@ empId:: Integer. 员工编号，关联Employee.id字段。</code></pre>
             url: WUI.makeUrl('Employee.query', {
                 res: 'id,name,uname',
                 cond: 'storeId=' + g_data.userInfo.storeId,
-                wantArray:1
+                pagesz:-1
             }),
             formatter: function (row) { return row.name + '(' + row.uname + ')'; }
         };
@@ -1777,7 +1797,7 @@ empId:: Integer. 员工编号，关联Employee.id字段。</code></pre>
         var opts = {
             valueField: 'id',
             textField:'name',
-            url:WUI.makeUrl('queryBrand', {wantArray:1}),
+            url:WUI.makeUrl('queryBrand', {pagesz:-1}),
             loadFilter: function(data) {
                 data.unshift({id:'0', name:'所有品牌'});
                 return data;
