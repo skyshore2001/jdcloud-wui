@@ -159,6 +159,7 @@ code {
 <p><a href="#jdModule">jdModule (fn)</a></p>
 <p><a href="#jdModule">jdModule (fn)</a></p>
 <p><a href="#leaveWaiting">leaveWaiting (alias)</a></p>
+<p><a href="#list2varr">list2varr (fn)</a></p>
 <p><a href="#loadScript">loadScript (fn)</a></p>
 <p><a href="#loaddata">loaddata (key)</a></p>
 <p><a href="#makeLinkTo">makeLinkTo (fn)</a></p>
@@ -807,6 +808,18 @@ hash = {
 };</code></pre>
 <p class="see"><strong>@see <a href="#rs2Hash">rs2Hash</a></strong> </p>
 <p class="see"><strong>@see <a href="#rs2Array">rs2Array</a></strong> </p><hr>
+<h2 id="list2varr">@fn list2varr(ls, sep=':', sep2=',')</h2>
+<p>将字符串代表的压缩表(&quot;v1:v2:v3,...&quot;)转成对象数组。</p>
+<p>e.g.</p>
+<pre><code>var users = "101:andy,102:beddy";
+var varr = list2varr(users);
+// varr = [["101", "andy"], ["102", "beddy"]];
+var arr = rs2Array({h: ["id", "name"], d: varr});
+// arr = [ {id: 101, name: "andy"}, {id: 102, name: "beddy"} ];
+
+var cmts = "101\thello\n102\tgood";
+var varr = list2varr(cmts, "\t", "\n");
+// varr=[["101", "hello"], ["102", "good"]]</code></pre><hr>
 <h2 id="intSort">@fn intSort(a, b)</h2>
 <p>整数排序. 用于datagrid column sorter:</p>
 <pre><code>&lt;th data-options="field:'id', sortable:true, sorter:intSort"&gt;编号&lt;/th&gt;</code></pre><hr>
@@ -937,6 +950,9 @@ loadScript("http://otherserver/path/1.js"); // 跨域加载</code></pre>
 <p>加载并立即执行一个script:</p>
 <pre><code>loadScript("1.js", {async: false});
 // 可立即使用1.js中定义的内容</code></pre>
+<p>注意：如果是跨域加载，不支持同步调用（$.ajax的限制），如：</p>
+<pre><code>loadScript("http://oliveche.com/1.js", {async: false});
+// 一旦跨域，选项{async:false}指定无效，不可立即使用1.js中定义的内容。</code></pre>
 </li>
 </ul>
 <p>如果要动态加载script，且使用后删除标签（里面定义的函数会仍然保留），建议直接使用<code>$.getScript</code>，它等同于：</p>
