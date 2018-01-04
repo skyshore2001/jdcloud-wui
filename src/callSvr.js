@@ -1034,7 +1034,7 @@ function setupCallSvrViaForm($form, $iframe, url, fn, callOpt)
 }
 
 /**
-@class MUI.batchCall(opt?={useTrans?=0})
+@class batchCall(opt?={useTrans?=0})
 
 批量调用。将若干个调用打包成一个特殊的batch调用发给服务端。
 注意：
