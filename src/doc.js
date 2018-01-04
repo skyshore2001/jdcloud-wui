@@ -565,7 +565,7 @@ OrderStatusMap在代码中定义如下
 ## 模块化开发
 
 @key wui-script
-@key WUI.options.pageFolder
+@key options.pageFolder
 
 允许将逻辑页、对话框的html片段和js片段放在单独的文件中。以前面章节示例中订单对象的列表页（是一个逻辑页）与详情页（是一个对话框）为例：
 
