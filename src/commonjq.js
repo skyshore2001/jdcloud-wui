@@ -357,6 +357,35 @@ function waitFor(dfd)
 }
 
 /**
+@fn rgb2hex(rgb)
+
+将jquery取到的颜色转成16进制形式，如："rgb(4, 190, 2)" -> "#04be02"
+
+示例：
+
+	var color = rgb2hex( $(".mui-container").css("backgroundColor") );
+
+ */
+self.rgb2hex = rgb2hex;
+function rgb2hex(rgb)
+{
+	var ms = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+	if (ms == null)
+		return;
+	var hex = "#";
+	for (var i = 1; i <= 3; ++i) {
+		var s = parseInt(ms[i]).toString(16);
+		if (s.length == 1) {
+			hex += "0" + s;
+		}
+		else {
+			hex += s;
+		}
+	}
+	return hex;
+}
+
+/**
 @fn jQuery.fn.jdata(val?)
 
 和使用$.data()差不多，更好用一些. 例：
