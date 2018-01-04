@@ -234,7 +234,7 @@ function getop(v)
 }
 
 /**
-@fn WUI.getQueryCond(kvList)
+@fn getQueryCond(kvList)
 
 @param kvList {key=>value}, 键值对，值中支持操作符及通配符。也支持格式 [ [key, value] ], 这时允许key有重复。
 
@@ -277,8 +277,8 @@ function getop(v)
 
 在详情页对话框中，切换到查找模式，在任一输入框中均可支持以上格式。
 
-@see WUI.getQueryParam
-@see WUI.getQueryParamFromTable 获取datagrid的当前查询参数
+@see getQueryParam
+@see getQueryParamFromTable 获取datagrid的当前查询参数
 */
 self.getQueryCond = getQueryCond;
 function getQueryCond(kvList)
@@ -336,7 +336,7 @@ function getQueryCond(kvList)
 }
 
 /**
-@fn WUI.getQueryParam(kvList)
+@fn getQueryParam(kvList)
 
 根据键值对生成BQP协议中{obj}.query接口需要的cond参数.
 即 `{cond: WUI.getQueryCond(kvList) }`
@@ -347,8 +347,8 @@ function getQueryCond(kvList)
 	返回
 	{cond: "phone='13712345678' AND id>100"}
 
-@see WUI.getQueryCond
-@see WUI.getQueryParamFromTable 获取datagrid的当前查询参数
+@see getQueryCond
+@see getQueryParamFromTable 获取datagrid的当前查询参数
 */
 self.getQueryParam = getQueryParam;
 function getQueryParam(kvList)

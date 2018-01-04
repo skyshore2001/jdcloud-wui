@@ -66,7 +66,7 @@ window.FormMode = {
 };
 
 /**
-@var WUI.options
+@var options
 
 {appName=user, title="客户端", onShowLogin, pageHome="pageHome", pageFolder="page"}
 
@@ -106,7 +106,7 @@ function parseArgs()
 parseArgs();
 
 /**
-@fn WUI.app_alert(msg, [type?=i], [fn?], opt?={timeoutInterval?, defValue?, onCancel()?})
+@fn app_alert(msg, [type?=i], [fn?], opt?={timeoutInterval?, defValue?, onCancel()?})
 @param type 对话框类型: "i": info, 信息提示框; "e": error, 错误框; "w": warning, 警告框; "q"(与app_confirm一样): question, 确认框(会有"确定"和"取消"两个按钮); "p": prompt, 输入框
 @param fn Function(text?) 回调函数，当点击确定按钮时调用。当type="p" (prompt)时参数text为用户输入的内容。
 @param opt Object. 可选项。 timeoutInterval表示几秒后自动关闭对话框。defValue用于输入框(type=p)的缺省值.
@@ -268,7 +268,7 @@ function deleteLoginToken()
 }
 
 /**
-@fn WUI.tryAutoLogin(onHandleLogin, reuseCmd?)
+@fn tryAutoLogin(onHandleLogin, reuseCmd?)
 
 @param onHandleLogin Function(data). 调用后台login()成功后的回调函数(里面使用this为ajax options); 可以直接使用WUI.handleLogin
 @param reuseCmd String. 当session存在时替代后台login()操作的API, 如"User.get", "Employee.get"等, 它们在已登录时返回与login相兼容的数据. 因为login操作比较重, 使用它们可减轻服务器压力. 
@@ -328,7 +328,7 @@ function tryAutoLogin(onHandleLogin, reuseCmd)
 }
 
 /**
-@fn WUI.handleLogin(data)
+@fn handleLogin(data)
 @param data 调用API "login"成功后的返回数据.
 
 处理login相关的操作, 如设置g_data.userInfo, 保存自动登录的token等等.
@@ -348,7 +348,7 @@ function handleLogin(data)
 
 // ------ plugins {{{
 /**
-@fn WUI.initClient()
+@fn initClient()
 */
 self.initClient = initClient;
 var plugins_ = {};
@@ -387,9 +387,9 @@ window.Plugins = {
 //}}}
 
 /**
-@fn WUI.setApp(opt)
+@fn setApp(opt)
 
-@see WUI.options
+@see options
 
 TODO: remove. use $.extend instead.
 */
@@ -400,7 +400,7 @@ function setApp(app)
 }
 
 /**
-@fn WUI.logout(dontReload?=0)
+@fn logout(dontReload?=0)
 @param dontReload 如果非0, 则注销后不刷新页面.
 
 注销当前登录, 成功后刷新页面(除非指定dontReload=1)
@@ -417,7 +417,7 @@ function logout(dontReload)
 }
 
 /**
-@fn WUI.tabClose(idx?)
+@fn tabClose(idx?)
 
 关闭指定idx的标签页。如果未指定idx，则关闭当前标签页.
 */
@@ -432,7 +432,7 @@ function tabClose(idx)
 }
 
 /**
-@fn WUI.getActivePage()
+@fn getActivePage()
 
 返回当前激活的逻辑页jpage，注意可能为空: jpage.size()==0。
 */
@@ -445,7 +445,7 @@ function getActivePage()
 }
 
 /**
-@fn MUI.showLoading()
+@fn showLoading()
 */
 self.showLoading = showLoading;
 function showLoading()
@@ -458,7 +458,7 @@ function showLoading()
 }
 
 /**
-@fn MUI.hideLoading()
+@fn hideLoading()
 */
 self.hideLoading = hideLoading;
 function hideLoading()
@@ -469,7 +469,7 @@ function hideLoading()
 function mainInit()
 {
 /**
-@var WUI.tabMain
+@var tabMain
 
 标签页组件。为jquery-easyui的tabs插件，可以参考easyui文档调用相关命令进行操作，如关闭当前Tab：
 

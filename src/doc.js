@@ -74,8 +74,8 @@
 - 对话框中包含一个form用于向服务端发起请求。form中每个带name属性的对象，都对应订单对象的一个属性，在添加、查找、显示或更新时都将用到，除非它上面加了disabled属性（这样就不会提交该字段）
 - 对话框一般不用加“提交”按钮，框架会自动为它添加“确定”、“取消”按钮。
 
-@see WUI.showObjDlg
-@see WUI.showDlg
+@see showObjDlg
+@see showDlg
 
 以上定义了订单对象的列表页和详情页，围绕对象"Order", 按规范，我们定义了以下名字：
 
@@ -142,10 +142,10 @@
 		jtbl.datagrid(dgOpt);
 	}
 
-@see WUI.showPage
-@see WUI.dg_toolbar
-@see WUI.dg_dblclick
-@see WUI.makeUrl
+@see showPage
+@see dg_toolbar
+@see dg_dblclick
+@see makeUrl
 
 ### 定义对话框的初始化函数
 
@@ -265,7 +265,7 @@ formatter用于控制Cell中的HTML标签，styler用于控制Cell自己的CSS s
 - WUI.formatter已经定义了常用的formatter. 通常定义一个全局Formatter继承WUI.formatter，用于各页面共享的字段设定.
 - 习惯上，对同一个对象的字段的设定，都放到一个名为　{Obj}Columns 的变量中一起定义。
 
-@see WUI.formatter 通用格式化函数
+@see formatter 通用格式化函数
 
 一些其它示例：
 
@@ -396,9 +396,9 @@ OrderStatusMap在代码中定义如下
 
 它生成的res参数为"id 编号, status 状态=CR:未付款;PA:待服务"。筋斗云后端支持这种res定义方式将枚举值显示为描述。
 
-@see WUI.dg_toolbar 指定列表上的操作按钮
-@see WUI.getExportHandler 自定义导出Excel功能
-@see WUI.getQueryParamFromTable 根据当前datagrid状态取query接口参数
+@see dg_toolbar 指定列表上的操作按钮
+@see getExportHandler 自定义导出Excel功能
+@see getQueryParamFromTable 根据当前datagrid状态取query接口参数
 
 ### 详情页对话框的常见需求
 
@@ -512,7 +512,7 @@ OrderStatusMap在代码中定义如下
 
 	function initPageItem(storeId) // storeId=row.id
 
-@see WUI.showPage
+@see showPage
 
 ## 对话框功能
 
@@ -553,7 +553,7 @@ OrderStatusMap在代码中定义如下
 
 在showDlg的选项url中指定了接口为"sendSms"。操作成功后，显示一个消息。
 
-@see WUI.showDlg
+@see showDlg
 @see app_show
 
 除了直接调用该函数显示对话框外，还有一种更简单的通过a标签href属性指定打开对话框的做法，如：
@@ -644,4 +644,35 @@ OrderStatusMap在代码中定义如下
 	}
 
 这时，就可以用 WUI.showObjDlg("#dlgOrder")来显示逻辑页了。
+
+## 参考文档说明
+
+以下参考文档介绍WUI模块提供的方法/函数(fn)、属性/变量(var)等，示例如下：
+
+	@fn showPage(pageName, title?, paramArr?)  一个函数。参数说明中问号表示参数可缺省。
+	@var options 一个属性。
+	@class batchCall(opt?={useTrans?=0}) 一个JS类。
+	@key example-dialog key表示一般关键字。前缀为"example-"用于示例讲解。
+	@key .wui-page 一个CSS类名"wui-page"，关键字以"."开头。
+	@key #wui-pages 一个DOM对象，id为"wui-pages"，关键字以"#"开头。
+
+对于模块下的fn,var,class这些类别，如非特别说明，调用时应加WUI前缀，如
+
+	WUI.showPage("#pageOrder");
+	var opts = WUI.options;
+	var batch = new WUI.batchCall();
+	batch.commit();
+
+以下函数可不加WUI前缀：
+
+	intSort
+	numberSort
+	callSvr
+	callSvrSync
+	app_alert
+	app_confirm
+	app_show
+
+参考jdcloud.wui.name模块。
+
 */

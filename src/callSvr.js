@@ -4,7 +4,7 @@ var self = this;
 var mCommon = jdModule("jdcloud.common");
 
 /**
-@var MUI.lastError = ctx
+@var lastError = ctx
 
 出错时，取出错调用的上下文信息。
 
@@ -21,14 +21,14 @@ var m_manualBusy = 0;
 var m_appVer;
 
 /**
-@var MUI.disableBatch ?= false
+@var disableBatch ?= false
 
 设置为true禁用batchCall, 仅用于内部测试。
 */
 self.disableBatch = false;
 
 /**
-@var MUI.m_curBatch
+@var m_curBatch
 
 当前batchCall对象，用于内部调试。
 */
@@ -36,7 +36,7 @@ var m_curBatch = null;
 self.m_curBatch = m_curBatch;
 
 /**
-@var MUI.mockData  模拟调用后端接口。
+@var mockData  模拟调用后端接口。
 
 在后端接口尚无法调用时，可以配置MUI.mockData做为模拟接口返回数据。
 调用callSvr时，会直接使用该数据，不会发起ajax请求。
@@ -74,7 +74,7 @@ mockData中每项可以直接是数据，也可以是一个函数：fn(param, po
 要取HTTP动词可以用`this.type`，值为GET/POST/PATCH/DELETE之一，从而可模拟RESTful API.
 
 可以通过MUI.options.mockDelay设置模拟调用接口的网络延时。
-@see MUI.options.mockDelay
+@see options.mockDelay
 
 模拟数据可直接返回[code, data]格式的JSON数组，框架会将其序列化成JSON字符串，以模拟实际场景。
 如果要查看调用与返回数据日志，可在浏览器控制台中设置 MUI.options.logAction=true，在控制台中查看日志。
@@ -88,7 +88,7 @@ mockData中每项可以直接是数据，也可以是一个函数：fn(param, po
 
 	MUI.mockData["zhanda:token/get-token"] = ...;
 
-@see MUI.callSvrExt
+@see callSvrExt
 
 也支持"default"扩展，如：
 
@@ -133,9 +133,8 @@ if (location.protocol == "file:") {
 $.ajaxSetup(ajaxOpt);
 
 /**
-@fn MUI.enterWaiting(ctx?)
+@fn enterWaiting(ctx?)
 @param ctx {ac, tm, tv?, tv2?, noLoadingImg?}
-@alias enterWaiting()
 */
 self.enterWaiting = enterWaiting;
 function enterWaiting(ctx)
@@ -161,8 +160,7 @@ function enterWaiting(ctx)
 }
 
 /**
-@fn MUI.leaveWaiting(ctx?)
-@alias leaveWaiting
+@fn leaveWaiting(ctx?)
 */
 self.leaveWaiting = leaveWaiting;
 function leaveWaiting(ctx)
@@ -220,7 +218,7 @@ function defAjaxErrProc(xhr, textStatus, e)
 }
 
 /**
-@fn MUI.defDataProc(rv)
+@fn defDataProc(rv)
 
 @param rv BQP协议原始数据，如 "[0, {id: 1}]"，一般是字符串，也可以是JSON对象。
 @return data 按接口定义返回的数据对象，如 {id: 1}. 如果返回==null，调用函数应直接返回，不回调应用层。
@@ -331,7 +329,7 @@ function defDataProc(rv)
 }
 
 /**
-@fn MUI.getBaseUrl()
+@fn getBaseUrl()
 
 取服务端接口URL对应的目录。可用于拼接其它服务端资源。
 相当于dirname(MUI.options.serverUrl);
@@ -348,7 +346,7 @@ function getBaseUrl()
 }
 
 /**
-@fn MUI.makeUrl(action, params?)
+@fn makeUrl(action, params?)
 
 生成对后端调用的url. 
 
@@ -370,7 +368,7 @@ function getBaseUrl()
 
 	MUI.makeUrl(['login', 'zhanda']) 等价于 MUI.makeUrl('zhanda:login');
 
-@see MUI.callSvrExt
+@see callSvrExt
  */
 self.makeUrl = makeUrl;
 function makeUrl(action, params)
@@ -476,8 +474,7 @@ function makeUrl(action, params)
 }
 
 /**
-@fn MUI.callSvr(ac, [params?], fn?, postParams?, userOptions?) -> deferredObject
-@alias callSvr
+@fn callSvr(ac, [params?], fn?, postParams?, userOptions?) -> deferredObject
 
 @param ac String. action, 交互接口名. 也可以是URL(比如由makeUrl生成)
 @param params Object. URL参数（或称HTTP GET参数）
@@ -495,7 +492,7 @@ function makeUrl(action, params)
 想为ajax选项设置缺省值，可以用callSvrExt中的beforeSend回调函数，也可以用$.ajaxSetup，
 但要注意：ajax的dataFilter/beforeSend选项由于框架已用，最好不要覆盖。
 
-@see MUI.callSvrExt[].beforeSend(opt) 为callSvr选项设置缺省值
+@see callSvrExt[].beforeSend(opt) 为callSvr选项设置缺省值
 
 @return deferred对象，与$.ajax相同。
 例如，
@@ -537,7 +534,7 @@ function makeUrl(action, params)
 		foo(data);
 	}, null, {noex:1});
 
-@see MUI.lastError 出错时的上下文信息
+@see lastError 出错时的上下文信息
 
 ## 调用监控
 
@@ -646,7 +643,7 @@ callSvr扩展示例：
 
 当返回false时，应用层可以通过`MUI.lastError.ret`来获取服务端返回数据。
 
-@see MUI.lastError 出错时的上下文信息
+@see lastError 出错时的上下文信息
 
 @key MUI.callSvrExt['default']
 
@@ -963,8 +960,7 @@ function callSvrMock(opt, isSyncCall)
 }
 
 /**
-@fn MUI.callSvrSync(ac, [params?], fn?, postParams?, userOptions?)
-@alias callSvrSync
+@fn callSvrSync(ac, [params?], fn?, postParams?, userOptions?)
 @return data 原型规定的返回数据
 
 同步模式调用callSvr.
@@ -990,7 +986,7 @@ function callSvrSync(ac, params, fn, postParams, userOptions)
 }
 
 /**
-@fn MUI.setupCallSvrViaForm($form, $iframe, url, fn, callOpt)
+@fn setupCallSvrViaForm($form, $iframe, url, fn, callOpt)
 
 该方法已不建议使用。上传文件请用FormData。
 @see example-upload,callSvr
@@ -1082,9 +1078,9 @@ function setupCallSvrViaForm($form, $iframe, url, fn, callOpt)
 
 如果值计算失败，则当作"null"填充。
 
-@see MUI.useBatchCall
-@see MUI.disableBatch
-@see MUI.m_curBatch
+@see useBatchCall
+@see disableBatch
+@see m_curBatch
 
 */
 self.batchCall = batchCall;
@@ -1190,7 +1186,7 @@ batchCall.prototype = {
 }
 
 /**
-@fn MUI.useBatchCall(opt?={useTrans?=0}, tv?=0)
+@fn useBatchCall(opt?={useTrans?=0}, tv?=0)
 
 之后的callSvr调用都加入批量操作。例：
 
@@ -1204,8 +1200,8 @@ batchCall.prototype = {
 
 如果MUI.disableBatch=true, 该函数不起作用。
 
-@see MUI.batchCall
-@see MUI.disableBatch
+@see batchCall
+@see disableBatch
 */
 self.useBatchCall = useBatchCall;
 function useBatchCall(opt, tv)

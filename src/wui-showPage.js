@@ -32,7 +32,7 @@ function getRow(jtbl)
 }
 
 /** 
-@fn WUI.reload(jtbl, url?, queryParams?) 
+@fn reload(jtbl, url?, queryParams?) 
 */
 self.reload = reload;
 function reload(jtbl, url, queryParams)
@@ -60,7 +60,7 @@ function reload(jtbl, url, queryParams)
 }
 
 /** 
-@fn WUI.reloadTmp(jtbl, url?, queryParams?) 
+@fn reloadTmp(jtbl, url?, queryParams?) 
 临时reload一下，完事后恢复原url
 */
 self.reloadTmp = reloadTmp;
@@ -127,7 +127,7 @@ function jdListToArray(data)
 }
 
 /** 
-@fn WUI.reloadRow(jtbl, rowData)
+@fn reloadRow(jtbl, rowData)
 @param rowData must be the original data from table row
  */
 self.reloadRow = reloadRow;
@@ -232,7 +232,7 @@ function getModulePath(file)
 }
 
 /** 
-@fn WUI.showPage(pageName, title?, paramArr?)
+@fn showPage(pageName, title?, paramArr?)
 @param pageName 由page上的class指定。
 @param title? 如果未指定，则使用page上的title属性.
 @param paramArr? 调用initfn时使用的参数，是一个数组。
@@ -357,7 +357,7 @@ function showPage(pageName, title, paramArr)
 }
 
 /**
-@fn WUI.closeDlg(jdlg) 
+@fn closeDlg(jdlg) 
 */
 self.closeDlg = closeDlg;
 function closeDlg(jdlg)
@@ -417,7 +417,7 @@ $.fn.okCancel = function (fnOk, fnCancel) {
 }
 
 /**
-@fn WUI.showDlg(jdlg, opt?)
+@fn showDlg(jdlg, opt?)
 
 @param jdlg 可以是jquery对象，也可以是selector字符串或DOM对象，比如 "#dlgOrder". 注意：当对话框保存为单独模块时，jdlg=$("#dlgOrder") 一开始会为空数组，这时也可以调用该函数，且调用后jdlg会被修改为实际加载的对话框对象。
 @param opt?={url, buttons, noCancel=false, okLabel="确定", cancelLabel="取消", modal=true, reset=true, validate=true, data, onOk, onSubmit, onAfterSubmit}
@@ -567,7 +567,7 @@ function showDlg(jdlg, opt)
 }
 
 /**
-@fn WUI.getTopDialog()
+@fn getTopDialog()
 
 取处于最上层的对话框。如果没有，返回jo.size() == 0
 */
@@ -587,7 +587,7 @@ function getTopDialog()
 }
 
 /**
-@fn WUI.unloadPage(pageName?)
+@fn unloadPage(pageName?)
 
 @param pageName 如未指定，表示当前页。
 
@@ -613,7 +613,7 @@ function unloadPage(pageName)
 }
 
 /**
-@fn WUI.reloadPage()
+@fn reloadPage()
 
 重新加载当前页面。一般用于开发过程，在修改外部逻辑页后，调用该函数可刷新页面。
 */
@@ -626,8 +626,8 @@ function reloadPage()
 }
 
 /**
-@fn WUI.unloadDialog()
-@alias WUI.reloadDialog
+@fn unloadDialog()
+@alias reloadDialog
 
 删除当前激活的对话框。一般用于开发过程，在修改外部对话框后，调用该函数清除以便此后再载入页面，可以看到更新的内容。
 
@@ -779,7 +779,7 @@ function loadDialog(jdlg, onLoad)
 }
 
 /**
-@fn WUI.showObjDlg(jdlg, mode, opt?={jtbl, id})
+@fn showObjDlg(jdlg, mode, opt?={jtbl, id})
 
 @param jdlg 可以是jquery对象，也可以是selector字符串或DOM对象，比如 "#dlgOrder". 注意：当对话框保存为单独模块时，jdlg=$("#dlgOrder") 一开始会为空数组，这时也可以调用该函数，且调用后jdlg会被修改为实际加载的对话框对象。
 
@@ -787,7 +787,7 @@ function loadDialog(jdlg, onLoad)
 @param opt.jdbl Datagrid. dialog/form关联的datagrid -- 如果dlg对应多个tbl, 必须每次打开都设置
 
 事件参考：
-@see WUI.showDlg
+@see showDlg
 */
 self.showObjDlg = showObjDlg;
 function showObjDlg(jdlg, mode, opt)
@@ -973,7 +973,7 @@ function showObjDlg(jdlg, mode, opt)
 }
 
 /**
-@fn WUI.dg_toolbar(jtbl, jdlg, button_lists...)
+@fn dg_toolbar(jtbl, jdlg, button_lists...)
 
 @param jdlg 可以是对话框的jquery对象，或selector如"#dlgOrder".
 
@@ -1021,7 +1021,7 @@ function showObjDlg(jdlg, mode, opt)
 	}
 
 如果想自行定义导出行为参数，可以参考WUI.getExportHandler
-@see WUI.getExportHandler 导出按钮设置
+@see getExportHandler 导出按钮设置
 */
 self.dg_toolbar = dg_toolbar;
 function dg_toolbar(jtbl, jdlg)
@@ -1075,7 +1075,7 @@ function dg_toolbar(jtbl, jdlg)
 }
 
 /**
-@fn WUI.dg_dblclick(jtbl, jdlg)
+@fn dg_dblclick(jtbl, jdlg)
 
 @param jdlg 可以是对话框的jquery对象，或selector如"#dlgOrder".
 
@@ -1127,7 +1127,7 @@ function enhanceAnchor(jo)
 }
 
 /**
-@fn WUI.getExportHandler(jtbl, ac?, param?={})
+@fn getExportHandler(jtbl, ac?, param?={})
 
 为数据表添加导出Excel菜单，如：
 
@@ -1144,7 +1144,7 @@ function enhanceAnchor(jo)
 
 注意：由于分页机制影响，会设置参数{pagesz: -1}以便在一页中返回所有数据，而实际一页能导出的最大数据条数取决于后端设置（默认1000，参考后端文档 AccessControl::$maxPageSz）。
 
-@see WUI.getQueryParamFromTable 获取datagrid的当前查询参数
+@see getQueryParamFromTable 获取datagrid的当前查询参数
 */
 self.getExportHandler = getExportHandler;
 function getExportHandler(jtbl, ac, param)
@@ -1169,15 +1169,15 @@ function getExportHandler(jtbl, ac, param)
 }
 
 /**
-@fn WUI.getQueryParamFromTable(jtbl, param?)
-@alias WUI.getParamFromTable
+@fn getQueryParamFromTable(jtbl, param?)
+@alias getParamFromTable
 
 根据数据表当前设置，获取查询参数。
 可能会设置{cond, orderby, res}参数。
 
 res参数从列设置中获取，如"id 编号,name 姓名", 特别地，如果列对应字段以"_"结尾，不会加入res参数。
 
-@see WUI.getExportHandler 导出Excel
+@see getExportHandler 导出Excel
 */
 self.getQueryParamFromTable = self.getParamFromTable = getQueryParamFromTable;
 function getQueryParamFromTable(jtbl, param)
@@ -1257,7 +1257,7 @@ var Formatter = {
 };
 
 /**
-@var WUI.formatter = {dt, number, pics, flag(yes?=是,no?=否), enum(enumMap), linkTo(field, dlgRef) }
+@var formatter = {dt, number, pics, flag(yes?=是,no?=否), enum(enumMap), linkTo(field, dlgRef) }
 
 常常应用定义Formatter变量来扩展WUI.formatter，如
 

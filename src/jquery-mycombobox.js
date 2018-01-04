@@ -1,7 +1,8 @@
 // ====== jquery plugin: mycombobox {{{
 /**
-@fn jQuery.fn.mycombobox(force?=false)
+@module jquery-mycombobox
 
+@fn jQuery.fn.mycombobox(force?=false)
 @key .my-combobox 关联选择框
 @var ListOptions 定义关联选择框的数据源
 
