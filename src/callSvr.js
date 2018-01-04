@@ -570,7 +570,7 @@ JS:
 
 ## callSvr扩展
 
-@key MUI.callSvrExt
+@key callSvrExt
 
 当调用第三方API时，也可以使用callSvr扩展来代替$.ajax调用以实现：
 - 调用成功时直接可操作数据，不用每次检查返回码；
@@ -624,14 +624,14 @@ callSvr扩展示例：
 		console.log(data);
 	});
 
-@key MUI.callSvrExt[].makeUrl(ac, param)
+@key callSvrExt[].makeUrl(ac, param)
 
 根据调用名ac生成url, 注意无需将param放到url中。
 
 注意：
 对方接口应允许JS跨域调用，或调用方支持跨域调用。
 
-@key MUI.callSvrExt[].dataFilter(data) = null/false/data
+@key callSvrExt[].dataFilter(data) = null/false/data
 
 对调用返回数据进行通用处理。返回值决定是否调用callSvr的回调函数以及参数值。
 
@@ -645,7 +645,7 @@ callSvr扩展示例：
 
 @see lastError 出错时的上下文信息
 
-@key MUI.callSvrExt['default']
+@key callSvrExt['default']
 
 (支持版本: v3.1)
 如果要修改callSvr缺省调用方法，可以改写 MUI.callSvrExt['default'].
@@ -708,7 +708,7 @@ callSvr扩展示例：
 
 	callSvr('login');
 
-@key MUI.callSvrExt[].beforeSend(opt) 为callSvr或$.ajax选项设置缺省值
+@key callSvrExt[].beforeSend(opt) 为callSvr或$.ajax选项设置缺省值
 
 如果有ajax选项想设置，可以使用beforeSend回调，例如POST参数使用JSON格式：
 
