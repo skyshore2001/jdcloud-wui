@@ -221,6 +221,8 @@ function mycombobox(force)
 				});
 			}
 
+			if (opts.url == null)
+				return;
 			if (opts.dirty || m_dataCache[opts.url] === undefined) {
 				self.callSvr(opts.url, onLoadOptions);
 			}

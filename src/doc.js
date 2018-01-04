@@ -673,6 +673,6 @@ OrderStatusMap在代码中定义如下
 	app_confirm
 	app_show
 
-参考jdcloud.wui.name模块。
+参考wui-name.js模块。
 
 */
