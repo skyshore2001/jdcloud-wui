@@ -901,6 +901,50 @@ function delayDo(fn, delayCnt)
 	}
 }
 
+/**
+@fn kvList2Str(kv, sep, sep2)
+
+e.g.
+
+	var str = kvList2Str({"CR":"Created", "PA":"Paid"}, ';', ':');
+	// str="CR:Created;PA:Paid"
+
+ */
+self.kvList2Str = kvList2Str;
+function kvList2Str(kv, sep, sep2)
+{
+	var ret = '';
+	$.each(kv, function (k, v) {
+		if (typeof(v) != "function") {
+			if (ret)
+				ret += sep;
+			ret += k  + sep2 + v;
+		}
+	});
+	return ret;
+}
+
+/**
+@fn parseKvList(kvListStr, sep, sep2) -> kvMap
+
+解析key-value列表字符串，返回kvMap。
+示例：
+
+	var map = parseKvList("CR:新创建;PA:已付款", ";", ":");
+	// map: {"CR": "新创建", "PA":"已付款"}
+*/
+self.parseKvList = parseKvList;
+function parseKvList(str, sep, sep2)
+{
+	var map = {};
+	$.each(str.split(sep), function (i, e) {
+		var kv = e.split(sep2, 2);
+		assert(kv.length == 2, "bad kvList: " + str);
+		map[kv[0]] = kv[1];
+	});
+	return map;
+}
+
 function initModule()
 {
 	// bugfix: 浏览器兼容性问题
@@ -919,14 +963,32 @@ initModule();
 }/*jdcloud common*/
 
 /**
-@fn jdModule(name, fn)
-定义一个模块，返回该模块对象。
+@fn jdModule(name?, fn?)
 
-@fn jdModule(name)
-获取模块对象。
+定义JS模块。这是一个全局函数。
 
-@fn jdModule()
-返回模块映射表。
+定义一个模块:
+
+	jdModule("jdcloud.common", JdcloudCommon);
+	function JdcloudCommon() {
+		var self = this;
+		
+		// 对外提供一个方法
+		self.rs2Array = rs2Array;
+		function rs2Array(rs)
+		{
+			return ...;
+		}
+	}
+
+获取模块对象:
+
+	var mCommon = jdModule("jdcloud.common");
+	var arr = mCommon.rs2Array(rs);
+
+返回模块映射列表。
+
+	var moduleMap = jdModule(); // 返回 { "jdcloud.common": JdcloudCommon, ... }
 
 */
 function jdModule(name, fn, overrideCtor)

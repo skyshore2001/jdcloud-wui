@@ -234,7 +234,7 @@ function getop(v)
 }
 
 /**
-@fn WUI.getQueryCond(kvList)
+@fn getQueryCond(kvList)
 
 @param kvList {key=>value}, 键值对，值中支持操作符及通配符。也支持格式 [ [key, value] ], 这时允许key有重复。
 
@@ -263,12 +263,22 @@ function getop(v)
 - {key: "null" } - 表示 "key is null"。要表示"key is not null"，可以用 "<>null".
 - {key: "empty" } - 表示 "key=''".
 
-支持简单的and/or查询，但不支持在其中使用括号:
+支持and/or查询，但不支持在其中使用括号:
 
 - {key: ">value and <=value"}  - 表示"key>'value' and key<='value'"
 - {key: "null or 0 or 1"}  - 表示"key is null or key=0 or key=1"
+- {key: "null,0,1,9-100"} - 表示"key is null or key=0 or key=1 or (key>=9 and key<=100)"，即逗号表示or，a-b的形式只支持数值。
+
+以下表示的范围相同：
+
+	{k1:'1-5,7-10', k2:'1-10 and <>6'}
+
+符号优先级依次为：-(and) ,(or) and or
 
 在详情页对话框中，切换到查找模式，在任一输入框中均可支持以上格式。
+
+@see getQueryParam
+@see getQueryParamFromTable 获取datagrid的当前查询参数
 */
 self.getQueryCond = getQueryCond;
 function getQueryCond(kvList)
@@ -295,7 +305,26 @@ function getQueryCond(kvList)
 				bracket = true;
 				return;
 			}
-			str += k + getop(v1);
+			// a-b,c-d,e
+			var str1 = '';
+			var bracket2 = false;
+			$.each(v1.split(/\s*,\s*/), function (j, v2) {
+				if (str1.length > 0) {
+					str1 += " OR ";
+					bracket2 = true;
+				}
+				var m = v2.match(/^(\d+)-(\d+)$/);
+				if (m) {
+					str1 += "(" + k + ">=" + m[1] + " AND " + k + "<=" + m[2] + ")";
+				}
+				else {
+					str1 += k + getop(v2);
+				}
+			});
+			if (bracket2)
+				str += "(" + str1 + ")";
+			else
+				str += str1;
 		});
 		if (bracket)
 			str = '(' + str + ')';
@@ -307,9 +336,10 @@ function getQueryCond(kvList)
 }
 
 /**
-@fn WUI.getQueryParam(kvList)
+@fn getQueryParam(kvList)
 
 根据键值对生成BQP协议中{obj}.query接口需要的cond参数.
+即 `{cond: WUI.getQueryCond(kvList) }`
 
 示例：
 
@@ -317,12 +347,17 @@ function getQueryCond(kvList)
 	返回
 	{cond: "phone='13712345678' AND id>100"}
 
-@see WUI.getQueryCond
+@see getQueryCond
+@see getQueryParamFromTable 获取datagrid的当前查询参数
 */
 self.getQueryParam = getQueryParam;
 function getQueryParam(kvList)
 {
-	return {cond: getQueryCond(kvList)};
+	var ret = {};
+	var cond = getQueryCond(kvList);
+	if (cond)
+		ret.cond = cond;
+	return ret;
 }
 
 }
