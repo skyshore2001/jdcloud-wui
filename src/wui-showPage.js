@@ -220,6 +220,7 @@ function callInitfn(jo, paramArr)
 
 	if (initfn)
 	{
+		console.log("### initfn: " + attr);
 		initfn.apply(jo, paramArr || []);
 	}
 	jo.jdata().init = true;
@@ -405,6 +406,13 @@ $.fn.okCancel = function (fnOk, fnCancel) {
 			showObjDlg($(this), FormMode.forFind, null);
 			return false;
 		}
+/* // Ctrl-A: add mode
+		else if (e.ctrlKey && e.which == 65)
+		{
+			showObjDlg($(this), FormMode.forAdd, null);
+			return false;
+		}
+*/
 	});
 }
 
@@ -654,20 +662,20 @@ function getFindData(jfrm)
 	var kvList = {};
 	var kvList2 = {};
 	jfrm.find(":input[name]").each(function(i,e) {
-		if ($(e).attr("notForFind"))
+		if ($(e).hasClass("notForFind"))
 			return;
 		var v = $(e).val();
 		if (v == null || v === "")
 			return;
-		if ($(e).attr("my-cond"))
+		if ($(e).hasClass("wui-notCond"))
 			kvList2[e.name] = v;
 		else
 			kvList[e.name] = v;
 	})
-	var cond = self.getQueryParam(kvList);
+	var param = self.getQueryParam(kvList);
 	if (kvList2) 
-		$.extend(cond, kvList2);
-	return cond;
+		$.extend(param, kvList2);
+	return param;
 }
 
 function saveFormFields(jfrm, data)
@@ -859,7 +867,7 @@ function showObjDlg(jdlg, mode, opt)
 				disabled: je.prop("disabled"),
 				type: null
 			}
-			if (je.attr("notforFind")) {
+			if (je.hasClass("notForFind") || je.attr("notForFind") != null) {
 				je.prop("disabled", true);
 				je.css("backgroundColor", "");
 			}
@@ -932,13 +940,13 @@ function showObjDlg(jdlg, mode, opt)
 	function onOk (retData) {
 		if (mode==FormMode.forFind) {
 			var param = getFindData(jfrm);
-			if (! $.isEmptyObject(param)) {
-				mCommon.assert(jd.jtbl); // 查询结果显示到jtbl中
-				reload(jd.jtbl, undefined, param);
+			mCommon.assert(jd.jtbl); // 查询结果显示到jtbl中
+			// 归并table上的cond条件. dgOpt.url是makeUrl生成的，保存了原始的params
+			var dgOpt = jd.jtbl.datagrid("options");
+			if (param.cond && dgOpt && dgOpt.url && dgOpt.url.params && dgOpt.url.params.cond) {
+				param.cond = dgOpt.url.params.cond + " AND (" + param.cond + ")";
 			}
-			else {
-				self.app_alert("请输入查询条件!", "w");
-			}
+			reload(jd.jtbl, undefined, param);
 			return;
 		}
 		// add/set/link
@@ -1005,6 +1013,15 @@ function showObjDlg(jdlg, mode, opt)
 	};
 	jtbl.datagrid(dgOpt);
 
+特别地，要添加导出数据到Excel文件的功能按钮，可以增加参数"export"作为按钮定义：
+
+	var dgOpt = {
+		...
+		toolbar: WUI.dg_toolbar(jtbl, jdlg, "export", "-", btn1),
+	}
+
+如果想自行定义导出行为参数，可以参考WUI.getExportHandler
+@see WUI.getExportHandler 导出按钮设置
 */
 self.dg_toolbar = dg_toolbar;
 function dg_toolbar(jtbl, jdlg)
@@ -1036,7 +1053,8 @@ function dg_toolbar(jtbl, jdlg)
 		}}, 
 		d: {text:'删除', iconCls:'icon-remove', handler: function () { 
 			showObjDlg(jdlg, FormMode.forDel, {jtbl: jtbl});
-		}}
+		}},
+		'export': {text: '导出', iconCls: 'icon-save', handler: getExportHandler(jtbl)}
 	};
 	$.each(toolbar.split(""), function(i, e) {
 		if (tb[e]) {
@@ -1044,8 +1062,14 @@ function dg_toolbar(jtbl, jdlg)
 			btns.push("-");
 		}
 	});
-	for (var i=2; i<arguments.length; ++i)
-		btns.push(arguments[i]);
+	for (var i=2; i<arguments.length; ++i) {
+		var btn = arguments[i];
+		if (btn !== '-' && typeof(btn) == "string") {
+			btn = tb[btn];
+			mCommon.assert(btn, "toolbar button name does not support");
+		}
+		btns.push(btn);
+	}
 
 	return btns;
 }
@@ -1103,13 +1127,13 @@ function enhanceAnchor(jo)
 }
 
 /**
-@fn WUI.getExportHandler(jtbl, ac, param?={})
+@fn WUI.getExportHandler(jtbl, ac?, param?={})
 
 为数据表添加导出Excel菜单，如：
 
 	jtbl.datagrid({
 		url: WUI.makeUrl("User.query"),
-		toolbar: WUI.dg_toolbar(jtbl, jdlg, {text:'导出', iconCls:'icon-save', handler: getExportHandler(jtbl, "User.query") }),
+		toolbar: WUI.dg_toolbar(jtbl, jdlg, {text:'导出', iconCls:'icon-save', handler: getExportHandler(jtbl) }),
 		onDblClickRow: WUI.dg_dblclick(jtbl, jdlg)
 	});
 
@@ -1118,9 +1142,9 @@ function enhanceAnchor(jo)
 
 	handler: getExportHandler(jtbl, "User.query", {res: "id 编号, name 姓名, createTm 注册时间", orderby: "createTm DESC"})
 
-注意：由于分页机制影响，会设置参数{pagesz: 9999}以便在一页中返回所有数据，而实际一页能导出的最大数据条数取决于后端设置（默认1000，参考后端文档 AccessControl::$maxPageSz）。
+注意：由于分页机制影响，会设置参数{pagesz: -1}以便在一页中返回所有数据，而实际一页能导出的最大数据条数取决于后端设置（默认1000，参考后端文档 AccessControl::$maxPageSz）。
 
-@see WUI.getParamFromTable
+@see WUI.getQueryParamFromTable 获取datagrid的当前查询参数
 */
 self.getExportHandler = getExportHandler;
 function getExportHandler(jtbl, ac, param)
@@ -1131,16 +1155,22 @@ function getExportHandler(jtbl, ac, param)
 	if (param.fmt === undefined)
 		param.fmt = "excel";
 	if (param.pagesz === undefined)
-		param.pagesz = 9999;
+		param.pagesz = -1;
+	if (ac == null) {
+		setTimeout(function () {
+			ac = jtbl.datagrid("options").url;
+		});
+	}
 
 	return function () {
-		var url = WUI.makeUrl(ac, getParamFromTable(jtbl, param));
+		var url = WUI.makeUrl(ac, getQueryParamFromTable(jtbl, param));
 		window.open(url);
 	}
 }
 
 /**
-@fn WUI.getParamFromTable(jtbl, param?)
+@fn WUI.getQueryParamFromTable(jtbl, param?)
+@alias WUI.getParamFromTable
 
 根据数据表当前设置，获取查询参数。
 可能会设置{cond, orderby, res}参数。
@@ -1149,14 +1179,11 @@ res参数从列设置中获取，如"id 编号,name 姓名", 特别地，如果�
 
 @see WUI.getExportHandler 导出Excel
 */
-self.getParamFromTable = getParamFromTable;
-function getParamFromTable(jtbl, param)
+self.getQueryParamFromTable = self.getParamFromTable = getQueryParamFromTable;
+function getQueryParamFromTable(jtbl, param)
 {
-	if (param == null)
-		param = {};
-
 	var opt = jtbl.datagrid("options");
-	$.extend(param, opt.queryParams);
+	param = $.extend({}, opt.queryParams, param);
 	if (param.orderby === undefined && opt.sortName) {
 		param.orderby = opt.sortName;
 		if (opt.sortOrder && opt.sortOrder.toLowerCase() != "asc")
@@ -1170,11 +1197,93 @@ function getParamFromTable(jtbl, param)
 			if (res.length > 0)
 				res += ',';
 			res += e.field + " " + e.title;
+			if (e.jdEnumMap) {
+				res += '=' + mCommon.kvList2Str(e.jdEnumMap, ';', ':');
+			}
 		});
 		param.res = res;
 	}
+	if (param.fname === undefined) {
+		if (jtbl.attr("title")) {
+			param.fname = jtbl.attr("title");
+		}
+	}
 	return param;
 }
+
+var Formatter = {
+	dt: function (value, row) {
+		var dt = WUI.parseDate(value);
+		if (dt == null)
+			return value;
+		return dt.format("L");
+	},
+	number: function (value, row) {
+		return parseFloat(value);
+	},
+	pics: function (value, row) {
+		if (value == null)
+			return "(无图)";
+		return value.replace(/(\d+),?/g, function (ms, picId) {
+			var url = WUI.makeUrl("att", {thumbId: picId});
+			return "<a target='_black' href='" + url + "'>" + picId + "</a>&nbsp;";
+		});
+	},
+	flag: function (yes, no) {
+		if (yes == null)
+			yes = "是";
+		if (no == null)
+			no = "否";
+		return function (value, row) {
+			if (value == null)
+				return;
+			return value? yes: no;
+		}
+	},
+	enum: function (enumMap) {
+		return function (value, row) {
+			if (value == null)
+				return;
+			return enumMap[value] || value;
+		}
+	},
+	linkTo: function (field, dlgRef) {
+		return function (value, row) {
+			if (value == null)
+				return;
+			return self.makeLinkTo(dlgRef, row[field], value);
+		}
+	}
+};
+
+/**
+@var WUI.formatter = {dt, number, pics, flag(yes?=是,no?=否), enum(enumMap), linkTo(field, dlgRef) }
+
+常常应用定义Formatter变量来扩展WUI.formatter，如
+
+	var Formatter = {
+		userId: WUI.formatter.linkTo("userId", "#dlgUser"),
+		orderStatus: WUI.formatter.enum({CR: "新创建", CA: "已取消"})
+	};
+	Formatter = $.extend(WUI.formatter, Formatter);
+
+可用值：
+
+- dt/number: 显示日期、数值
+- pics: 显示一张或一组图片链接，点一个链接可以在新页面上显示原图片
+- enum(enumMap): 根据一个map为枚举值显示描述信息，如 `enum({CR:"创建", CA:"取消"})`
+- flag(yes?, no?): 显示yes-no字段，如 `flag("禁用","启用")`，也可以用enum，如`enum({0:"启用",1:"禁用"})`
+- linkTo: 生成链接，点击打开对象详情对话框
+
+在datagrid中使用：
+
+	<th data-options="field:'createTm', sortable:true, formatter:Formatter.dt">创建时间</th>
+	<th data-options="field:'amount', sortable:true, sorter: numberSort, formatter:Formatter.number">金额</th>
+	<th data-options="field:'userName', sortable:true, formatter:Formatter.userId">用户</th>
+	<th data-options="field:'status', sortable:true, jdEnumMap: OrderStatusMap, formatter: Formatter.orderStatus">状态</th>
+	<th data-options="field:'done', sortable:true, formatter: Formatter.flag()">已处理</th>
+*/
+self.formatter = Formatter;
 
 // ---- easyui setup {{{
 

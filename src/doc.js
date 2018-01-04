@@ -31,7 +31,7 @@
 					<th data-options="field:'id', sortable:true, sorter:intSort">订单号</th>
 					<th data-options="field:'userPhone', sortable:true">用户联系方式</th>
 					<th data-options="field:'createTm', sortable:true">创建时间</th>
-					<th data-options="field:'status', formatter:OrderColumns.statusStr, styler:OrderColumns.statusStyler, sortable:true">状态</th>
+					<th data-options="field:'status', jdEnumMap: OrderStatusMap, formatter:Formatter.orderStatus, styler:OrderColumns.statusStyler, sortable:true">状态</th>
 					<th data-options="field:'dscr', sortable:true">描述</th>
 					<th data-options="field:'cmt'">用户备注</th>
 				</tr></thead>
@@ -44,6 +44,7 @@
 - 逻辑页面div.pageOrder，属性class="pageOrder"定义了该逻辑页面的名字。它将作为页面模板，在WUI.showPage("pageOrder")时复制一份显示出来。
 - 属性my-initfn定义了该页面的初始化函数. 在初次调用WUI.showPage时，会执行该初始化函数，用于初始化列表，设定事件处理等。
 - 逻辑页面下包含了一个table，用于显示订单列表。里面每列对应订单的相关属性。
+- table由jquery-easyui的datagrid组件实现，文档参考：http://www.jeasyui.com/documentation/datagrid.php 此外，data-options中的以jd开头的字段为jdcloud框架定义。
 
 详情页展示为一个对话框，也将它也放在 div#my-pages 下。定义如下（此处为展示原理已简化）：
 
@@ -133,8 +134,8 @@
 			url: WUI.makeUrl(["Ordr", "query"], {res:"*,createTm,userPhone"}),
 			// 设置缺省查询条件
 			queryParams: query1,
-			// 设置工具栏上的按钮，并与对话框jdlg关联。
-			toolbar: WUI.dg_toolbar(jtbl, jdlg, "-", btn1, btn2),
+			// 设置工具栏上的按钮，默认有增删改查按钮，"export"表示"导出到Excel"的按钮，btn1, btn2是自定义按钮，"-"表示按钮分隔符。
+			toolbar: WUI.dg_toolbar(jtbl, jdlg, "export", "-", btn1, btn2),
 			// 双击一行，应展示详情页对话框
 			onDblClickRow: WUI.dg_dblclick(jtbl, jdlg)
 		};
@@ -220,27 +221,32 @@
 在table中设置formatter与styler选项：
 
 	<div class="pageOrder" title="订单管理" my-initfn="initPageOrder">
-		<table id="tblOrder" style="width:auto;height:auto">
+		<table id="tblOrder" style="width:auto;height:auto" title="订单列表">
 			<thead><tr>
 				<th data-options="field:'id', sortable:true, sorter:intSort">订单号</th>
 				...
-				<th data-options="field:'status', formatter:OrderColumns.statusStr, styler:OrderColumns.statusStyler, sortable:true">状态</th>
+				<th data-options="field:'status', jdEnumMap: OrderStatusMap, formatter:Formatter.orderStatus, styler:OrderColumns.statusStyler, sortable:true">状态</th>
 			</tr></thead>
 		</table>
 	</div>
 
 formatter用于控制Cell中的HTML标签，styler用于控制Cell自己的CSS style.
-在JS中定义函数：
+在JS中定义：
+
+	var OrderStatusMap = {
+		CR: "未付款", 
+		RE: "已服务", 
+		CA: "已取消"
+	};
+	var Formatter = {
+		// 显示枚举值的描述，相当于`return map[value] || value`；
+		orderStatus: WUI.formatter.enum(OrderStatusMap),
+		// 显示链接，点击打开用户详情对话框
+		userId: WUI.formatter.linkTo("userId", "#dlgUser")
+	};
+	Formatter = $.extend(WUI.formatter, Formatter);
 
 	var OrderColumns = {
-		statusStr: function (value, row) {
-			var OrderStatusStr = {
-				CR: "未付款", 
-				RE: "已服务", 
-				CA: "已取消"
-			};
-			return OrderStatusStr[value] || value;
-		},
 		statusStyler: function (value, row) {
 			var colors = {
 				CR: "#000",
@@ -256,31 +262,32 @@ formatter用于控制Cell中的HTML标签，styler用于控制Cell自己的CSS s
 
 注意：
 
+- WUI.formatter已经定义了常用的formatter. 通常定义一个全局Formatter继承WUI.formatter，用于各页面共享的字段设定.
 - 习惯上，对同一个对象的字段的设定，都放到一个名为　{Obj}Columns 的变量中一起定义。
-- 对于通用的或多处共享的字段设定，放到变量 Formatter 中.
 
-示例二：下面是一些通用的例子，特别是生成对象链接经常会用到。
+@see WUI.formatter 通用格式化函数
+
+一些其它示例：
 
 	var Formatter = {
 		// 显示数值
-		number: function (value)
-		{
+		number: function (value, row) {
 			return parseFloat(value);
 		},
-		// 显示一张或一组图片链接，点一个链接可以在新页面上显示原图片
-		pics: function (value) {
-			if (value == null)
-				return "(无图)";
-			return value.replace(/(\d+),?/g, function (ms, picId) {
-				var url = WUI.makeUrl("att", {thumbId: picId});
-				return "<a target='_black' href='" + url + "'>" + picId + "</a>&nbsp;";
-			});
-		},
 		// 订单编号，显示为一个链接，点击就打开订单对话框该订单。
-		orderId: function (value) {
-			if (value != null)
-			{
-				return makeLinkTo("#dlgOrder", value, value);
+		orderId: function (value, row) {
+			if (value) {
+				return WUI.makeLinkTo("#dlgOrder", row.orderId, value);
+			}
+		},
+		// 显示状态的同时，设置另一个本地字段，这种字段一般以"_"结尾，表示不是服务器传来的字段，例如
+		// <th data-options="field:'hint_'">提醒事项</th>
+		status: function (value, row) {
+			if (value) {
+				if (value == "PA") {
+					row.hint_ = "请于2小时内联系";
+				}
+				return StatusMap[value] || value;
 			}
 		}
 	};
@@ -345,7 +352,84 @@ formatter用于控制Cell中的HTML标签，styler用于控制Cell自己的CSS s
 		...
 	});
 
+#### 列表导出Excel文件
+
+(支持版本5.0)
+
+除了默认地增删改查，还可为数据表添加标准的“导出Excel”操作，可自动按表格当前的显示字段、搜索条件、排序条件等，导出表格。
+只需在dg_toolbar函数的参数中加上"export"（表示导出按钮），如：
+
+	jtbl.datagrid({
+		url: WUI.makeUrl("User.query"),
+		toolbar: WUI.dg_toolbar(jtbl, jdlg, "export"),
+		onDblClickRow: WUI.dg_dblclick(jtbl, jdlg)
+	});
+
+导出字段由jtbl对应的表格的表头定义，如下面表格定义：
+
+	<table id="tblOrder" style="width:auto;height:auto" title="订单列表">
+		...
+		<th data-options="field:'id'">编号</th>
+		<th data-options="field:'status'">状态</th>
+		<th data-options="field:'hint_'">友情提示</th>
+	</table>
+
+它生成的res参数为"id 编号, status 状态"。"hint_"字段以下划线结尾，它会被当作是本地虚拟字段，不会被导出。
+
+table上的title属性可用于控制列表导出时的默认文件名，如本例导出文件名为"订单列表.xls"。
+如果想导出表中没有显示的列，可以设置该列为隐藏，如：
+
+		<th data-options="field:'userId', hidden:true">用户编号</th>
+
+@key jdEnumMap datagrid中th选项, 在导出文件时，枚举变量可显示描述
+
+对于枚举字段，可在th的data-options用`formatter:WUI.formatter.enum(map)`来显示描述，在导出Excel时，需要设置`jdEnumMap:map`属性来显示描述，如
+
+		<th data-options="field:'status', jdEnumMap: OrderStatusMap, formatter: WUI.formatter.enum(OrderStatusMap)">状态</th>
+
+OrderStatusMap在代码中定义如下
+
+	var OrderStatusMap = {
+		CR: "未付款", 
+		PA: "待服务"
+	}
+
+它生成的res参数为"id 编号, status 状态=CR:未付款;PA:待服务"。筋斗云后端支持这种res定义方式将枚举值显示为描述。
+
+@see WUI.dg_toolbar 指定列表上的操作按钮
+@see WUI.getExportHandler 自定义导出Excel功能
+@see WUI.getQueryParamFromTable 根据当前datagrid状态取query接口参数
+
 ### 详情页对话框的常见需求
+
+#### 通用查询
+
+在对话框中按快捷键"Ctrl-F"可进入查询模式。
+详情页提供通用查询，如：
+
+	手机号: <input name="phone">  
+	注册时间: <input name="createTm">
+
+可在手机号中输入"137*"，在注册时间中输入">=2017-1-1 and <2018-1-1"，这样生成的查询参数为：
+
+	{ cond: "phone like '137%' and (createTm>='2017-1-1' and createTm<'2018-1-1')" }
+
+@see getQueryCond 查询条件支持
+@see getQueryParam 生成查询条件
+
+@key .notForFind 指定非查询条件
+不参与查询的字段，可以用notForFind类标识(为兼容，也支持属性notForFind)，如：
+
+	登录密码: <input class="notForFind" type="password" name="pwd">
+	或者: <input notForFind type="password" name="pwd">
+
+@key .wui-notCond 指定独立查询条件
+
+如果查询时不想将条件放在cond参数中，可以设置wui-notCond类标识，如：
+
+	状态: <select name="status" class="my-combobox wui-notCond" data-options="jdEnumList:'0:可用;1:禁用'"></select>
+
+如果不加wui-notCond类，生成的查询参数为：`{cond: "status=0"}`；加上后，生成查询参数如：`{status: 0}`.
 
 #### 设计模式：关联选择框
 
@@ -526,6 +610,16 @@ formatter用于控制Cell中的HTML标签，styler用于控制Cell自己的CSS s
 这时，就可以用 WUI.showPage("#pageOrder")来显示逻辑页了。
 
 注意：逻辑页的title字段不能和其它页中title重复，否则这两页无法同时显示，因为显示tab页时是按照title来标识逻辑页的。
+
+动态加载页面时，先加载逻辑页html和js文件，再将逻辑页插入应用程序并做系统初始化（如增强mui组件或easyui组件等），然后调用页面的用户初始化函数。
+若希望在系统初始化之前做一些操作，应放在用户初始化函数之外。
+例如，初始化过程中的服务调用使用批处理：
+
+	functio initPageOrder() 
+	{
+		...
+	}
+	WUI.useBatchCall();
 
 在文件page/dlgOrder.html中定义对话框UI:
 
