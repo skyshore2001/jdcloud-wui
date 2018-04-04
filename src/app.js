@@ -129,7 +129,7 @@ function app_abort()
 window.DirectReturn = function () {}
 
 /**
-@fn MUI.setOnError()
+@fn setOnError()
 
 一般框架自动设置onerror函数；如果onerror被其它库改写，应再次调用该函数。
 allow throw("abort") as abort behavior.
@@ -155,12 +155,12 @@ setOnError();
 
 // ------ enhanceWithin {{{
 /**
-@var MUI.m_enhanceFn
+@var m_enhanceFn
 */
 self.m_enhanceFn = {}; // selector => enhanceFn
 
 /**
-@fn MUI.enhanceWithin(jparent)
+@fn enhanceWithin(jparent)
 */
 self.enhanceWithin = enhanceWithin;
 function enhanceWithin(jp)
@@ -183,7 +183,7 @@ function enhanceWithin(jp)
 }
 
 /**
-@fn MUI.getOptions(jo)
+@fn getOptions(jo)
 */
 self.getOptions = getOptions;
 function getOptions(jo)

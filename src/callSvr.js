@@ -19,6 +19,7 @@ self.lastError = null;
 var m_tmBusy;
 var m_manualBusy = 0;
 var m_appVer;
+var m_silentCall = 0;
 
 /**
 @var disableBatch ?= false
@@ -139,21 +140,23 @@ $.ajaxSetup(ajaxOpt);
 self.enterWaiting = enterWaiting;
 function enterWaiting(ctx)
 {
+	if (ctx && ctx.noLoadingImg) {
+		++ m_silentCall;
+		return;
+	}
 	if (self.isBusy == 0) {
 		m_tmBusy = new Date();
 	}
 	self.isBusy = 1;
 	if (ctx == null || ctx.isMock)
 		++ m_manualBusy;
+
 	// 延迟执行以防止在page show时被自动隐藏
 	//mCommon.delayDo(function () {
-	if (!(ctx && ctx.noLoadingImg))
-	{
-		setTimeout(function () {
-			if (self.isBusy)
-				self.showLoading();
-		}, 200);
-	}
+	setTimeout(function () {
+		if (self.isBusy)
+			self.showLoading();
+	}, 200);
 // 		if ($.mobile && !(ctx && ctx.noLoadingImg))
 // 			$.mobile.loading("show");
 	//},1);
@@ -177,8 +180,11 @@ function leaveWaiting(ctx)
 			ctx.tv2 = tv2;
 			console.log(ctx);
 		}
-		if ($.active <= 0 && self.isBusy && m_manualBusy == 0) {
+		if (ctx && ctx.noLoadingImg)
+			-- m_silentCall;
+		if ($.active < 0)
 			$.active = 0;
+		if ($.active-m_silentCall <= 0 && self.isBusy && m_manualBusy == 0) {
 			self.isBusy = 0;
 			var tv = new Date() - m_tmBusy;
 			m_tmBusy = 0;
@@ -486,8 +492,7 @@ function makeUrl(action, params)
 
 - 指定{async:0}来做同步请求, 一般直接用callSvrSync调用来替代.
 - 指定{noex:1}用于忽略错误处理。
-- 指定{noLoadingImg:1}用于忽略loading图标. 要注意如果之前已经调用callSvr显示了图标且图标尚未消失，则该选项无效，图标会在所有调用完成之后才消失(leaveWaiting)。
- 要使隐藏图标不受本次调用影响，可在callSvr后手工调用`--$.active`。
+- 指定{noLoadingImg:1} 静默调用，忽略loading图标，不设置busy状态。
 
 想为ajax选项设置缺省值，可以用callSvrExt中的beforeSend回调函数，也可以用$.ajaxSetup，
 但要注意：ajax的dataFilter/beforeSend选项由于框架已用，最好不要覆盖。
@@ -570,7 +575,7 @@ JS:
 
 ## callSvr扩展
 
-@key MUI.callSvrExt
+@key callSvrExt
 
 当调用第三方API时，也可以使用callSvr扩展来代替$.ajax调用以实现：
 - 调用成功时直接可操作数据，不用每次检查返回码；
@@ -624,14 +629,14 @@ callSvr扩展示例：
 		console.log(data);
 	});
 
-@key MUI.callSvrExt[].makeUrl(ac, param)
+@key callSvrExt[].makeUrl(ac, param)
 
 根据调用名ac生成url, 注意无需将param放到url中。
 
 注意：
 对方接口应允许JS跨域调用，或调用方支持跨域调用。
 
-@key MUI.callSvrExt[].dataFilter(data) = null/false/data
+@key callSvrExt[].dataFilter(data) = null/false/data
 
 对调用返回数据进行通用处理。返回值决定是否调用callSvr的回调函数以及参数值。
 
@@ -645,7 +650,7 @@ callSvr扩展示例：
 
 @see lastError 出错时的上下文信息
 
-@key MUI.callSvrExt['default']
+@key callSvrExt['default']
 
 (支持版本: v3.1)
 如果要修改callSvr缺省调用方法，可以改写 MUI.callSvrExt['default'].
@@ -708,7 +713,7 @@ callSvr扩展示例：
 
 	callSvr('login');
 
-@key MUI.callSvrExt[].beforeSend(opt) 为callSvr或$.ajax选项设置缺省值
+@key callSvrExt[].beforeSend(opt) 为callSvr或$.ajax选项设置缺省值
 
 如果有ajax选项想设置，可以使用beforeSend回调，例如POST参数使用JSON格式：
 
@@ -1034,7 +1039,7 @@ function setupCallSvrViaForm($form, $iframe, url, fn, callOpt)
 }
 
 /**
-@class MUI.batchCall(opt?={useTrans?=0})
+@class batchCall(opt?={useTrans?=0})
 
 批量调用。将若干个调用打包成一个特殊的batch调用发给服务端。
 注意：
