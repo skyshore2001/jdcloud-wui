@@ -58,11 +58,11 @@ TODO: remove
 window.BASE_URL = "../";
 
 window.FormMode = {
-	forAdd: 0,
-	forSet: 1,
-	forLink: 2,
-	forFind: 3,
-	forDel: 4  // 该模式实际上不会打开dlg
+	forAdd: 'A',
+	forSet: 'S',
+	forLink: 'S', // 与forSet合并，此处为兼容旧版。
+	forFind: 'F',
+	forDel: 'D'  // 该模式实际上不会打开dlg
 };
 
 /**
@@ -237,7 +237,7 @@ function makeLinkTo(dlg, id, text)
 {
 	if (text == null)
 		text = id;
-	return "<a href=\"" + dlg + "\" onclick='WUI.showObjDlg(\"" + dlg + "\",FormMode.forLink,{id:" + id + "});return false'>" + text + "</a>";
+	return "<a href=\"" + dlg + "\" onclick='WUI.showObjDlg(\"" + dlg + "\",FormMode.forSet,{id:" + id + "});return false'>" + text + "</a>";
 }
 
 // ====== login token for auto login {{{
@@ -440,6 +440,8 @@ self.getActivePage = getActivePage;
 function getActivePage()
 {
 	var pp = self.tabMain.tabs('getSelected');   
+	if (pp == null)
+		return $();
 	var jpage = pp.find(".wui-page");
 	return jpage;
 }

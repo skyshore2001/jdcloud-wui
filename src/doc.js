@@ -410,12 +410,15 @@ OrderStatusMap在代码中定义如下
 	手机号: <input name="phone">  
 	注册时间: <input name="createTm">
 
-可在手机号中输入"137*"，在注册时间中输入">=2017-1-1 and <2018-1-1"，这样生成的查询参数为：
+可在手机号中输入"137*"，在注册时间中输入">=2017-1-1 and <2018-1-1" (或用 "2017-1-1~2018-1-1")，这样生成的查询参数为：
 
 	{ cond: "phone like '137%' and (createTm>='2017-1-1' and createTm<'2018-1-1')" }
 
 @see getQueryCond 查询条件支持
 @see getQueryParam 生成查询条件
+
+@key .mui-find-field 用于查找的字段样式
+可设置该样式来标识哪些字段可以查找。一般设置为黄色。
 
 @key .notForFind 指定非查询条件
 不参与查询的字段，可以用notForFind类标识(为兼容，也支持属性notForFind)，如：
@@ -644,6 +647,38 @@ OrderStatusMap在代码中定义如下
 	}
 
 这时，就可以用 WUI.showObjDlg("#dlgOrder")来显示逻辑页了。
+
+### 页面模板支持
+
+定义一个逻辑页面，可以在#my-pages下直接定义，也可以在单独的文件中定义，还可以在一个模板中定义，如：
+
+	<script type="text/html" id="tpl_pageOrder">
+	<div class="pageOrder" title="订单管理" my-initfn="initPageOrder">
+	...
+	</div>
+	</script>
+
+模板用script标签定义，其id属性必须命名为`tpl_{逻辑页面名}`。
+这样就定义了逻辑页pageOrder，且在用到时才加载。与从外部文件加载类似，可以不设置class="pageOrder"，框架会自动处理。
+
+定义对话框也类似：
+
+	<script type="text/html" id="tpl_dlgOrder">
+	<div id="dlgOrder" my-obj="Ordr" my-initfn="initDlgOrder" title="用户订单" style="width:520px;height:500px;">  
+	...
+	</div>
+	</script>
+
+定义了对话框dlgOrder，这个id属性也可以不设置。
+模板用script标签定义，其id属性必须命名为`tpl_{对话框名}`。
+
+注意：
+
+如果将script标签制作的页面模板内嵌在主页中，可能会造成加载时闪烁。
+在chrome中，在easyui-layout之后定义任意script标签（哪怕是空内容），会导致加载首页时闪烁，标题栏是黑色尤其明显。
+测试发现，将这些个script模板放在head标签中不会闪烁。
+
+这个特性可用于未来WEB应用编译打包。
 
 ## 参考文档说明
 
