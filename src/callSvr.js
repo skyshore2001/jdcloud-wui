@@ -520,7 +520,7 @@ function makeUrl(action, params)
 	callSvr("logout", api_logout);
 	function api_logout(data) {}
 
-	callSvr("login", {wantAll:1}, api_login);
+	callSvr("login", api_login);
 	function api_login(data) {}
 
 	callSvr("info/hotline.php", {q: '大众'}, api_hotline);
@@ -1154,7 +1154,7 @@ batchCall.prototype = {
 		var batch_ = this;
 		var postData = JSON.stringify(this.calls_);
 		callSvr("batch", this.opt_, api_batch, postData, {
-			contentType: "application/json"
+			contentType: "application/json; charset=utf-8"
 		});
 
 		function api_batch(data)

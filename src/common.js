@@ -713,6 +713,42 @@ function list2varr(ls, sep, sep2)
 	return ret;
 }
 
+/**
+@fn objarr2list(objarr, fields, sep=':', sep2=',')
+
+将对象数组转成字符串代表的压缩表("v1:v2:v3,...")。
+
+示例：
+
+	var objarr = [
+		{id:100, name:'name1', qty:2},
+		{id:101, name:'name2', qty:3}
+	];
+	var list = objarr2list(objarr, ["id","qty"]);
+	// 返回"100:2,101:3"
+
+	var list2 = objarr2list(objarr, function (e, i) { return e.id + ":" + e.qty; });
+	// 结果同上
+ */
+self.objarr2list = objarr2list;
+function objarr2list(objarr, fields, sep, sep2)
+{
+	sep = sep || ':';
+	sep2 = sep2 || ',';
+
+	var fn = $.isFunction(fields) ? fields : function (e, i) {
+		var row = '';
+		$.each(fields, function (j, e1) {
+			if (row.length > 0)
+				row += sep;
+			row += e[e1];
+		});
+		return row;
+	};
+	return $.map(objarr, fn).join(sep2);
+}
+
+
 //}}}
 
 /**
@@ -939,7 +975,10 @@ function parseKvList(str, sep, sep2)
 	var map = {};
 	$.each(str.split(sep), function (i, e) {
 		var kv = e.split(sep2, 2);
-		assert(kv.length == 2, "bad kvList: " + str);
+		//assert(kv.length == 2, "bad kvList: " + str);
+		if (kv.length < 2) {
+			kv[1] = kv[0];
+		}
 		map[kv[0]] = kv[1];
 	});
 	return map;
