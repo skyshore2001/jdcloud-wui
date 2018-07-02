@@ -8,20 +8,6 @@ var mCommon = jdModule("jdcloud.common");
 
 mCommon.assert($.fn.combobox, "require jquery-easyui lib.");
 
-// TODO: remove.
-// dlg中与数据库表关联的字段的name应以_开头，故调用add_转换；
-// 但如果字段名中间有"__"表示非关联到表的字段，不做转换，这之后该字段不影响数据保存。
-function add_(o)
-{
-	// return $.extend(true, {}, o);
-	var ret = {};
-	for (var k in o) {
-		if (k.indexOf("__") < 0)
-			ret[k] = o[k];
-	}
-	return ret;
-}
-
 function getRow(jtbl)
 {
 	var row = jtbl.datagrid('getSelected');   
@@ -259,6 +245,7 @@ page调用示例:
 self.showPage = showPage;
 function showPage(pageName, title, paramArr)
 {
+	var showPageArgs_ = arguments;
 	var sel = "#my-pages > div." + pageName;
 	var jpage = $(sel);
 	if (jpage.length > 0) {
@@ -311,11 +298,13 @@ function showPage(pageName, title, paramArr)
 		var jpageNew = jpage.clone().appendTo(jtab);
 		jpageNew.addClass('wui-page');
 		jpageNew.attr("wui-pageName", pageName);
+		jpageNew.attr("title", title);
 
 		$.parser.parse(jpageNew); // easyui enhancement
 		self.enhanceWithin(jpageNew);
 		callInitfn(jpageNew, paramArr);
 
+		jpageNew.data("showPageArgs_", showPageArgs_); // used by WUI.reloadPage
 		jpageNew.trigger('pagecreate');
 		jpageNew.trigger('pageshow');
 	}
@@ -431,7 +420,7 @@ $.fn.okCancel = function (fnOk, fnCancel) {
 @param jdlg 可以是jquery对象，也可以是selector字符串或DOM对象，比如 "#dlgOrder".
 注意：当对话框动态从外部加载时，jdlg=$("#dlgOrder") 一开始会为空数组，这时也可以调用该函数，且调用后jdlg会被修改为实际加载的对话框对象。
 
-@param opt?={url, buttons, noCancel=false, okLabel="确定", cancelLabel="取消", modal=true, reset=true, validate=true, data, onOk, onSubmit}
+@param opt?={url, buttons, noCancel=false, okLabel="确定", cancelLabel="取消", modal=true, reset=true, validate=true, data, onOk, onSubmit, title}
 
 - opt.url: String. 点击确定后，提交到后台的URL。如果设置则自动提交数据，否则应在opt.onOk回调或validate事件中手动提交。
 - opt.buttons: Object数组。用于添加“确定”、“取消”按钮以外的其它按钮，如`[{text: '下一步', iconCls:'icon-ok', handler: btnNext_click}]`。
@@ -442,6 +431,7 @@ $.fn.okCancel = function (fnOk, fnCancel) {
 - opt.validate: Boolean. 是否提交前用easyui-form组件验证数据。内部使用。
 - opt.onSubmit: Function(data) 自动提交前回调。用于验证或补齐提交数据，返回false可取消提交。opt.url为空时不回调。
 - opt.onOk: Function(jdlg, data?) 如果自动提交(opt.url非空)，则服务端接口返回数据后回调，data为返回数据。如果是手动提交，则点确定按钮时回调，没有data参数。
+- opt.title: String. 如果指定，则更新对话框标题。
 
 对话框有两种编程模式，一是通过opt参数在启动对话框时设置属性及回调函数(如onOk)，另一种是在dialog初始化函数中处理事件(如validate事件)实现逻辑，有利于独立模块化。
 
@@ -483,9 +473,9 @@ $.fn.okCancel = function (fnOk, fnCancel) {
 
 对象型对话框事件：
 
-	beforeshow(formMode, opt)事件。显示对话框前触发。可以通过设置opt参数定制对话框，与调用showDlg时传入opt参数相同效果。通过修改opt.data可为字段设置缺省值。
+	beforeshow(formMode, opt)事件。显示对话框前触发。可以通过设置opt参数定制对话框，与调用showDlg时传入opt参数相同效果
 	show(formMode, opt.data)事件。显示对话框后触发。这时opt.data已经设置到对话框上带name属性的DOM组件中，一些不能直接显示的字段，可在此时设置到DOM组件上，比如图片等。
-	validate(formMode, opt.data)事件。用于提交前验证、补齐数据等。返回false可取消提交。
+	validate(formMode, opt.data, newData)事件。用于提交前验证、补齐数据等。返回false可取消提交。(v5.1)在newData中设置参数，会增加到POST请求中。
 	retdata(data, formMode)事件。服务端返回结果时触发。注意forFind模式不会触发。
 
 初始数据与对话框中带name属性的对象相关联，详见
@@ -498,7 +488,10 @@ $.fn.okCancel = function (fnOk, fnCancel) {
 **对话框事件**
 
 @key beforeshow Function(ev, formMode, opt)  对话框显示前事件
-opt参数即showDlg的opt参数，可在此处修改.
+opt参数即showDlg的opt参数，可在此处修改，例如修改opt.title可以设置对话框标题。
+opt.objParam参数是由showObjDlg传入给dialog的参数，比如opt.objParam.obj, opt.objParam.formMode等。
+通过修改opt.data可为字段设置缺省值。注意forFind模式下opt.data为空。
+可以通过在beforeshow中用setTimeout延迟执行某些动作，这与在show事件中回调操作效果基本一样。
 
 注意：每次调用showDlg()都会回调，可能这时对话框已经在显示。
 
@@ -554,8 +547,8 @@ function showDlg(jdlg, opt)
 	jdlg.addClass('wui-dialog');
 	callInitfn(jdlg);
 
-	// TODO: 事件换成jdlg触发，不用jfrm
-	var jfrm = jdlg.find("form:first");
+	// TODO: 事件换成jdlg触发，不用jfrm。目前旧应用仍使用jfrm监听事件，暂应保持兼容。
+	var jfrm = jdlg.is("form")? jdlg: jdlg.find("form:first");
 	var formMode = jdlg.jdata().mode;
 	jfrm.trigger("beforeshow", [formMode, opt]);
 
@@ -577,7 +570,8 @@ function showDlg(jdlg, opt)
 
 		closable: ! opt.noCancel,
 		modal: opt.modal,
-		buttons: btns
+		buttons: btns,
+		title: opt.title
 	};
 	if (jdlg.is(":visible")) {
 		dlgOpt0 = jdlg.dialog("options");
@@ -618,12 +612,17 @@ function showDlg(jdlg, opt)
 	function fnCancel() {closeDlg(jdlg)}
 	function fnOk()
 	{
+		if (jdlg.hasClass("wui-readonly")) { // css("pointer-events") == "none"
+			closeDlg(jdlg);
+			return;
+		}
 		var ret = opt.validate? jfrm.form("validate"): true;
 		if (! ret)
 			return false;
 
+		var newData = {};
 		var ev = $.Event("validate");
-		jfrm.trigger(ev, [formMode, opt.data]);
+		jfrm.trigger(ev, [formMode, opt.data, newData]);
 		if (ev.isDefaultPrevented())
 			return false;
 
@@ -633,23 +632,24 @@ function showDlg(jdlg, opt)
 		if (ev.isDefaultPrevented())
 			return false;
 
+		var data = mCommon.getFormData(jdlg);
+		$.extend(data, newData);
 		if (opt.url) {
-			var data = mCommon.getFormData(jdlg);
 			if (opt.onSubmit && opt.onSubmit(data) === false)
 				return false;
 
 			self.callSvr(opt.url, success, data);
 		}
 		else {
-			opt.onOk && opt.onOk.call(jdlg);
+			success(data);
 		}
 		// opt.onAfterSubmit && opt.onAfterSubmit(jfrm); // REMOVED
 
 		function success (data)
 		{
 			if (data != null && opt.onOk) {
-				opt.onOk.call(jdlg, data);
 				jfrm.trigger('retdata', [data, formMode]);
+				opt.onOk.call(jdlg, data);
 			}
 		}
 	}
@@ -709,16 +709,19 @@ function unloadPage(pageName)
 self.reloadPage = reloadPage;
 function reloadPage()
 {
-	var pageName = self.getActivePage().attr("wui-pageName");
+	var showPageArgs = self.getActivePage().data("showPageArgs_");
 	self.unloadPage();
-	self.showPage(pageName);
+	self.showPage.apply(this, showPageArgs);
 }
 
 /**
-@fn unloadDialog()
+@fn unloadDialog(all?=false)
 @alias reloadDialog
 
 删除当前激活的对话框。一般用于开发过程，在修改外部对话框后，调用该函数清除以便此后再载入页面，可以看到更新的内容。
+
+	WUI.reloadDialog();
+	WUI.reloadDialog(true); // 重置所有外部加载的对话框(v5.1)
 
 注意：
 
@@ -727,19 +730,21 @@ function reloadPage()
 */
 self.unloadDialog = unloadDialog;
 self.reloadDialog = unloadDialog;
-function unloadDialog()
+function unloadDialog(all)
 {
-	var jdlg = getTopDialog();
+	var jdlg = all? $(".wui-dialog[wui-pageFile]"): getTopDialog();
 	if (jdlg.size() == 0)
 		return;
-	closeDlg(jdlg);
+	try { closeDlg(jdlg); } catch (ex) { console.log(ex); }
 
 	// 是内部对话框，不做删除处理
 	if (jdlg.attr("wui-pageFile") == null)
 		return;
 	var dlgId = jdlg.attr("id");
-	jdlg.dialog("destroy");
+	try { jdlg.dialog("destroy"); } catch (ex) { console.log(ex); }
+	jdlg.remove();
 	$("style[wui-origin=" + dlgId + "]").remove();
+	return jdlg;
 }
 
 // ---- object CRUD {{{
@@ -814,9 +819,9 @@ function loadDialog(jdlg, onLoad)
 	{
 		var jcontainer = $("#my-pages");
 		// 注意：如果html片段中有script, 在append时会同步获取和执行(jquery功能)
-		var jo = $(html).filter("div");
+		var jo = $(html).filter("div,form");
 		if (jo.size() > 1 || jo.size() == 0) {
-			console.log("!!! Warning: bad format for dialog '" + selector + "'. Element count = " + jo.size());
+			console.log("!!! Warning: bad format for dialog '" + dlgId + "'. Element count = " + jo.size());
 			jo = jo.filter(":first");
 		}
 
@@ -849,12 +854,45 @@ function loadDialog(jdlg, onLoad)
 }
 
 /**
-@fn showObjDlg(jdlg, mode, opt?={jtbl, id})
+@fn showObjDlg(jdlg, mode, opt?={jtbl, id, obj})
 
 @param jdlg 可以是jquery对象，也可以是selector字符串或DOM对象，比如 "#dlgOrder". 注意：当对话框保存为单独模块时，jdlg=$("#dlgOrder") 一开始会为空数组，这时也可以调用该函数，且调用后jdlg会被修改为实际加载的对话框对象。
 
 @param opt.id String. mode=link时必设，set/del如缺省则从关联的opt.jtbl中取, add/find时不需要
 @param opt.jdbl Datagrid. dialog/form关联的datagrid -- 如果dlg对应多个tbl, 必须每次打开都设置
+@param opt.obj String. (v5.1) 对象对话框的对象名，如果未指定，则从my-obj属性获取。通过该参数可动态指定对象名。
+@param opt.offline Boolean. (v5.1) 不与后台交互。
+@param opt.title String. (v5.1) 指定对话框标题。
+
+(v5.1)
+此外，通过设置jdlg.objParam，具有和设置opt参数一样的功能，常在initPageXXX中使用，因为在page中不直接调用showObjDlg.
+示例：
+
+	var jdlg = $("#dlgSupplier");
+	jdlg.objParam = {type: "C", obj: "Customer"};
+	showObjDlg(jdlg, FormMode.forSet, {id:101});
+	// 等价于 showObjDlg(jdlg, FormMode.forSet, {id:101, obj: "Customer", type: "C"});
+
+在dialog的事件beforeshow(ev, formMode, opt)中，可以通过opt.objParam取出showObjDlg传入的所有参数opt。
+
+@param opt.onCrud Function(). (v5.1) 对话框操作完成时回调。
+一般用于点击表格上的增删改查工具按钮完成操作时插入逻辑。
+在回调函数中this对象为optParam，且可通过this.mode获取操作类型。示例：
+
+	jdlg1.objParam = {
+		offline: true,
+		onCrud: function () {
+			if (this.mode == FormMode.forDel) {
+				// after delete row
+			}
+			// ... 重新计算金额
+		}
+	};
+	jtbl.datagrid({
+		toolbar: WUI.dg_toolbar(jtbl, jdlg1), // 添加增删改查工具按钮，点击则调用showObjDlg，这时objParam生效。
+		onDblClickRow: WUI.dg_dblclick(jtbl, jdlg1),
+		...
+	});
 
 事件参考：
 @see showDlg
@@ -862,7 +900,7 @@ function loadDialog(jdlg, onLoad)
 self.showObjDlg = showObjDlg;
 function showObjDlg(jdlg, mode, opt)
 {
-	opt = opt || {};
+	opt = $.extend({mode: mode}, jdlg.objParam, opt);
 	if (jdlg.constructor != jQuery)
 		jdlg = $(jdlg);
 	if (loadDialog(jdlg, onLoad))
@@ -871,6 +909,7 @@ function showObjDlg(jdlg, mode, opt)
 		showObjDlg(jdlg, mode, opt);
 	}
 
+	callInitfn(jdlg);
 	if (opt.jtbl) {
 		jdlg.jdata().jtbl = opt.jtbl;
 	}
@@ -881,7 +920,7 @@ function showObjDlg(jdlg, mode, opt)
 // 以下参数试图分别从jdlg.jdata()和jtbl.jdata()上取. 当一个dlg对应多个tbl时，应存储在jtbl上。
 // init_data: 用于add时初始化的数据 
 // url_param: 除id外，用于拼url的参数
-	var obj = jdlg.attr("my-obj");
+	var obj = opt.obj || jdlg.attr("my-obj");
 	mCommon.assert(obj);
 	var jd = jdlg.jdata();
 	var jd2 = jd.jtbl && jd.jtbl.jdata();
@@ -901,14 +940,25 @@ function showObjDlg(jdlg, mode, opt)
 
 	var url;
 	if (mode == FormMode.forAdd) {
-		url = self.makeUrl([obj, "add"], jd.url_param);
+		if (! opt.offline)
+			url = self.makeUrl([obj, "add"], jd.url_param);
 		if (jd.jtbl) 
 			jd.jtbl.datagrid("clearSelections");
 	}
 	else if (mode == FormMode.forSet) {
-		url = self.makeUrl([obj, "set"], {id: id});
+		if (! opt.offline)
+			url = self.makeUrl([obj, "set"], {id: id});
 	}
 	else if (mode == FormMode.forDel) {
+		if (opt.offline) {
+			if (jd.jtbl) {
+				var rowIndex = jd.jtbl.datagrid("getRowIndex", rowData);
+				jd.jtbl.datagrid("deleteRow", rowIndex);
+				opt.onCrud && opt.onCrud();
+			}
+			return;
+		}
+
 		self.app_confirm("确定要删除一条记录?", function (b) {
 			if (! b)
 				return;
@@ -918,14 +968,15 @@ function showObjDlg(jdlg, mode, opt)
 				if (jd.jtbl)
 					reload(jd.jtbl);
 				self.app_show('删除成功!');
+				opt.onCrud && opt.onCrud();
 			});
 		});
 		return;
 	}
 
-	callInitfn(jdlg);
-	var jfrm = jdlg.find("Form");
-
+	// TODO: 直接用jdlg
+	var jfrm = jdlg.is("form")? jdlg: jdlg.find("form:first");
+	
 	// 设置find模式
 	var doReset = ! (jd.mode == FormMode.forFind && mode == FormMode.forFind) // 一直是find, 则不清除
 	if (mode == FormMode.forFind && jd.mode != FormMode.forFind) {
@@ -942,7 +993,7 @@ function showObjDlg(jdlg, mode, opt)
 			}
 			else {
 				je.prop("disabled", false);
-				je.addClass("mui-find-field");
+				je.addClass("wui-find-field");
 				je.prop("title", self.queryHint);
 				var type = je.attr("type");
 				if (type && ["number", "date", "time", "datetime"].indexOf(type) >= 0) {
@@ -958,7 +1009,7 @@ function showObjDlg(jdlg, mode, opt)
 			var je = $(e);
 			var bak = je.jdata().bak;
 			je.prop("disabled", bak.disabled);
-			je.removeClass("mui-find-field");
+			je.removeClass("wui-find-field");
 			je.prop("title", bak.title);
 			if (bak.type) {
 				je.attr("type", bak.type);
@@ -973,33 +1024,32 @@ function showObjDlg(jdlg, mode, opt)
 	var load_data;
 	if (mode == FormMode.forAdd) {
 		var init_data = jd.init_data || (jd2 && jd2.init_data);
-		if (init_data)
-			load_data = add_(init_data);
-		else
-			load_data = {};
+		load_data = $.extend({}, init_data);
 	}
 	else if (mode == FormMode.forSet) {
 		if (rowData) {
-			load_data = add_(rowData);
+			load_data = $.extend({}, rowData);
 		}
 		else {
 			var load_url = self.makeUrl([obj, 'get'], {id: id});
 			var data = self.callSvrSync(load_url);
 			if (data == null)
 				return;
-			load_data = add_(data);
+			load_data = data;
 		}
 	}
 	// open the dialog
 	showDlg(jdlg, {
 		url: url,
+		title: opt.title,
 		okLabel: BTN_TEXT[mode],
 		validate: mode!=FormMode.forFind,
 		modal: false,  // mode == FormMode.forAdd || mode == FormMode.forSet
 		reset: doReset,
 		data: load_data,
 		onSubmit: onSubmit,
-		onOk: onOk
+		onOk: onOk,
+		objParam: opt
 	});
 
 	if (mode == FormMode.forSet)
@@ -1015,27 +1065,41 @@ function showObjDlg(jdlg, mode, opt)
 		}
 	}
 	function onOk (retData) {
+		var jtbl = jd.jtbl;
 		if (mode==FormMode.forFind) {
 			var param = getFindData(jfrm);
-			mCommon.assert(jd.jtbl); // 查询结果显示到jtbl中
+			mCommon.assert(jtbl); // 查询结果显示到jtbl中
 			// 归并table上的cond条件. dgOpt.url是makeUrl生成的，保存了原始的params
-			var dgOpt = jd.jtbl.datagrid("options");
+			var dgOpt = jtbl.datagrid("options");
 			if (param.cond && dgOpt && dgOpt.url && dgOpt.url.params && dgOpt.url.params.cond) {
 				param.cond = dgOpt.url.params.cond + " AND (" + param.cond + ")";
 			}
-			reload(jd.jtbl, undefined, param);
+			reload(jtbl, undefined, param);
+			opt.onCrud && opt.onCrud();
 			return;
 		}
 		// add/set/link
 		// TODO: add option to force reload all (for set/add)
-		if (jd.jtbl) {
-			if (mode == FormMode.forSet && rowData)
-				reloadRow(jd.jtbl, rowData);
-			else if (mode == FormMode.forAdd) {
-				appendRow(jd.jtbl, retData);
+		if (jtbl) {
+			if (opt.offline) {
+				if (mode == FormMode.forSet && rowData) {
+					var idx = jtbl.datagrid("getRowIndex", rowData);
+					$.extend(rowData, retData);
+					jtbl.datagrid("refreshRow", idx);
+				}
+				else if (mode == FormMode.forAdd) {
+					jtbl.datagrid("appendRow", retData);
+				}
 			}
-			else
-				reload(jd.jtbl);
+			else {
+				if (mode == FormMode.forSet && rowData)
+					reloadRow(jtbl, rowData);
+				else if (mode == FormMode.forAdd) {
+					appendRow(jtbl, retData);
+				}
+				else
+					reload(jtbl);
+			}
 		}
 		if (mode == FormMode.forAdd)
 		{
@@ -1045,7 +1109,9 @@ function showObjDlg(jdlg, mode, opt)
 		{
 			closeDlg(jdlg);
 		}
-		self.app_show('操作成功!');
+		if (!opt.offline)
+			self.app_show('操作成功!');
+		opt.onCrud && opt.onCrud();
 	}
 }
 
@@ -1210,14 +1276,14 @@ function enhanceAnchor(jo)
 
 	jtbl.datagrid({
 		url: WUI.makeUrl("User.query"),
-		toolbar: WUI.dg_toolbar(jtbl, jdlg, {text:'导出', iconCls:'icon-save', handler: getExportHandler(jtbl) }),
+		toolbar: WUI.dg_toolbar(jtbl, jdlg, {text:'导出', iconCls:'icon-save', handler: WUI.getExportHandler(jtbl) }),
 		onDblClickRow: WUI.dg_dblclick(jtbl, jdlg)
 	});
 
 默认是导出数据表中直接来自于服务端的字段，并应用表上的查询条件及排序。
 也可以通过设置param参数手工指定，如：
 
-	handler: getExportHandler(jtbl, "User.query", {res: "id 编号, name 姓名, createTm 注册时间", orderby: "createTm DESC"})
+	handler: WUI.getExportHandler(jtbl, "User.query", {res: "id 编号, name 姓名, createTm 注册时间", orderby: "createTm DESC"})
 
 注意：由于分页机制影响，会设置参数{pagesz: -1}以便在一页中返回所有数据，而实际一页能导出的最大数据条数取决于后端设置（默认1000，参考后端文档 AccessControl::$maxPageSz）。
 
@@ -1273,7 +1339,7 @@ function getQueryParamFromTable(jtbl, param)
 				return;
 			if (res.length > 0)
 				res += ',';
-			res += e.field + " " + e.title;
+			res += e.field + " \"" + e.title + "\"";
 			if (e.jdEnumMap) {
 				res += '=' + mCommon.kvList2Str(e.jdEnumMap, ';', ':');
 			}
@@ -1281,9 +1347,7 @@ function getQueryParamFromTable(jtbl, param)
 		param.res = res;
 	}
 	if (param.fname === undefined) {
-		if (jtbl.attr("title")) {
-			param.fname = jtbl.attr("title");
-		}
+		param.fname = jtbl.prop("title") || jtbl.closest(".wui-page").prop("title");
 	}
 	return param;
 }
@@ -1317,11 +1381,24 @@ var Formatter = {
 			return value? yes: no;
 		}
 	},
-	enum: function (enumMap) {
+	enum: function (enumMap, sep) {
+		sep = sep || ',';
 		return function (value, row) {
 			if (value == null)
 				return;
-			return enumMap[value] || value;
+			var v = enumMap[value];
+			if (v != null)
+				return v;
+			if (value.indexOf(sep) > 0) {
+				var v1 = $.map(value.split(sep), function(e) {
+					return enumMap[e] || e;
+				});
+				v = v1.join(sep);
+			}
+			else {
+				v = value;
+			}
+			return v;
 		}
 	},
 	linkTo: function (field, dlgRef) {
@@ -1348,7 +1425,8 @@ var Formatter = {
 
 - dt/number: 显示日期、数值
 - pics: 显示一张或一组图片链接，点一个链接可以在新页面上显示原图片
-- enum(enumMap): 根据一个map为枚举值显示描述信息，如 `enum({CR:"创建", CA:"取消"})`
+- enum(enumMap): 根据一个map为枚举值显示描述信息，如 `enum({CR:"创建", CA:"取消"})`。
+ (v5.1) 也支持枚举值列表，如设置为 `enumList({emp:"员工", mgr:"经理"})`，则会将"emp"和"emp,mgr"分别解析为"员工", "员工,经理"
 - flag(yes?, no?): 显示yes-no字段，如 `flag("禁用","启用")`，也可以用enum，如`enum({0:"启用",1:"禁用"})`
 - linkTo: 生成链接，点击打开对象详情对话框
 
@@ -1376,6 +1454,8 @@ function dgLoader(param, success, error)
 	if (opts.data) {
 		return defaultDgLoader.apply(this, arguments);
 	}
+	if (opts.url == null)
+		return false;
 	var param1 = {};
 	for (var k in param) {
 	/* TODO: enable page param in interface obj.query, disable rows/page

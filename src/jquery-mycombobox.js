@@ -104,6 +104,8 @@
 	订单状态： <select name="status" class="my-combobox" data-options="jdEnumMap:OrderStatusMap" style="width:150px"></select>
 	或者：
 	订单状态： <select name="status" class="my-combobox" data-options="jdEnumList:'CR:未付款;CA:已取消'" style="width:150px"></select>
+	或者：(key-value相同时, 只用';'间隔)
+	订单状态： <select name="status" class="my-combobox" data-options="jdEnumList:'未付款;已取消'" style="width:150px"></select>
 
 其中OrderStatusMap定义如下：
 

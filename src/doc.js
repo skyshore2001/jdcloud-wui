@@ -159,8 +159,6 @@
 
 相关事件：
 @see beforeshow,show 对话框中form显示前后
-@see initdata,loaddata 对话框中form加载数据前后
-@see savedata,retdata 对话框中form保存数据前后
 
 对话框类名：
 @see .wui-dialog
@@ -168,28 +166,50 @@
 	function initDlgOrder()
 	{
 		var jdlg = $(this);
-		var jfrm = jdlg.find("form");
-		jfrm.on("beforeshow", function(ev, formMode) {
+		jdlg.on("beforeshow", onBeforeShow)
+			.on("show", onShow)
+			.on("validate", onValidate)
+			.on("retdata", onRetData);
+		
+		function onBeforeShow(ev, formMode, opt) {
 			jdlg.find(".forFind").toggle(formMode == FormMode.forFind);
 			jdlg.find(".notForFind").toggle(formMode != FormMode.forFind);
-		})
-		.on("loaddata", function (ev, data, formMode) {
+		}
+		function onShow(ev, formMode, initData) {
 			// data是列表页中一行对应的数据，框架自动根据此数据将对应属性填上值。
 			// 如果界面上展示的字段无法与属性直接对应，可以在该事件回调中设置。
-			// hiddenToCheckbox(jfrm.find("#divPerms"));
-		})
-		.on("savedata", function (ev, formMode, initData) {
+			// hiddenToCheckbox(jdlg.find("#divPerms"));
+		}
+		function onValidate(ev, formMode, initData, newData) {
 			// 在form提交时，所有带name属性且不带disabled属性的对象值会被发往服务端。
 			// 此事件回调可以设置一些界面上无法与属性直接对应的内容。
-			// checkboxToHidden(jfrm.find("#divPerms"));
-		})
-		.on("retdata", function (ev, data, formMode) {
+			// 额外要提交的数据可放在隐藏的input组件中，或(v5.1)这里直接设置到newData对象中。
+			// checkboxToHidden(jdlg.find("#divPerms"));
+		}
+		function onRetData(ev, data, formMode) {
 			var formMode = jdlg.jdata().mode;
 			if (formMode == FormMode.forAdd) {
 				alert('返回ID: ' + data);
 			}
-		};
+		}
 	}
+
+在onBeforeShow中一般设置字段是否显示(show/hide/toggle)或只读(disabled)，以及在forAdd/forFind模式时为opt.data设置初始值(forSet模式下opt.data已填上业务数据)；
+之后框架用opt.data数据填充相应字段，如需要补填或修改些字段（比如显示图片），可在onShow中处理，也可以直接在onBeforeShow中用setTimeout来指定，如：
+
+	function onBeforeShow(ev, formMode, opt) {
+		// ... 根据formMode等参数控制某些字段显示隐藏、启用禁用等...
+		var frm = jdlg.find("form")[0];
+		var isFind = formMode == FormMode.forFind;
+		frm.type.disabled = !isFind;
+		// 这里可以对opt.data赋值，但不要直接为组件设置值，因为接下来组件值会被opt.data中的值覆盖。
+
+		setTimeout(onShow);
+		function onShow() {
+			// 这里可根据opt.data直接为input等组件设置值。便于使用onBeforeShow中的变量
+		}
+	}
+
 
 @see checkboxToHidden (有示例)
 @see hiddenToCheckbox 
@@ -400,6 +420,35 @@ OrderStatusMap在代码中定义如下
 @see getExportHandler 自定义导出Excel功能
 @see getQueryParamFromTable 根据当前datagrid状态取query接口参数
 
+#### datagrid增强项
+
+easyui-datagrid已适配筋斗云协议调用，底层将发起callSvr调用请求（参考dgLoader）。
+此外，增加支持`url_`属性，以便初始化时不发起调用，直到调用"load"/"reload"方法时才发起调用：
+
+	jtbl.datagrid({
+		url_: WUI.makeUrl("Item.query", {res:"id,name"}), // 如果用url则会立即用callSvr发起请求。
+		...
+	});
+	// ...
+	jtbl.datagrid("load", {cond: "itemId=" + itemId});
+	jtbl.datagrid("reload");
+
+如果接口返回格式不符合，则可以使用loadData方法：
+
+	// 接口 Item.get() -> {item1=[{srcItemId, qty}]}
+	callSvr("Item.get", {res:"item1"}, function (data) {
+		jtbl.datagrid("loadData", data.item1); // 是一个对象数组
+	});
+
+datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数据格式进行了默认处理，兼容筋斗云协议格式（参考dgLoadFilter）。
+
+	var rows = [ {id:1, name:"name1"}, {id:2, name:"name2"} ];
+	jtbl.datagrid("loadData", {tota:2, rows: rows});
+	// 还支持以下三种格式
+	jtbl.datagrid("loadData", rows);
+	jtbl.datagrid("loadData", {h: ["id","name"], d: [ [1, "name1"], [2, "name2"]}); // 筋斗云query接口默认返回格式。
+	jtbl.datagrid("loadData", {list: rows}); // 筋斗云query接口指定fmt=list参数时，返回这种格式
+
 ### 详情页对话框的常见需求
 
 #### 通用查询
@@ -417,7 +466,7 @@ OrderStatusMap在代码中定义如下
 @see getQueryCond 查询条件支持
 @see getQueryParam 生成查询条件
 
-@key .mui-find-field 用于查找的字段样式
+@key .wui-find-field 用于查找的字段样式
 可设置该样式来标识哪些字段可以查找。一般设置为黄色。
 
 @key .notForFind 指定非查询条件
@@ -564,6 +613,64 @@ OrderStatusMap在代码中定义如下
 	<a href="?showDlgSendSms" class="easyui-linkbutton" icon="icon-ok">群发短信</a><br/><br/>
 
 点击该按钮，即调用了showDlgSendSms函数打开对话框。
+
+### 页面传参数给对话框
+
+(v5.1)
+可以通过showObjDlg(jdlg, mode, opt)中的opt参数，或jdlg.objParam来给对话框传参。
+在对话框的beforeshow事件处理中，可通过opt.objParam拿到参数，如：
+
+	function initPageBizPartner() {
+		var jdlg = $("#dlgSupplier");
+		// 设置objParam参数供对话框使用。
+		jdlg.objParam = {type: "C", obj: "Customer", title: "客户"}; // opt.title参数可直接设置对话框的标题。参考showObjDlg.
+		jtbl.datagrid(toolbar: dg_toolbar(jtbl, jdlg, ...));
+		// 点表格上的菜单或双击行时会调用 WUI.showObjDlg
+	}
+
+	function initDlgBizPartner() {
+		// ...
+		jdlg.on("beforeshow", onBeforeShow);
+		
+		function onBeforeShow(ev, formMode, opt) {
+			// opt.objParam 中包含前面定义的type, obj, 以及id, mode等参数。
+		}
+	}
+
+### 示例：页面与对话框复用 (v5.1)
+
+设计有客户(Customer)和供应商(Supplier)两个虚拟的逻辑对象，它们物理底层都是业务伙伴对象(BizPartner)。
+现在只设计一个页面pageBizPartner和一个对话框dlgBizPartner。
+
+菜单中两项：
+默认pageBizPartner是供应商，如果要显示为"客户"页，需要明确调用showPage。
+
+	<a href="#pageBizPartner">供应商</a>
+	<a href="javascript:WUI.showPage('pageBizPartner', '客户', ['C']);">客户</a>
+
+在initPageBizPartner函数中，为对话框传递参数objParam：
+
+	type = type || "S";
+	var obj = "type=="S"? "Supplier": "Customer";
+	jdlg.objParam = {type: type, obj: obj};
+	// ...
+
+在对话框的beforeshow事件处理中，根据opt.objParam.type确定标题栏:
+
+	jdlg.on("beforeshow", function (ev, formMode, opt) {
+		opt.title = opt.objParam.type == "C"? "客户": "供应商";
+	});
+
+### 只读对话框
+
+(v5.1)
+@key .wui-readonly 只读对话框类名
+
+设置是否为只读对话框只要加上该类：
+
+	jdlg.toggleClass("wui-readonly", isReadonly);
+
+只读对话框不可输入(在style.css中设定pointer-events为none)，点击确定按钮后直接关闭。
 
 ## 模块化开发
 

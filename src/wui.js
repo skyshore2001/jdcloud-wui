@@ -222,7 +222,7 @@ function app_show(msg)
 }
 
 /**
-@fn makeLinkTo(dlg, id, text?=id)
+@fn makeLinkTo(dlg, id, text?=id, obj?)
 
 生成一个链接的html代码，点击该链接可以打开指定对象的对话框。
 
@@ -231,13 +231,23 @@ function app_show(msg)
 	var orderId = 101;
 	var html = makeLinkTo("#dlgOrder", orderId, "订单" + orderId);
 
+(v5.1)
+示例：如果供应商(obj=Supplier)和客户(obj=Customer)共用一个对话框BizPartner，要显示一个id=101的客户，必须指定obj参数：
+
+	var html = makeLinkTo("#dlgBizPartner", 101, "客户-101", "Customer");
+
+点击链接将调用
+
+	WUI.showObjDlg("#dlgBizPartner", FormMode.forSet, {id: 101, obj: "Customer"};
+
 */
 self.makeLinkTo = makeLinkTo;
-function makeLinkTo(dlg, id, text)
+function makeLinkTo(dlg, id, text, obj)
 {
 	if (text == null)
 		text = id;
-	return "<a href=\"" + dlg + "\" onclick='WUI.showObjDlg(\"" + dlg + "\",FormMode.forSet,{id:" + id + "});return false'>" + text + "</a>";
+	var optStr = obj==null? "{id:"+id+"}": "{id:"+id+",obj:\"" + obj + "\"}";
+	return "<a href=\"" + dlg + "\" onclick='WUI.showObjDlg(\"" + dlg + "\",FormMode.forSet," + optStr + ");return false'>" + text + "</a>";
 }
 
 // ====== login token for auto login {{{
@@ -501,6 +511,12 @@ function mainInit()
 		}
 	});
 
+	// 连续5次点击当前tab标题，重新加载页面
+	self.doSpecial(self.tabMain.find(".tabs-header"), ".tabs-selected", function () {
+		self.reloadPage();
+		self.reloadDialog(true);
+	});
+
 	// bugfix for datagrid size after resizing
 	var tmr;
 	$(window).on("resize", function () {
@@ -514,6 +530,14 @@ function mainInit()
 			jpage.closest(".panel-body").panel("doLayout", true);
 		}, 200);
 	});
+
+	// 调整对话框上的datagrid大小
+	function onResizePanel() {
+		//console.log("dialog resize");
+		// 强制datagrid重排
+		$(this).closest(".panel-body").panel("doLayout", true);
+	}
+	$.fn.dialog.defaults.onResize = onResizePanel;
 }
 
 $(mainInit);
