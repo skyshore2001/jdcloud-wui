@@ -33,7 +33,7 @@ code {
 </head>
 
 <h1>WUI</h1>
-<div>最后更新：2018-07-02</div>
+<div>最后更新：2018-07-19</div>
 <h2>Modules</h2>
 <div class="toc">
 <p><a href="#WUI">WUI (module)</a></p>
@@ -1603,9 +1603,6 @@ callSvr("User.get", function (data) {
         // 示例：设置contentType
         if (opt.contentType == null) {
             opt.contentType = "application/json;charset=utf-8";
-            if (opt.data) {
-                opt.data = JSON.stringify(opt.data);
-            }
         }
         // 示例：添加HTTP头用于认证
         if (g_data.auth) {
