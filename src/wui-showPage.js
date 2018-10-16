@@ -5,9 +5,11 @@ var self = this;
 self.ctx = self.ctx || {};
 
 var mCommon = jdModule("jdcloud.common");
+var m_batchMode = false; // 批量操作模式, 按住Ctrl键。
 
 mCommon.assert($.fn.combobox, "require jquery-easyui lib.");
 
+self.getRow = getRow;
 function getRow(jtbl)
 {
 	var row = jtbl.datagrid('getSelected');   
@@ -612,7 +614,7 @@ function showDlg(jdlg, opt)
 	function fnCancel() {closeDlg(jdlg)}
 	function fnOk()
 	{
-		if (jdlg.hasClass("wui-readonly")) { // css("pointer-events") == "none"
+		if (jdlg.hasClass("wui-readonly") && formMode!=FormMode.forFind) { // css("pointer-events") == "none"
 			closeDlg(jdlg);
 			return;
 		}
@@ -638,6 +640,15 @@ function showDlg(jdlg, opt)
 			if (opt.onSubmit && opt.onSubmit(data) === false)
 				return false;
 
+			// 批量更新
+			if (m_batchMode && formMode==FormMode.forSet && opt.url.action && /.set$/.test(opt.url.action)) {
+				var jtbl = jdlg.jdata().jtbl;
+				var obj = opt.url.action.replace(".set", "");
+				batchOp(obj, "setIf", jtbl, data, function () {
+					closeDlg(jdlg);
+				});
+				return;
+			}
 			self.callSvr(opt.url, success, data);
 		}
 		else {
@@ -653,6 +664,51 @@ function showDlg(jdlg, opt)
 			}
 		}
 	}
+}
+
+// 按住Ctrl键进入批量模式。
+$(document).keydown(function (e) {
+	if (e.ctrlKey && ! m_batchMode) {
+		m_batchMode = true;
+		setTimeout(function () {
+			m_batchMode = false;
+		},200);
+	}
+});
+
+
+// ac: "setIf"/"delIf"
+function batchOp(obj, ac, jtbl, data, fn)
+{
+	if (obj == null || jtbl == null)
+		return;
+	var acName;
+	if (ac == "setIf") {
+		acName = "批量更新";
+	}
+	else if (ac == "delIf") {
+		acName = "批量删除";
+	}
+	else {
+		return;
+	}
+	var cond = getQueryParamFromTable(jtbl).cond;
+	if (! cond) {
+		cond = "id>0";
+	}
+	self.callSvr(obj + ".query", {cond: cond, res: "count(*) cnt"}, function (data1) {
+		console.log(obj + "." + ac + ": " + cond);
+		app_confirm(acName + data1.d[0][0] + "条记录？", function (b) {
+			if (!b)
+				return;
+			self.callSvr(obj+"."+ac, {cond: cond}, function (cnt) {
+				fn && fn();
+				reload(jtbl);
+				app_alert(acName + cnt + "条记录");
+			}, data);
+		});
+	});
+	return;
 }
 
 /**
@@ -836,6 +892,7 @@ function loadDialog(jdlg, onLoad)
 		jdlg.attr("wui-pageFile", pageFile);
 
 		$.parser.parse(jdlg); // easyui enhancement
+		jdlg.find(">table:first, form>table:first").addClass("wui-form-table");
 		self.enhanceWithin(jdlg);
 
 		var val = jdlg.attr("wui-script");
@@ -931,6 +988,13 @@ function showObjDlg(jdlg, mode, opt)
 		if (mode == FormMode.forSet || mode == FormMode.forDel) // get dialog data from jtbl row, 必须关联jtbl
 		{
 			mCommon.assert(jd.jtbl);
+
+			// 批量删除
+			if (mode == FormMode.forDel && m_batchMode) {
+				batchOp(obj, "delIf", jd.jtbl);
+				return;
+			}
+
 			rowData = getRow(jd.jtbl);
 			if (rowData == null)
 				return;
@@ -1207,6 +1271,8 @@ function dg_toolbar(jtbl, jdlg)
 	});
 	for (var i=2; i<arguments.length; ++i) {
 		var btn = arguments[i];
+		if (! btn)
+			continue;
 		if (btn !== '-' && typeof(btn) == "string") {
 			btn = tb[btn];
 			mCommon.assert(btn, "toolbar button name does not support");
@@ -1307,6 +1373,9 @@ function getExportHandler(jtbl, ac, param)
 
 	return function () {
 		var url = WUI.makeUrl(ac, getQueryParamFromTable(jtbl, param));
+		// !!! 调试导出的方法：在控制台中设置  window.open=$.get 即可查看请求响应过程。
+		console.log("export: " + url);
+		console.log("(HINT: debug via window.open=$.get)");
 		window.open(url);
 	}
 }
@@ -1683,6 +1752,57 @@ $.extend($.fn.tabs.defaults, {
 // 支持自动初始化mycombobox
 self.m_enhanceFn[".my-combobox"] = function (jo) {
 	jo.mycombobox();
+};
+/**
+@key .wui-form-table
+
+在wui-dialog上，对于form下直接放置的table，一般用于字段列表排列，框架对它添加类wui-form-table并自动对列设置百分比宽度，以自适应显示。
+
+在非对话框上，也可手工添加此类来应用该功能。
+
+ */
+self.m_enhanceFn[".wui-form-table"] = enhanceTableLayout;
+function enhanceTableLayout(jo) {
+	var tbl = jo[0];
+	if (tbl.rows.length == 0)
+		return;
+	var tr = tbl.rows[0];
+	var colCnt = tr.cells.length;
+	var doAddTr = false;
+	// 考虑有colspan的情况
+	for (var j=0; j<tr.cells.length; ++j) {
+		var td = tr.cells[j];
+		if (td.getAttribute("colspan") != null) {
+			colCnt += parseInt(td.getAttribute("colspan"))-1;
+			doAddTr = true;
+		}
+	}
+	var rates = {
+		2: ["10%", "90%"],
+		4: ["10%", "40%", "10%", "40%"],
+		6: ["5%", "25%", "5%", "25%", "5%", "25%"]
+	};
+	if (!rates[colCnt])
+		return;
+	// 如果首行有colspan，则添加隐藏行定宽
+	if (doAddTr) {
+		var td = dup("<td></td>", colCnt);
+		$('<tr class="wui-form-table-tr-width" style="visibility:hidden">' + td + '</tr>').prependTo(jo);
+		tr = tbl.rows[0];
+	}
+	for (var i=0; i<colCnt; ++i) {
+		var je = $(tr.cells[i]);
+		if (je.attr("width") == null)
+			je.attr("width", rates[colCnt][i]);
+	}
+
+	function dup(s, n) {
+		var ret = '';
+		for (var i=0; i<n; ++i) {
+			ret += s;
+		}
+		return ret;
+	}
 };
 
 function main()
