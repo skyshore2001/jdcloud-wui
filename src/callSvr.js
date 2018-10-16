@@ -239,7 +239,7 @@ function defDataProc(rv)
 	var ext = ctx.ext;
 
 	// ajax-beforeSend回调中设置
-	if (this.xhr_ && ext == null) {
+	if (this.xhr_ && (ext == null || ext == "default") ) {
 		var val = this.xhr_.getResponseHeader("X-Daca-Server-Rev");
 		if (val && g_data.serverRev != val) {
 			if (g_data.serverRev) {
@@ -886,9 +886,7 @@ function callSvr(ac, params, fn, postParams, userOptions)
 		ctx.getMockData = function () {
 			var d = self.mockData[ac0];
 			var param1 = $.extend({}, url.params);
-			var postParam1 = ( ac0=="batch"
-				? eval("(" + postParams + ")")
-				: $.extend({}, postParams));
+			var postParam1 = $.extend({}, postParams);
 			if ($.isFunction(d)) {
 				d = d(param1, postParam1);
 			}

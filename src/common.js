@@ -621,6 +621,18 @@ function rs2Array(rs)
 		101: {id: 101, name: "Jane"}
 	};
 
+key可以为一个函数，返回实际key值，示例：
+
+	var hash = rs2Hash(rs, function (o) {
+		return "USER-" + o.id;
+	}); 
+
+	// 结果为
+	hash = {
+		"USER-100": {id: 100, name: "Tom"},
+		"USER-101": {id: 101, name: "Jane"}
+	};
+
 @see rs2Array
 */
 self.rs2Hash = rs2Hash;
@@ -628,19 +640,25 @@ function rs2Hash(rs, key)
 {
 	var ret = {};
 	var colCnt = rs.h.length;
+	var keyfn;
+	if (typeof(key) == "function")
+		keyfn = key;
 	for (var i=0; i<rs.d.length; ++i) {
 		var obj = {};
 		var row = rs.d[i];
 		for (var j=0; j<colCnt; ++j) {
 			obj[rs.h[j]] = row[j];
 		}
-		ret[ obj[key] ] = obj;
+		var k = keyfn?  keyfn(obj): obj[key];
+		ret[ k ] = obj;
 	}
 	return ret;
 }
 
 /**
 @fn rs2MultiHash(rs, key)
+
+数据分组(group by).
 
 @param rs={h, d}  rs对象(RowSet)
 @return hash={key => [ %obj ]}
@@ -659,6 +677,24 @@ function rs2Hash(rs, key)
 		"Jane": [{id: 101, name: "Jane"}]
 	};
 
+key也可以是一个函数，返回实际的key值，示例，按生日年份分组：
+
+	var rs = {
+		h: ["id", "name", "birthday"], 
+		d: [ [100, "Tom", "1998-10-1"], [101, "Jane", "1999-1-10"], [102, "Tom", "1998-3-8"] ] 
+	};
+	// 按生日年份分组
+	var hash = rs2MultiHash(rs, function (o) {
+		var m = o.birthday.match(/^\d+/);
+		return m && m[0];
+	});
+
+	// 结果为
+	hash = {
+		"1998": [{id: 100, name: "Tom", birthday: "1998-10-1"}, {id: 102, name: "Tom", birthday:"1998-3-8"}],
+		"1999": [{id: 101, name: "Jane", birthday: "1999-1-10"}]
+	};
+
 @see rs2Hash
 @see rs2Array
 */
@@ -667,15 +703,20 @@ function rs2MultiHash(rs, key)
 {
 	var ret = {};
 	var colCnt = rs.h.length;
+	var keyfn;
+	if (typeof(key) == "function")
+		keyfn = key;
 	for (var i=0; i<rs.d.length; ++i) {
 		var obj = {};
 		var row = rs.d[i];
 		for (var j=0; j<colCnt; ++j) {
 			obj[rs.h[j]] = row[j];
 		}
-		if (ret[ obj[key] ] === undefined)
-			ret[ obj[key] ] = [];
-		ret[ obj[key] ].push(obj);
+		var k = keyfn?  keyfn(obj): obj[key];
+		if (ret[ k ] === undefined)
+			ret[ k ] = [obj];
+		else
+			ret[ k ].push(obj);
 	}
 	return ret;
 }
