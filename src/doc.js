@@ -90,7 +90,7 @@
 
 打开页面后，页面的生存周期如下：
 
-@key pagecreate,pageshow,pagedestroy 页面事件
+@key event-pagecreate,pageshow,pagedestroy 页面事件
 @key wui-pageName 属性：页面名
 @key .wui-page 页面类
 

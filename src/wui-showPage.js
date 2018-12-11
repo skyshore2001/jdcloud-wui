@@ -117,12 +117,20 @@ function jdListToArray(data)
 }
 
 /** 
-@fn reloadRow(jtbl, rowData)
+@fn reloadRow(jtbl, rowData?)
+
 @param rowData must be the original data from table row
+
+rowData如果未指定，则使用当前选择的行。
  */
 self.reloadRow = reloadRow;
 function reloadRow(jtbl, rowData)
 {
+	if (rowData == null) {
+		rowData = jtbl.datagrid('getSelected');
+		if (rowData == null)
+			return;
+	}
 	jtbl.datagrid("loading");
 	var opt = jtbl.datagrid("options");
 	self.callSvr(opt.url, api_queryOne, {cond: "id=" + rowData.id});
@@ -460,7 +468,8 @@ $.fn.okCancel = function (fnOk, fnCancel) {
 
 **对象型对话框与formMode**
 
-函数showObjDlg()会调用本函数显示对话框，称为对象型对话框，用于对象增删改查，它将以下操作集中在一起，并设置相应的formMode：
+函数showObjDlg()会调用本函数显示对话框，称为对象型对话框，用于对象增删改查，它将以下操作集中在一起。
+打开窗口时，会设置窗口模式(formMode):
 
 - 查询(FormMode.forFind)
 - 显示及更新(FormMode.forSet)
@@ -473,40 +482,46 @@ $.fn.okCancel = function (fnOk, fnCancel) {
 - 非对象型对话框的formMode为空。
 - 对象型对话框由框架自动设置各opt选项，一般不应自行修改opt，而是通过处理对话框事件实现逻辑。
 
-对象型对话框事件：
-
-	beforeshow(formMode, opt)事件。显示对话框前触发。可以通过设置opt参数定制对话框，与调用showDlg时传入opt参数相同效果
-	show(formMode, opt.data)事件。显示对话框后触发。这时opt.data已经设置到对话框上带name属性的DOM组件中，一些不能直接显示的字段，可在此时设置到DOM组件上，比如图片等。
-	validate(formMode, opt.data, newData)事件。用于提交前验证、补齐数据等。返回false可取消提交。(v5.1)在newData中设置参数，会增加到POST请求中。
-	retdata(data, formMode)事件。服务端返回结果时触发。注意forFind模式不会触发。
-
-初始数据与对话框中带name属性的对象相关联，详见
+初始数据与对话框中带name属性的对象相关联，显示对话框时，带name属性的DOM对象将使用数据opt.data自动赋值(对话框show事件中可修改)，在点“确定”按钮提交时将改动的数据发到服务端(validate事件中可修改)，详见
 @see setFormData,getFormData
+
+**对话框事件**
+
+操作对话框时会发出以下事件供回调：
+
+	beforeshow - 对话框显示前。常用来处理对话框显示参数opt或初始数据opt.data.
+	show - 显示对话框后。常用来设置字段值或样式，隐藏字段、初始化子表datagrid或隐藏子表列等。
+	validate - 用于提交前验证、补齐数据等。返回false可取消提交。
+	retdata - 服务端返回结果时触发。用来根据服务器返回数据继续处理，如再次调用接口。
 
 注意：
 
 - 旧版本中的initdata, loaddata, savedata将废弃，应分别改用beforeshow, show, validate事件替代，注意事件参数及检查对话框模式。
 
-**对话框事件**
+@key event-beforeshow(ev, formMode, opt)
+显示对话框前触发。
 
-@key beforeshow Function(ev, formMode, opt)  对话框显示前事件
-opt参数即showDlg的opt参数，可在此处修改，例如修改opt.title可以设置对话框标题。
-opt.objParam参数是由showObjDlg传入给dialog的参数，比如opt.objParam.obj, opt.objParam.formMode等。
-通过修改opt.data可为字段设置缺省值。注意forFind模式下opt.data为空。
-可以通过在beforeshow中用setTimeout延迟执行某些动作，这与在show事件中回调操作效果基本一样。
+- opt参数即showDlg的opt参数，可在此处修改，例如修改opt.title可以设置对话框标题。
+- opt.objParam参数是由showObjDlg传入给dialog的参数，比如opt.objParam.obj, opt.objParam.formMode等。
+- 通过修改opt.data可为字段设置缺省值。注意forFind模式下opt.data为空。
+- 可以通过在beforeshow中用setTimeout延迟执行某些动作，这与在show事件中回调操作效果基本一样。
 
 注意：每次调用showDlg()都会回调，可能这时对话框已经在显示。
 
-@key show Function(ev, formMode, initData)  对话框显示后事件.
-用于设置DOM组件。
+@key event-show(ev, formMode, initData)
+对话框显示后事件，用于设置DOM组件。
 注意如果在beforeshow事件中设置DOM，对于带name属性的组件会在加载数据时值被覆盖回去，对它们在beforeshow中只能通过设置opt.data来指定缺省值。
 
-@key retdata Function(ev, data, formMode) form提交后事件，用于处理返回数据
+@key event-validate(ev, formMode, initData, newData)
+initData为初始数据，如果要验证或修改待提交数据，应直接检查form中相应DOM元素的值。如果需要增加待提交字段，可加到newData中去。示例：添加参数: newData.mystatus='CR';
+
+@key event-retdata(ev, data, formMode)
+form提交后事件，用于处理返回数据
 
 以下事件将废弃：
-@key initdata Function(ev, initData, formMode) 加载数据前触发。可修改要加载的数据initData, 用于为字段设置缺省值。将废弃，改用beforeshow事件。
-@key loaddata Function(ev, initData, formMode) form加载数据后，一般用于将服务端数据转为界面显示数据。将废弃，改用show事件。
-@key savedata Function(ev, formMode, initData) 对于设置了opt.url的窗口，将向后台提交数据，提交前将触发该事件，用于验证或补足数据（修正某个）将界面数据转为提交数据. 返回false或调用ev.preventDefault()可阻止form提交。将废弃，改用validate事件。
+@key event-initdata(ev, initData, formMode) 加载数据前触发。可修改要加载的数据initData, 用于为字段设置缺省值。将废弃，改用beforeshow事件。
+@key event-loaddata(ev, initData, formMode) form加载数据后，一般用于将服务端数据转为界面显示数据。将废弃，改用show事件。
+@key event-savedata(ev, formMode, initData) 对于设置了opt.url的窗口，将向后台提交数据，提交前将触发该事件，用于验证或补足数据（修正某个）将界面数据转为提交数据. 返回false或调用ev.preventDefault()可阻止form提交。将废弃，改用validate事件。
 
 @see example-dialog 在对话框中使用事件
 
@@ -916,10 +931,12 @@ function loadDialog(jdlg, onLoad)
 @param jdlg 可以是jquery对象，也可以是selector字符串或DOM对象，比如 "#dlgOrder". 注意：当对话框保存为单独模块时，jdlg=$("#dlgOrder") 一开始会为空数组，这时也可以调用该函数，且调用后jdlg会被修改为实际加载的对话框对象。
 
 @param opt.id String. mode=link时必设，set/del如缺省则从关联的opt.jtbl中取, add/find时不需要
-@param opt.jdbl Datagrid. dialog/form关联的datagrid -- 如果dlg对应多个tbl, 必须每次打开都设置
+@param opt.jtbl Datagrid. dialog/form关联的datagrid -- 如果dlg对应多个tbl, 必须每次打开都设置
 @param opt.obj String. (v5.1) 对象对话框的对象名，如果未指定，则从my-obj属性获取。通过该参数可动态指定对象名。
 @param opt.offline Boolean. (v5.1) 不与后台交互。
 @param opt.title String. (v5.1) 指定对话框标题。
+
+@key objParam 对象对话框的初始参数。
 
 (v5.1)
 此外，通过设置jdlg.objParam，具有和设置opt参数一样的功能，常在initPageXXX中使用，因为在page中不直接调用showObjDlg.
@@ -934,7 +951,7 @@ function loadDialog(jdlg, onLoad)
 
 @param opt.onCrud Function(). (v5.1) 对话框操作完成时回调。
 一般用于点击表格上的增删改查工具按钮完成操作时插入逻辑。
-在回调函数中this对象为optParam，且可通过this.mode获取操作类型。示例：
+在回调函数中this对象就是objParam，可通过this.mode获取操作类型。示例：
 
 	jdlg1.objParam = {
 		offline: true,
@@ -943,6 +960,8 @@ function loadDialog(jdlg, onLoad)
 				// after delete row
 			}
 			// ... 重新计算金额
+			// ... 刷新关联的表格行
+			// opt.objParam.reloadRow();
 		}
 	};
 	jtbl.datagrid({
@@ -950,6 +969,19 @@ function loadDialog(jdlg, onLoad)
 		onDblClickRow: WUI.dg_dblclick(jtbl, jdlg1),
 		...
 	});
+
+在dialog逻辑中使用objParam:
+
+	function initDlgXXX() {
+		// ...
+		jdlg.on("beforeshow", onBeforeShow);
+		
+		function onBeforeShow(ev, formMode, opt) {
+			var objParam = opt.objParam; // {id, mode, jtbl?, offline?...}
+		}
+	}
+
+@param opt.reloadRow() 可用于刷新本对话框关联的表格行数据
 
 事件参考：
 @see showDlg
@@ -1102,6 +1134,11 @@ function showObjDlg(jdlg, mode, opt)
 			load_data = data;
 		}
 	}
+	// objParam.reloadRow()
+	opt.reloadRow = function () {
+		if (mode == FormMode.forSet && opt.jtbl && rowData)
+			self.reloadRow(opt.jtbl, rowData);
+	};
 	// open the dialog
 	showDlg(jdlg, {
 		url: url,
@@ -1434,10 +1471,13 @@ var Formatter = {
 	pics: function (value, row) {
 		if (value == null)
 			return "(无图)";
+		return '<a target="_black" href="' + WUI.makeUrl("pic", {id:value}) + '">' + value + '</a>';
+		/*
 		return value.replace(/(\d+),?/g, function (ms, picId) {
 			var url = WUI.makeUrl("att", {thumbId: picId});
 			return "<a target='_black' href='" + url + "'>" + picId + "</a>&nbsp;";
 		});
+		*/
 	},
 	flag: function (yes, no) {
 		if (yes == null)
