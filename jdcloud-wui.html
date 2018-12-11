@@ -33,7 +33,7 @@ code {
 </head>
 
 <h1>WUI</h1>
-<div>最后更新：2018-10-16</div>
+<div>最后更新：2018-12-11</div>
 <h2>Modules</h2>
 <div class="toc">
 <p><a href="#WUI">WUI (module)</a></p>
@@ -77,7 +77,6 @@ code {
 <p><a href="#applyTpl">applyTpl (fn)</a></p>
 <p><a href="#assert">assert (fn)</a></p>
 <p><a href="#batchCall">batchCall (class)</a></p>
-<p><a href="#beforeshow">beforeshow (key)</a></p>
 <p><a href="#callSvr">callSvr (fn)</a></p>
 <p><a href="#callSvr.noex">callSvr.noex (key)</a></p>
 <p><a href="#callSvrExt">callSvrExt (key)</a></p>
@@ -87,6 +86,7 @@ code {
 <p><a href="#callSvrExt[].makeUrl">callSvrExt[].makeUrl (key)</a></p>
 <p><a href="#callSvrSync">callSvrSync (fn)</a></p>
 <p><a href="#closeDlg">closeDlg (fn)</a></p>
+<p><a href="#compressImg">compressImg (fn)</a></p>
 <p><a href="#datagrid.formatter">datagrid.formatter (key)</a></p>
 <p><a href="#datagrid.sortable">datagrid.sortable (key)</a></p>
 <p><a href="#datagrid.sorter">datagrid.sorter (key)</a></p>
@@ -103,6 +103,14 @@ code {
 <p><a href="#enhanceWithin">enhanceWithin (fn)</a></p>
 <p><a href="#enterWaiting">enterWaiting (fn)</a></p>
 <p><a href="#evalAttr">evalAttr (fn)</a></p>
+<p><a href="#event-beforeshow">event-beforeshow (key)</a></p>
+<p><a href="#event-initdata">event-initdata (key)</a></p>
+<p><a href="#event-loaddata">event-loaddata (key)</a></p>
+<p><a href="#event-pagecreate,pageshow,pagedestroy">event-pagecreate,pageshow,pagedestroy (key)</a></p>
+<p><a href="#event-retdata">event-retdata (key)</a></p>
+<p><a href="#event-savedata">event-savedata (key)</a></p>
+<p><a href="#event-show">event-show (key)</a></p>
+<p><a href="#event-validate">event-validate (key)</a></p>
 <p><a href="#example-dialog">example-dialog (key)</a></p>
 <p><a href="#example-upload">example-upload (key)</a></p>
 <p><a href="#formItems">formItems (fn)</a></p>
@@ -128,7 +136,6 @@ code {
 <p><a href="#handleLogin">handleLogin (fn)</a></p>
 <p><a href="#hideLoading">hideLoading (fn)</a></p>
 <p><a href="#initClient">initClient (fn)</a></p>
-<p><a href="#initdata">initdata (key)</a></p>
 <p><a href="#intSort">intSort (fn)</a></p>
 <p><a href="#isAndroid">isAndroid (fn)</a></p>
 <p><a href="#isBusy">isBusy (var)</a></p>
@@ -144,7 +151,6 @@ code {
 <p><a href="#leaveWaiting">leaveWaiting (fn)</a></p>
 <p><a href="#list2varr">list2varr (fn)</a></p>
 <p><a href="#loadScript">loadScript (fn)</a></p>
-<p><a href="#loaddata">loaddata (key)</a></p>
 <p><a href="#logout">logout (fn)</a></p>
 <p><a href="#m_curBatch">m_curBatch (var)</a></p>
 <p><a href="#m_enhanceFn">m_enhanceFn (var)</a></p>
@@ -154,10 +160,10 @@ code {
 <p><a href="#my-initfn">my-initfn (key)</a></p>
 <p><a href="#my-obj">my-obj (key)</a></p>
 <p><a href="#numberSort">numberSort (fn)</a></p>
+<p><a href="#objParam">objParam (key)</a></p>
 <p><a href="#objarr2list">objarr2list (fn)</a></p>
 <p><a href="#options">options (var)</a></p>
 <p><a href="#options.pageFolder">options.pageFolder (key)</a></p>
-<p><a href="#pagecreate,pageshow,pagedestroy">pagecreate,pageshow,pagedestroy (key)</a></p>
 <p><a href="#parseDate">parseDate (fn)</a></p>
 <p><a href="#parseKvList">parseKvList (fn)</a></p>
 <p><a href="#parseQuery">parseQuery (fn)</a></p>
@@ -170,12 +176,10 @@ code {
 <p><a href="#reloadRow">reloadRow (fn)</a></p>
 <p><a href="#reloadSite">reloadSite (fn)</a></p>
 <p><a href="#reloadTmp">reloadTmp (fn)</a></p>
-<p><a href="#retdata">retdata (key)</a></p>
 <p><a href="#rgb2hex">rgb2hex (fn)</a></p>
 <p><a href="#rs2Array">rs2Array (fn)</a></p>
 <p><a href="#rs2Hash">rs2Hash (fn)</a></p>
 <p><a href="#rs2MultiHash">rs2MultiHash (fn)</a></p>
-<p><a href="#savedata">savedata (key)</a></p>
 <p><a href="#setApp">setApp (fn)</a></p>
 <p><a href="#setCookie">setCookie (fn)</a></p>
 <p><a href="#setDateBox">setDateBox (fn)</a></p>
@@ -184,7 +188,6 @@ code {
 <p><a href="#setStorage">setStorage (fn)</a></p>
 <p><a href="#setTimeBox">setTimeBox (fn)</a></p>
 <p><a href="#setupCallSvrViaForm">setupCallSvrViaForm (fn)</a></p>
-<p><a href="#show">show (key)</a></p>
 <p><a href="#showDlg">showDlg (fn)</a></p>
 <p><a href="#showLoading">showLoading (fn)</a></p>
 <p><a href="#showObjDlg">showObjDlg (fn)</a></p>
@@ -301,7 +304,7 @@ code {
 <pre><code>&lt;a href="#pageOrder" class="easyui-linkbutton" icon="icon-ok"&gt;订单管理&lt;/a&gt;&lt;br/&gt;&lt;br/&gt;</code></pre>
 <h5 id="WUI-1.3 定义页面初始化函数">1.3 定义页面初始化函数</h5>
 <p>打开页面后，页面的生存周期如下：</p>
-<p class="key"><strong>@key <a id="pagecreate,pageshow,pagedestroy">pagecreate,pageshow,pagedestroy</a></strong>  页面事件</p>
+<p class="key"><strong>@key <a id="event-pagecreate,pageshow,pagedestroy">event-pagecreate,pageshow,pagedestroy</a></strong>  页面事件</p>
 <p class="key"><strong>@key <a id="wui-pageName">wui-pageName</a></strong>  属性：页面名</p>
 <p class="key"><strong>@key <a id=".wui-page">.wui-page</a></strong>  页面类</p>
 <ul>
@@ -1342,6 +1345,83 @@ function onSubmit()
 <p>和使用$.data()差不多，更好用一些. 例：</p>
 <pre><code>$(o).jdata().hello = 100;
 $(o).jdata({hello:100, world:200});</code></pre><hr>
+<h2 id="compressImg">@fn compressImg(img, cb, opt)</h2>
+<p>通过限定图片大小来压缩图片，用于图片预览和上传。<br />
+不支持IE8及以下版本。</p>
+<ul>
+<li>img: Image对象</li>
+<li>cb: Function(picData) 回调函数</li>
+<li>opt: {quality=0.8, maxSize=1280, mimeType?=&quot;image/jpeg&quot;}</li>
+<li>opt.maxSize: 压缩完后宽、高不超过该值。为0表示不压缩。</li>
+<li>opt.quality: 0.0-1.0之间的数字。</li>
+<li>opt.mimeType: 输出MIME格式。</li>
+</ul>
+<p>函数cb的回调参数: picData={b64src,blob,w,h,w0,h0,quality,name,mimeType,size0,size,b64size,info}</p>
+<p>b64src为base64格式的Data URL, 如 &quot;data:image/jpeg;base64,/9j/4AAQSk...&quot;, 用于给image或background-image赋值显示图片；</p>
+<p>可以赋值给Image.src:</p>
+<pre><code>var img = new Image();
+img.src = picData.b64src;</code></pre>
+<p>或</p>
+<pre><code>$("&lt;div&gt;").css("background-image", "url(" + picData.b64src + ")");</code></pre>
+<p>blob用于放到FormData中上传：</p>
+<pre><code>fd.append('file', picData.blob, picData.name);</code></pre>
+<p>其它picData属性：</p>
+<ul>
+<li>w0,h0,size0分别为原图宽、高、大小; w,h,size为压缩后图片的宽、高、大小。</li>
+<li>quality: jpeg压缩质量,0-1之间。</li>
+<li>mimeType: 输出的图片格式</li>
+<li>info: 提示信息，会在console中显示。用于调试。</li>
+</ul>
+<p><strong>[预览和上传示例]</strong></p>
+<p>HTML:</p>
+<pre><code>&lt;form action="upfile.php"&gt;
+    &lt;div class="img-preview"&gt;&lt;/div&gt;
+    &lt;input type="file" /&gt;&lt;br/&gt;
+    &lt;input type="submit" &gt;
+&lt;/form&gt;</code></pre>
+<p>用picData.b64src来显示预览图，并将picData保存在img.picData_属性中，供后面上传用。</p>
+<pre><code>var jfrm = $("form");
+var jpreview = jfrm.find(".img-preview");
+var opt = {maxSize:1280};
+jfrm.find("input[type=file]").change(function (ev) {
+    $.each(this.files, function (i, fileObj) {
+        compressImg(fileObj, function (picData) {
+            $("&lt;img&gt;").attr("src", picData.b64src)
+                .prop("picData_", picData)
+                .appendTo(jpreview);
+            //$("&lt;div&gt;").css("background-image", "url("+picData.b64src+")").appendTo(jpreview);
+        }, opt);
+    });
+    this.value = "";
+});</code></pre>
+<p>上传picData.blob到服务器</p>
+<pre><code>jfrm.submit(function (ev) {
+    ev.preventDefault();
+
+    var fd = new FormData();
+    var idx = 1;
+    jpreview.find("img").each(function () {
+        // 名字要不一样，否则可能会覆盖
+        fd.append('file' + idx, this.picData_.blob, this.picData_.name);
+        ++idx;
+    });
+
+    $.ajax({
+        url: jfrm.attr("action"),
+        data: fd,
+        processData: false,
+        contentType: false,
+        type: 'POST',
+        // 允许跨域调用
+        xhrFields: {
+            withCredentials: true
+        },
+        success: cb
+    });
+    return false;
+});</code></pre>
+<p>参考：JIC.js (<a href="https://github.com/brunobar79/J-I-C">https://github.com/brunobar79/J-I-C</a>)</p>
+<p>TODO: 用完后及时释放内存，如调用revokeObjectURL等。</p><hr>
 <h2 id="evalAttr">@fn evalAttr(jo, name)</h2>
 <p>返回一个属性做eval后的js值。</p>
 <p>示例：读取一个对象值：</p>
@@ -1880,8 +1960,9 @@ callSvr("User.get", {res: "id,phone"}, api_UserGet);</code></pre>
 <h2 id="reload">@fn reload(jtbl, url?, queryParams?)</h2><hr>
 <h2 id="reloadTmp">@fn reloadTmp(jtbl, url?, queryParams?) </h2>
 <p>临时reload一下，完事后恢复原url</p><hr>
-<h2 id="reloadRow">@fn reloadRow(jtbl, rowData)</h2>
-<p class="param"><strong>@param rowData</strong>  must be the original data from table row</p><hr>
+<h2 id="reloadRow">@fn reloadRow(jtbl, rowData?)</h2>
+<p class="param"><strong>@param rowData</strong>  must be the original data from table row</p>
+<p>rowData如果未指定，则使用当前选择的行。</p><hr>
 <h2 id="showPage">@fn showPage(pageName, title?, paramArr?)</h2>
 <p class="param"><strong>@param pageName</strong>  由page上的class指定。</p>
 <p class="param"><strong>@param title</strong> ? 如果未指定，则使用page上的title属性.</p>
@@ -1934,7 +2015,8 @@ opt.onOk(jdlg); // 同上</code></pre>
 <p>调用此函数后，对话框将加上以下CSS Class:</p>
 <p class="key"><strong>@key <a id=".wui-dialog">.wui-dialog</a></strong>  标识WUI对话框的类名。</p>
 <p><strong>对象型对话框与formMode</strong></p>
-<p>函数showObjDlg()会调用本函数显示对话框，称为对象型对话框，用于对象增删改查，它将以下操作集中在一起，并设置相应的formMode：</p>
+<p>函数showObjDlg()会调用本函数显示对话框，称为对象型对话框，用于对象增删改查，它将以下操作集中在一起。<br />
+打开窗口时，会设置窗口模式(formMode):</p>
 <ul>
 <li>查询(FormMode.forFind)</li>
 <li>显示及更新(FormMode.forSet)</li>
@@ -1947,32 +2029,38 @@ opt.onOk(jdlg); // 同上</code></pre>
 <li>非对象型对话框的formMode为空。</li>
 <li>对象型对话框由框架自动设置各opt选项，一般不应自行修改opt，而是通过处理对话框事件实现逻辑。</li>
 </ul>
-<p>对象型对话框事件：</p>
-<pre><code>beforeshow(formMode, opt)事件。显示对话框前触发。可以通过设置opt参数定制对话框，与调用showDlg时传入opt参数相同效果
-show(formMode, opt.data)事件。显示对话框后触发。这时opt.data已经设置到对话框上带name属性的DOM组件中，一些不能直接显示的字段，可在此时设置到DOM组件上，比如图片等。
-validate(formMode, opt.data, newData)事件。用于提交前验证、补齐数据等。返回false可取消提交。(v5.1)在newData中设置参数，会增加到POST请求中。
-retdata(data, formMode)事件。服务端返回结果时触发。注意forFind模式不会触发。</code></pre>
-<p>初始数据与对话框中带name属性的对象相关联，详见</p>
+<p>初始数据与对话框中带name属性的对象相关联，显示对话框时，带name属性的DOM对象将使用数据opt.data自动赋值(对话框show事件中可修改)，在点“确定”按钮提交时将改动的数据发到服务端(validate事件中可修改)，详见</p>
 <p class="see"><strong>@see <a href="#setFormData">setFormData</a> <a href="#getFormData">getFormData</a></strong> </p>
+<p><strong>对话框事件</strong></p>
+<p>操作对话框时会发出以下事件供回调：</p>
+<pre><code>beforeshow - 对话框显示前。常用来处理对话框显示参数opt或初始数据opt.data.
+show - 显示对话框后。常用来设置字段值或样式，隐藏字段、初始化子表datagrid或隐藏子表列等。
+validate - 用于提交前验证、补齐数据等。返回false可取消提交。
+retdata - 服务端返回结果时触发。用来根据服务器返回数据继续处理，如再次调用接口。</code></pre>
 <p>注意：</p>
 <ul>
 <li>旧版本中的initdata, loaddata, savedata将废弃，应分别改用beforeshow, show, validate事件替代，注意事件参数及检查对话框模式。</li>
 </ul>
-<p><strong>对话框事件</strong></p>
-<p class="key"><strong>@key <a id="beforeshow">beforeshow</a></strong>  Function(ev, formMode, opt)  对话框显示前事件</p>
-<p>opt参数即showDlg的opt参数，可在此处修改，例如修改opt.title可以设置对话框标题。<br />
-opt.objParam参数是由showObjDlg传入给dialog的参数，比如opt.objParam.obj, opt.objParam.formMode等。<br />
-通过修改opt.data可为字段设置缺省值。注意forFind模式下opt.data为空。<br />
-可以通过在beforeshow中用setTimeout延迟执行某些动作，这与在show事件中回调操作效果基本一样。</p>
+<p class="key"><strong>@key <a id="event-beforeshow">event-beforeshow</a></strong> (ev, formMode, opt)</p>
+<p>显示对话框前触发。</p>
+<ul>
+<li>opt参数即showDlg的opt参数，可在此处修改，例如修改opt.title可以设置对话框标题。</li>
+<li>opt.objParam参数是由showObjDlg传入给dialog的参数，比如opt.objParam.obj, opt.objParam.formMode等。</li>
+<li>通过修改opt.data可为字段设置缺省值。注意forFind模式下opt.data为空。</li>
+<li>可以通过在beforeshow中用setTimeout延迟执行某些动作，这与在show事件中回调操作效果基本一样。</li>
+</ul>
 <p>注意：每次调用showDlg()都会回调，可能这时对话框已经在显示。</p>
-<p class="key"><strong>@key <a id="show">show</a></strong>  Function(ev, formMode, initData)  对话框显示后事件.</p>
-<p>用于设置DOM组件。<br />
+<p class="key"><strong>@key <a id="event-show">event-show</a></strong> (ev, formMode, initData)</p>
+<p>对话框显示后事件，用于设置DOM组件。<br />
 注意如果在beforeshow事件中设置DOM，对于带name属性的组件会在加载数据时值被覆盖回去，对它们在beforeshow中只能通过设置opt.data来指定缺省值。</p>
-<p class="key"><strong>@key <a id="retdata">retdata</a></strong>  Function(ev, data, formMode) form提交后事件，用于处理返回数据</p>
+<p class="key"><strong>@key <a id="event-validate">event-validate</a></strong> (ev, formMode, initData, newData)</p>
+<p>initData为初始数据，如果要验证或修改待提交数据，应直接检查form中相应DOM元素的值。如果需要增加待提交字段，可加到newData中去。示例：添加参数: newData.mystatus='CR';</p>
+<p class="key"><strong>@key <a id="event-retdata">event-retdata</a></strong> (ev, data, formMode)</p>
+<p>form提交后事件，用于处理返回数据</p>
 <p>以下事件将废弃：</p>
-<p class="key"><strong>@key <a id="initdata">initdata</a></strong>  Function(ev, initData, formMode) 加载数据前触发。可修改要加载的数据initData, 用于为字段设置缺省值。将废弃，改用beforeshow事件。</p>
-<p class="key"><strong>@key <a id="loaddata">loaddata</a></strong>  Function(ev, initData, formMode) form加载数据后，一般用于将服务端数据转为界面显示数据。将废弃，改用show事件。</p>
-<p class="key"><strong>@key <a id="savedata">savedata</a></strong>  Function(ev, formMode, initData) 对于设置了opt.url的窗口，将向后台提交数据，提交前将触发该事件，用于验证或补足数据（修正某个）将界面数据转为提交数据. 返回false或调用ev.preventDefault()可阻止form提交。将废弃，改用validate事件。</p>
+<p class="key"><strong>@key <a id="event-initdata">event-initdata</a></strong> (ev, initData, formMode) 加载数据前触发。可修改要加载的数据initData, 用于为字段设置缺省值。将废弃，改用beforeshow事件。</p>
+<p class="key"><strong>@key <a id="event-loaddata">event-loaddata</a></strong> (ev, initData, formMode) form加载数据后，一般用于将服务端数据转为界面显示数据。将废弃，改用show事件。</p>
+<p class="key"><strong>@key <a id="event-savedata">event-savedata</a></strong> (ev, formMode, initData) 对于设置了opt.url的窗口，将向后台提交数据，提交前将触发该事件，用于验证或补足数据（修正某个）将界面数据转为提交数据. 返回false或调用ev.preventDefault()可阻止form提交。将废弃，改用validate事件。</p>
 <p class="see"><strong>@see <a href="#example-dialog">example-dialog</a></strong>  在对话框中使用事件</p>
 <p><strong>reset控制</strong></p>
 <p>对话框上有name属性的组件在显示对话框时会自动清除（除非设置opt.reset=false或组件设置有noReset属性）。</p>
@@ -2004,10 +2092,11 @@ WUI.reloadDialog(true); // 重置所有外部加载的对话框(v5.1)</code></pr
 <h2 id="showObjDlg">@fn showObjDlg(jdlg, mode, opt?={jtbl, id, obj})</h2>
 <p class="param"><strong>@param jdlg</strong>  可以是jquery对象，也可以是selector字符串或DOM对象，比如 "#dlgOrder". 注意：当对话框保存为单独模块时，jdlg=$("#dlgOrder") 一开始会为空数组，这时也可以调用该函数，且调用后jdlg会被修改为实际加载的对话框对象。</p>
 <p class="param"><strong>@param opt.id</strong>  String. mode=link时必设，set/del如缺省则从关联的opt.jtbl中取, add/find时不需要</p>
-<p class="param"><strong>@param opt.jdbl</strong>  Datagrid. dialog/form关联的datagrid -- 如果dlg对应多个tbl, 必须每次打开都设置</p>
+<p class="param"><strong>@param opt.jtbl</strong>  Datagrid. dialog/form关联的datagrid -- 如果dlg对应多个tbl, 必须每次打开都设置</p>
 <p class="param"><strong>@param opt.obj</strong>  String. (v5.1) 对象对话框的对象名，如果未指定，则从my-obj属性获取。通过该参数可动态指定对象名。</p>
 <p class="param"><strong>@param opt.offline</strong>  Boolean. (v5.1) 不与后台交互。</p>
 <p class="param"><strong>@param opt.title</strong>  String. (v5.1) 指定对话框标题。</p>
+<p class="key"><strong>@key <a id="objParam">objParam</a></strong>  对象对话框的初始参数。</p>
 <p>(v5.1)<br />
 此外，通过设置jdlg.objParam，具有和设置opt参数一样的功能，常在initPageXXX中使用，因为在page中不直接调用showObjDlg.<br />
 示例：</p>
@@ -2018,7 +2107,7 @@ showObjDlg(jdlg, FormMode.forSet, {id:101});
 <p>在dialog的事件beforeshow(ev, formMode, opt)中，可以通过opt.objParam取出showObjDlg传入的所有参数opt。</p>
 <p class="param"><strong>@param opt.onCrud</strong>  Function(). (v5.1) 对话框操作完成时回调。</p>
 <p>一般用于点击表格上的增删改查工具按钮完成操作时插入逻辑。<br />
-在回调函数中this对象为optParam，且可通过this.mode获取操作类型。示例：</p>
+在回调函数中this对象就是objParam，可通过this.mode获取操作类型。示例：</p>
 <pre><code>jdlg1.objParam = {
     offline: true,
     onCrud: function () {
@@ -2026,6 +2115,8 @@ showObjDlg(jdlg, FormMode.forSet, {id:101});
             // after delete row
         }
         // ... 重新计算金额
+        // ... 刷新关联的表格行
+        // opt.objParam.reloadRow();
     }
 };
 jtbl.datagrid({
@@ -2033,6 +2124,16 @@ jtbl.datagrid({
     onDblClickRow: WUI.dg_dblclick(jtbl, jdlg1),
     ...
 });</code></pre>
+<p>在dialog逻辑中使用objParam:</p>
+<pre><code>function initDlgXXX() {
+    // ...
+    jdlg.on("beforeshow", onBeforeShow);
+
+    function onBeforeShow(ev, formMode, opt) {
+        var objParam = opt.objParam; // {id, mode, jtbl?, offline?...}
+    }
+}</code></pre>
+<p class="param"><strong>@param opt.reloadRow</strong> () 可用于刷新本对话框关联的表格行数据</p>
 <p>事件参考：</p>
 <p class="see"><strong>@see <a href="#showDlg">showDlg</a></strong> </p><hr>
 <h2 id="dg_toolbar">@fn dg_toolbar(jtbl, jdlg, button_lists...)</h2>
