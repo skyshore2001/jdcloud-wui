@@ -33,7 +33,7 @@ code {
 </head>
 
 <h1>WUI</h1>
-<div>最后更新：2018-12-11</div>
+<div>最后更新：2018-12-30</div>
 <h2>Modules</h2>
 <div class="toc">
 <p><a href="#WUI">WUI (module)</a></p>
@@ -65,6 +65,7 @@ code {
 <p><a href="#Plugins">Plugins (class)</a></p>
 <p><a href="#Plugins.exists">Plugins.exists (fn)</a></p>
 <p><a href="#Plugins.list">Plugins.list (fn)</a></p>
+<p><a href="#STORAGE_PREFIX">STORAGE_PREFIX (var)</a></p>
 <p><a href="#WUI">WUI (module)</a></p>
 <p><a href="#[noReset]">[noReset] (key)</a></p>
 <p><a href="#a[href=">a[href= (key)</a></p>
@@ -72,11 +73,13 @@ code {
 <p><a href="#app_abort">app_abort (fn)</a></p>
 <p><a href="#app_alert">app_alert (fn)</a></p>
 <p><a href="#app_confirm">app_confirm (fn)</a></p>
+<p><a href="#app_progress">app_progress (fn)</a></p>
 <p><a href="#app_show">app_show (fn)</a></p>
 <p><a href="#appendParam">appendParam (fn)</a></p>
 <p><a href="#applyTpl">applyTpl (fn)</a></p>
 <p><a href="#assert">assert (fn)</a></p>
 <p><a href="#batchCall">batchCall (class)</a></p>
+<p><a href="#batchOp">batchOp (fn)</a></p>
 <p><a href="#callSvr">callSvr (fn)</a></p>
 <p><a href="#callSvr.noex">callSvr.noex (key)</a></p>
 <p><a href="#callSvrExt">callSvrExt (key)</a></p>
@@ -87,6 +90,7 @@ code {
 <p><a href="#callSvrSync">callSvrSync (fn)</a></p>
 <p><a href="#closeDlg">closeDlg (fn)</a></p>
 <p><a href="#compressImg">compressImg (fn)</a></p>
+<p><a href="#data-options">data-options (key)</a></p>
 <p><a href="#datagrid.formatter">datagrid.formatter (key)</a></p>
 <p><a href="#datagrid.sortable">datagrid.sortable (key)</a></p>
 <p><a href="#datagrid.sorter">datagrid.sorter (key)</a></p>
@@ -123,6 +127,7 @@ code {
 <p><a href="#getAncestor">getAncestor (fn)</a></p>
 <p><a href="#getBaseUrl">getBaseUrl (fn)</a></p>
 <p><a href="#getCookie">getCookie (fn)</a></p>
+<p><a href="#getDataOptions">getDataOptions (fn)</a></p>
 <p><a href="#getExportHandler">getExportHandler (fn)</a></p>
 <p><a href="#getFormData">getFormData (fn)</a></p>
 <p><a href="#getOptions">getOptions (fn)</a></p>
@@ -195,6 +200,7 @@ code {
 <p><a href="#tabClose">tabClose (fn)</a></p>
 <p><a href="#tabMain">tabMain (var)</a></p>
 <p><a href="#tobool">tobool (fn)</a></p>
+<p><a href="#triggerAsync">triggerAsync (fn)</a></p>
 <p><a href="#tryAutoLogin">tryAutoLogin (fn)</a></p>
 <p><a href="#unloadDialog">unloadDialog (fn)</a></p>
 <p><a href="#unloadPage">unloadPage (fn)</a></p>
@@ -247,31 +253,35 @@ code {
 <p>列表页使用逻辑页面定义如下（放在div#my-pages之下），它最终展示为一个tab页：</p>
 <pre><code>&lt;div id="my-pages" style="display:none"&gt;
     ...
-    &lt;div class="pageOrder" title="订单管理" my-initfn="initPageOrder"&gt;
-        &lt;table id="tblOrder" style="width:auto;height:auto"&gt;
-            &lt;thead&gt;&lt;tr&gt;
-                &lt;th data-options="field:'id', sortable:true, sorter:intSort"&gt;订单号&lt;/th&gt;
-                &lt;th data-options="field:'userPhone', sortable:true"&gt;用户联系方式&lt;/th&gt;
-                &lt;th data-options="field:'createTm', sortable:true"&gt;创建时间&lt;/th&gt;
-                &lt;th data-options="field:'status', jdEnumMap: OrderStatusMap, formatter:Formatter.orderStatus, styler:OrderColumns.statusStyler, sortable:true"&gt;状态&lt;/th&gt;
-                &lt;th data-options="field:'dscr', sortable:true"&gt;描述&lt;/th&gt;
-                &lt;th data-options="field:'cmt'"&gt;用户备注&lt;/th&gt;
-            &lt;/tr&gt;&lt;/thead&gt;
-        &lt;/table&gt;
-    &lt;/div&gt;
+    &lt;script type="text/html" id="tpl_pageOrder"&gt;
+        &lt;div class="pageOrder" title="订单管理" my-initfn="initPageOrder"&gt;
+            &lt;table id="tblOrder" style="width:auto;height:auto"&gt;
+                &lt;thead&gt;&lt;tr&gt;
+                    &lt;th data-options="field:'id', sortable:true, sorter:intSort"&gt;订单号&lt;/th&gt;
+                    &lt;th data-options="field:'userPhone', sortable:true"&gt;用户联系方式&lt;/th&gt;
+                    &lt;th data-options="field:'createTm', sortable:true"&gt;创建时间&lt;/th&gt;
+                    &lt;th data-options="field:'status', jdEnumMap: OrderStatusMap, formatter:Formatter.orderStatus, styler:OrderColumns.statusStyler, sortable:true"&gt;状态&lt;/th&gt;
+                    &lt;th data-options="field:'dscr', sortable:true"&gt;描述&lt;/th&gt;
+                    &lt;th data-options="field:'cmt'"&gt;用户备注&lt;/th&gt;
+                &lt;/tr&gt;&lt;/thead&gt;
+            &lt;/table&gt;
+        &lt;/div&gt;
+    &lt;/script&gt;
 &lt;/div&gt;</code></pre>
 <p>注意：</p>
 <ul>
+<li>逻辑页的定义建议放在script标签中，便于按需加载，性能更佳（后面模块化时还会讲到放到单独文件中）。模板id为&quot;tpl_pageOrder&quot;，应与页面名相对应，否则无法加载。</li>
 <li>逻辑页面div.pageOrder，属性class=&quot;pageOrder&quot;定义了该逻辑页面的名字。它将作为页面模板，在WUI.showPage(&quot;pageOrder&quot;)时复制一份显示出来。</li>
 <li>属性my-initfn定义了该页面的初始化函数. 在初次调用WUI.showPage时，会执行该初始化函数，用于初始化列表，设定事件处理等。</li>
 <li>逻辑页面下包含了一个table，用于显示订单列表。里面每列对应订单的相关属性。</li>
 <li>table由jquery-easyui的datagrid组件实现，文档参考：<a href="http://www.jeasyui.com/documentation/datagrid.php">http://www.jeasyui.com/documentation/datagrid.php</a> 此外，data-options中的以jd开头的字段为jdcloud框架定义。</li>
 </ul>
 <p>详情页展示为一个对话框，也将它也放在 div#my-pages 下。定义如下（此处为展示原理已简化）：</p>
-<pre><code>&lt;div id="dlgOrder" my-obj="Ordr" my-initfn="initDlgOrder" title="用户订单" style="width:520px;height:500px;"&gt;  
-    &lt;form method="POST"&gt;
-        订单号：&lt;input name="id" disabled&gt;&lt;/td&gt;
-        订单状态：
+<pre><code>&lt;script type="text/html" id="tpl_dlgOrder"&gt;
+    &lt;div id="dlgOrder" my-obj="Ordr" my-initfn="initDlgOrder" title="用户订单" style="width:520px;height:500px;"&gt;  
+        &lt;form method="POST"&gt;
+            订单号：&lt;input name="id" disabled&gt;&lt;/td&gt;
+            订单状态：
                     &lt;select name="status" style="width:150px"&gt;
                         &lt;option value=""&gt;&amp;nbsp;&lt;/option&gt;
                         &lt;option value="CR"&gt;未付款&lt;/option&gt;
@@ -282,10 +292,12 @@ code {
                         &lt;option value="CA"&gt;已取消&lt;/option&gt;
                     &lt;/select&gt;
         用户备注：&lt;textarea name="cmt" rows=3 cols=30&gt;&lt;/textarea&gt;
-    &lt;/form&gt;
-&lt;div&gt;</code></pre>
+        &lt;/form&gt;
+    &lt;div&gt;
+&lt;/script&gt;</code></pre>
 <p>注意：</p>
 <ul>
+<li>对话框的定义建议放在script标签中，便于按需加载，性能更佳（后面模块化时还会讲到放到单独文件中）。模板id为&quot;tpl_dlgOrder&quot;应与对话框名相应，否则无法加载。</li>
 <li>对话框div#dlgOrder. 与列表页使用class标识名称不同，详情页对话框以id标识（因为全局共用一个对话框，而列表页可以复制为多个同时显示）。</li>
 <li>对话框上定义了 &quot;my-obj&quot;属性，用于标识它对应的服务端对象名。对象增删改查操作都会用到它。</li>
 <li>对话框的属性 my-initfn 定义了初始化函数，在首次显示时调用。</li>
@@ -887,11 +899,20 @@ WUI.useBatchCall();</code></pre>
 }</code></pre>
 <p>这时，就可以用 WUI.showObjDlg(&quot;#dlgOrder&quot;)来显示逻辑页了。</p>
 <h6 id="WUI-3.1 批量更新、批量删除">3.1 批量更新、批量删除</h6>
-<p>(v5.2) 按住Ctrl键进行批量处理模式。</p>
-<p>先搜索出要更新或删除的记录：</p>
+<p>(v5.2)<br />
+列表页支持两种批量操作模式。</p>
 <ul>
+<li>基于多选行
+<ul>
+<li>在数据表中按Ctrl多选；或按Shift连续选择。</li>
+<li>点击删除菜单，或在修改对话框点确定时，一旦发现是多选，则执行批量删除或批量更新。</li>
+</ul></li>
+<li>基于过滤条件
+<ul>
+<li>先搜索出要更新或删除的记录：</li>
 <li>批量更新：双击任意一行打开对话框，修改后按住Ctrl点击确定按钮，批量更新所有表中的内容。</li>
 <li>批量删除：按住Ctrl键点数据表上面的“删除”按钮，即是批量删除所有表中的内容。</li>
+</ul></li>
 </ul>
 <p>服务端应支持<code>{obj}.setIf(cond)</code>及<code>{obj}.delIf(cond)</code>接口。</p>
 <h5 id="WUI-3.1 页面模板支持">3.1 页面模板支持</h5>
@@ -1024,17 +1045,20 @@ var days = dt.diff("d", dt2); // 相隔多少天</code></pre>
 <p class="see"><strong>@see <a href="#setCookie">setCookie</a></strong> </p><hr>
 <h2 id="setStorage">@fn setStorage(name, value, useSession?=false)</h2>
 <p>使用localStorage存储(或使用sessionStorage存储, 如果useSession=true)。<br />
-注意只能存储字符串，所以value不可以为数组，对象等，必须序列化后存储。 </p>
-<p>如果浏览器不支持Storage，则使用cookie实现.</p>
+value可以是简单类型，也可以为数组，对象等，后者将自动在序列化后存储。 </p>
+<p>如果设置了window.STORAGE_PREFIX, 则键值(name)会加上该前缀.</p>
 <p>示例：</p>
 <pre><code>setStorage("id", "100");
 var id = getStorage("id");
 delStorage("id");</code></pre>
-<p>示例2：对象需要序列化后存储：</p>
-<pre><code>var obj = {id:10, name:"Jason"};
-setStorage("obj", JSON.stringify(obj));
+<p>示例2：存储对象:</p>
+<pre><code>window.STORAGE_PREFIX = "jdcloud_"; // 一般在app.js中全局设置
+var obj = {id:10, name:"Jason"};
+setStorage("obj", obj);   // 实际存储键值为 "jdcloud_obj"
 var obj2 = getStorage("obj");
 alert(obj2.name);</code></pre>
+<p class="var"><strong>@var <a id="STORAGE_PREFIX">STORAGE_PREFIX</a></strong>  本地存储的键值前缀</p>
+<p>如果指定, 则调用setStorage/getStorage/delStorage时都将自动加此前缀, 避免不同项目的存储项冲突.</p>
 <p class="see"><strong>@see <a href="#getStorage">getStorage</a></strong> </p>
 <p class="see"><strong>@see <a href="#delStorage">delStorage</a></strong> </p><hr>
 <h2 id="getStorage">@fn getStorage(name, useSession?=false)</h2>
@@ -1422,6 +1446,31 @@ jfrm.find("input[type=file]").change(function (ev) {
 });</code></pre>
 <p>参考：JIC.js (<a href="https://github.com/brunobar79/J-I-C">https://github.com/brunobar79/J-I-C</a>)</p>
 <p>TODO: 用完后及时释放内存，如调用revokeObjectURL等。</p><hr>
+<h2 id="getDataOptions">@fn getDataOptions(jo, defVal?)</h2>
+<p class="key"><strong>@key <a id="data-options">data-options</a></strong> </p>
+<p>读取jo上的data-options属性，返回JS对象。例如：</p>
+<pre><code>&lt;div data-options="a:1,b:'hello',c:true"&gt;&lt;/div&gt;</code></pre>
+<p>上例可返回 <code>{a:1, b:'hello', c:true}</code>.</p>
+<p>也支持各种表达式及函数调用，如：</p>
+<pre><code>&lt;div data-options="getSomeOption()"&gt;&lt;/div&gt;</code></pre>
+<p class="see"><strong>@see <a href="#getOptions">getOptions</a></strong> </p><hr>
+<h2 id="triggerAsync">@fn triggerAsync(jo, ev, paramArr)</h2>
+<p>触发含有异步操作的事件，在异步事件完成后继续。兼容同步事件处理函数，或多个处理函数中既有同步又有异步。<br />
+返回Deferred对象，或false表示要求取消之后操作。</p>
+<p class="param"><strong>@param ev</strong>  事件名，或事件对象$.Event()</p>
+<p>示例：以事件触发方式调用jo的异步方法submit:</p>
+<pre><code>var dfd = WUI.triggerAsync(jo, 'submit');
+if (dfd === false)
+    return;
+dfd.then(doNext);
+
+function doNext() { }</code></pre>
+<p>jQuery对象这样提供异步方法：triggerAsync会用事件对象ev创建一个dfds数组，将Deferred对象存入即可支持异步调用。</p>
+<pre><code>jo.on('submit', function (ev) {
+    var dfd = $.ajax("upload", ...);
+    if (ev.dfds)
+        ev.dfds.push(dfd);
+});</code></pre><hr>
 <h2 id="evalAttr">@fn evalAttr(jo, name)</h2>
 <p>返回一个属性做eval后的js值。</p>
 <p>示例：读取一个对象值：</p>
@@ -1449,7 +1498,10 @@ jfrm.find("input[type=file]").change(function (ev) {
 allow throw(&quot;abort&quot;) as abort behavior.</p><hr>
 <h2 id="m_enhanceFn">@var m_enhanceFn</h2><hr>
 <h2 id="enhanceWithin">@fn enhanceWithin(jparent)</h2><hr>
-<h2 id="getOptions">@fn getOptions(jo)</h2><hr>
+<h2 id="getOptions">@fn getOptions(jo, defVal?)</h2>
+<p>第一次调用，根据jo上设置的data-options属性及指定的defVal初始化，或为<code>{}</code>。<br />
+存到jo.prop(&quot;muiOptions&quot;)上。之后调用，直接返回该属性。</p>
+<p class="see"><strong>@see <a href="#getDataOptions">getDataOptions</a></strong> </p><hr>
 <h2 id="getQueryCond">@fn getQueryCond(kvList)</h2>
 <p class="var"><strong>@var <a id="queryHint">queryHint</a></strong>  查询用法提示</p>
 <p class="param"><strong>@param kvList</strong>  {key=>value}, 键值对，值中支持操作符及通配符。也支持格式 [ [key, value] ], 这时允许key有重复。</p>
@@ -2035,7 +2087,7 @@ opt.onOk(jdlg); // 同上</code></pre>
 <p>操作对话框时会发出以下事件供回调：</p>
 <pre><code>beforeshow - 对话框显示前。常用来处理对话框显示参数opt或初始数据opt.data.
 show - 显示对话框后。常用来设置字段值或样式，隐藏字段、初始化子表datagrid或隐藏子表列等。
-validate - 用于提交前验证、补齐数据等。返回false可取消提交。
+validate - 用于提交前验证、补齐数据等。返回false可取消提交。(v5.2) 支持其中有异步操作.
 retdata - 服务端返回结果时触发。用来根据服务器返回数据继续处理，如再次调用接口。</code></pre>
 <p>注意：</p>
 <ul>
@@ -2055,6 +2107,19 @@ retdata - 服务端返回结果时触发。用来根据服务器返回数据继�
 注意如果在beforeshow事件中设置DOM，对于带name属性的组件会在加载数据时值被覆盖回去，对它们在beforeshow中只能通过设置opt.data来指定缺省值。</p>
 <p class="key"><strong>@key <a id="event-validate">event-validate</a></strong> (ev, formMode, initData, newData)</p>
 <p>initData为初始数据，如果要验证或修改待提交数据，应直接检查form中相应DOM元素的值。如果需要增加待提交字段，可加到newData中去。示例：添加参数: newData.mystatus='CR';</p>
+<p>(v5.2) validate事件支持返回Deferred对象支持异步操作.<br />
+示例: 在提交前先弹出对话框询问. 由于app_alert是异步对话框, 需要将一个Deferred对象放入ev.dfds数组, 告诉框架等待ev.dfds中的延迟对象都resolve后再继续执行.</p>
+<pre><code>jdlg.on("validate", onValidate);
+function onValidate(ev, mode, oriData, newData) 
+{
+    var dfd = $.Deferred();
+    app_alert("确认?", "q", function () {
+        console.log("OK!");
+        dfd.resolve();
+    });
+    ev.dfds.push(dfd.promise());
+}</code></pre>
+<p>常用于在validate中异步调用接口(比如上传文件).</p>
 <p class="key"><strong>@key <a id="event-retdata">event-retdata</a></strong> (ev, data, formMode)</p>
 <p>form提交后事件，用于处理返回数据</p>
 <p>以下事件将废弃：</p>
@@ -2071,6 +2136,49 @@ retdata - 服务端返回结果时触发。用来根据服务器返回数据继�
 <p class="key"><strong>@key <a id="[noReset]">[noReset]</a></strong> </p>
 <p>某些字段希望设置后一直保留，不要被清空，可以设置noReset属性，例如：</p>
 <pre><code>&lt;input type="hidden" name="status" value="PA" noReset&gt;</code></pre><hr>
+<h2 id="batchOp">@fn batchOp(obj, ac, jtbl, data/dataFn, onBatchDone?, forceFlag?)</h2>
+<p class="param"><strong>@param ac</strong>  "setIf"/"delIf"</p>
+<p class="param"><strong>@param data/dataFn</strong>  批量操作的参数。</p>
+<p>可以是一个函数dataFn(batchCnt)，参数batchCnt为当前批量操作的记录数。<br />
+该函数返回data或一个Deferred对象(该对象适时应调用dfd.resolve(data)做批量操作)。dataFn返回false表示不做后续处理。</p>
+<p>批量操作支持两种方式: </p>
+<ol>
+<li>基于多选: 按Ctrl/Shift在表上多选，然后点删除或更新，批量操作选中行；</li>
+<li>基于条件: 按住Ctrl键点删除或更新，批量操作过滤条件下的所有行</li>
+</ol>
+<p>函数返回false表示当前非批量处理模式，不予处理。</p>
+<p class="param"><strong>@param forceFlag</strong>  强制批量操作。</p>
+<p>默认仅当多选或按住Ctrl键才认为是批量操作；<br />
+如果值为1，表示无须按Ctrl键，即如果有多选，就用多选；如果没有多选，则使用当前的过滤条件；<br />
+如果值为2，表示只基于选择项操作，即使只选了一项也对其操作。但如果没有选任何行，则使用过滤条件。</p>
+<p>示例：批量更新附件到行记录上, 在onBatch中返回一个Deferred对象，并在获得数据后调用dfd.resolve(data)</p>
+<pre><code>var forceFlag = 1; // 如果没有多选，则按当前过滤条件全部更新。
+WUI.batchOp("Task", "setIf", jtbl, onBatch, function () {
+    WUI.closeDlg(jdlg);
+}, forceFlag);
+
+function onBatch(batchCnt)
+{
+    if (batchCnt == 0) {
+        app_alert("没有记录更新。");
+        return false;
+    }
+    var dfd = $.Deferred();
+    app_alert("批量上传附件到" + batchCnt + "行记录?", "q", function () {
+        var dfd1 = triggerAsync(jdlg.find(".wui-upload"), "submit"); // 异步上传文件，返回Deferred对象
+        dfd1.then(function () {
+            var data = WUI.getFormData(jfrm);
+            dfd.resolve(data);
+        });
+    });
+    return dfd.promise();
+}</code></pre>
+<p class="see"><strong>@see <a href="#triggerAsync">triggerAsync</a></strong>  异步事件调用</p>
+<p>上面函数中处理异步调用链，不易理解，可以简单理解为：</p>
+<pre><code>if (confirm("确认操作?") == no)
+    return;
+jupload.submit();
+return getFormData(jfrm);</code></pre><hr>
 <h2 id="getTopDialog">@fn getTopDialog()</h2>
 <p>取处于最上层的对话框。如果没有，返回jo.size() == 0</p><hr>
 <h2 id="unloadPage">@fn unloadPage(pageName?)</h2>
@@ -2206,6 +2314,8 @@ jtbl.datagrid(dgOpt);</code></pre>
 <p>根据数据表当前设置，获取查询参数。<br />
 可能会设置{cond, orderby, res}参数。</p>
 <p>res参数从列设置中获取，如&quot;id 编号,name 姓名&quot;, 特别地，如果列对应字段以&quot;_&quot;结尾，不会加入res参数。</p>
+<p>(v5.2)<br />
+如果表上有多选行，则导出条件为cond=&quot;t0.id IN (id1, id2)&quot;这种形式。</p>
 <p class="see"><strong>@see <a href="#getExportHandler">getExportHandler</a></strong>  导出Excel</p><hr>
 <h2 id="formatter">@var formatter = {dt, number, pics, flag(yes?=是,no?=否), enum(enumMap), linkTo(field, dlgRef) }</h2>
 <p>常常应用定义Formatter变量来扩展WUI.formatter，如</p>
@@ -2303,6 +2413,10 @@ app_alert("输入要查询的名字:", "p", function (text) {
 <p>使用jQuery easyui弹出确认对话框.</p><hr>
 <h2 id="app_show">@fn app_show(msg)</h2>
 <p>使用jQuery easyui弹出对话框.</p><hr>
+<h2 id="app_progress">@fn app_progress(value, msg?)</h2>
+<p class="param"><strong>@param value</strong>  0-100间数值.</p>
+<p>显示进度条对话框. 达到100%后自动关闭.</p>
+<p>注意：同一时刻只能显示一个进度条。</p><hr>
 <h2 id="makeLinkTo">@fn makeLinkTo(dlg, id, text?=id, obj?)</h2>
 <p>生成一个链接的html代码，点击该链接可以打开指定对象的对话框。</p>
 <p>示例：根据订单号，生成一个链接，点击链接打开订单详情对话框。</p>
@@ -2374,7 +2488,7 @@ WUI.tabMain.tabs("close", idx);</code></pre>
 <p>操作：</p>
 <ul>
 <li>刷新列表： jo.trigger(&quot;refresh&quot;);</li>
-<li>标记刷新（下次打开时刷新）： jo.trigger(&quot;markRefresh&quot;);</li>
+<li>标记刷新（下次打开时刷新）： jo.trigger(&quot;markRefresh&quot;, [obj?]); 如果指定obj，则仅当URL匹配obj的查询接口时才刷新。</li>
 <li>(v5.2)加载列表：jo.trigger(&quot;loadOptions&quot;, param);  一般用于级联列表，即url带参数的情况。</li>
 </ul>
 <p>特性：</p>
@@ -2391,6 +2505,11 @@ WUI.tabMain.tabs("close", idx);</code></pre>
 <li>(v5.0) HTML select组件的jQuery.val()方法被改写。当设置不在范围内的值时，虽然下拉框显示为空，其实际值存储在 value<em> 字段中，(v5.2) 通过jQuery.val()方法仍可获取到。<br />
 用原生JS可以分别取 this.value 和 this.value</em> 字段。</li>
 </ul>
+<p class="param"><strong>@param opt</strong>  {url, jdEnumMap/jdEnumList, formatter, textField, valueField, loadFilter, urlParams, isLoaded_, url_}</p>
+<p class="param"><strong>@param opt.url</strong>  动态加载使用的url，或一个返回URL的函数（这时会调用opt.url(opt.urlParams)得到实际URL，并保存在opt.url_中）</p>
+<p>所以要取URL可以用</p>
+<pre><code>var opt = WUI.getOptions(jo);
+url = opt.url_ || opt.url;</code></pre>
 <h4 id="jquery-mycombobox-1 用url选项加载下拉列表">1 用url选项加载下拉列表</h4>
 <p>例如，想显示所有员工(Employee)的下拉列表，绑定员工编号字段(id)，显示是员工姓名(name):</p>
 <pre><code>分派给 &lt;select name="empId" class="my-combobox" data-options="url:WUI.makeUrl('Employee.query', {res:'id,name',pagesz:-1})"&gt;&lt;/select&gt;</code></pre>

@@ -190,15 +190,20 @@ function enhanceWithin(jp)
 }
 
 /**
-@fn getOptions(jo)
+@fn getOptions(jo, defVal?)
+
+第一次调用，根据jo上设置的data-options属性及指定的defVal初始化，或为`{}`。
+存到jo.prop("muiOptions")上。之后调用，直接返回该属性。
+
+@see getDataOptions
 */
 self.getOptions = getOptions;
-function getOptions(jo)
+function getOptions(jo, defVal)
 {
-	var opt = jo.data("muiOptions");
+	var opt = jo.prop("muiOptions");
 	if (opt === undefined) {
-		opt = {};
-		jo.data("muiOptions", opt);
+		opt = self.getDataOptions(jo, defVal);
+		jo.prop("muiOptions", opt);
 	}
 	return opt;
 }

@@ -25,7 +25,7 @@
 操作：
 
 - 刷新列表： jo.trigger("refresh");
-- 标记刷新（下次打开时刷新）： jo.trigger("markRefresh");
+- 标记刷新（下次打开时刷新）： jo.trigger("markRefresh", [obj?]); 如果指定obj，则仅当URL匹配obj的查询接口时才刷新。
 - (v5.2)加载列表：jo.trigger("loadOptions", param);  一般用于级联列表，即url带参数的情况。
 
 特性：
@@ -41,6 +41,14 @@
 - (v5.0) 接口调用由同步改为异步，以便提高性能并支持batch操作。同步(callSvrSync)便于加载下拉列表后立即为它赋值，改成异步请求(callSvr)后仍支持立即设置值。
 - (v5.0) HTML select组件的jQuery.val()方法被改写。当设置不在范围内的值时，虽然下拉框显示为空，其实际值存储在 value_ 字段中，(v5.2) 通过jQuery.val()方法仍可获取到。
  用原生JS可以分别取 this.value 和 this.value_ 字段。
+
+@param opt {url, jdEnumMap/jdEnumList, formatter, textField, valueField, loadFilter, urlParams, isLoaded_, url_}
+
+@param opt.url 动态加载使用的url，或一个返回URL的函数（这时会调用opt.url(opt.urlParams)得到实际URL，并保存在opt.url_中）
+所以要取URL可以用
+
+	var opt = WUI.getOptions(jo);
+	url = opt.url_ || opt.url;
 
 ## 用url选项加载下拉列表
 
@@ -232,31 +240,13 @@ function mycombobox(force)
 	function initCombobox(i, o)
 	{
 		var jo = $(o);
-		var opts = jo.prop("opts_");
-		if (!force && opts && !opts.dirty)
+		var opts = WUI.getOptions(jo);
+		if (!force && opts.isLoaded_)
 			return;
 
-		var optStr = jo.data("options");
-		try {
-			if (opts == null) {
-				if (optStr != null) {
-					if (optStr.indexOf(":") > 0) {
-						opts = eval("({" + optStr + "})");
-					}
-					else {
-						opts = eval("(" + optStr + ")");
-					}
-				}
-				else {
-					opts = {};
-				}
-				jo.prop("opts_", opts);
-			}
-		}catch (e) {
-			alert("bad options for mycombobox: " + optStr);
-		}
 		if (opts.jdEnumMap || opts.jdEnumList) {
 			loadOptions();
+			opts.isLoaded_ = true;
 		}
 		else if (opts.url) {
 			loadOptions();
@@ -272,11 +262,18 @@ function mycombobox(force)
 			jo.on("refresh", refresh);
 			jo.on("markRefresh", markRefresh);
 			jo.on("loadOptions", function (ev, param) {
-				loadOptions(param);
+				opts.urlParams = param;
+				loadOptions();
+			});
+			jo.click(function () {
+				if (opts.isLoaded_)
+					return;
+				loadOptions();
+				return false;
 			});
 		}
 
-		function loadOptions(param)
+		function loadOptions()
 		{
 			jo.prop("value_", jo.val()); // 备份val到value_
 			jo.empty();
@@ -302,8 +299,8 @@ function mycombobox(force)
 				if (url.length == 0) { // 无参数直接调用
 					url = url();
 				}
-				else if (param != null) {
-					url = url(param);
+				else if (opts.urlParams != null) {
+					url = url(opts.urlParams);
 				}
 				else if (opts.url_) {
 					url = opts.url_;
@@ -314,7 +311,7 @@ function mycombobox(force)
 				// 在url为function时，实际url保存在opts.url_中。确保可刷新。
 				opts.url_ = url;
 			}
-			if (opts.dirty || m_dataCache[url] === undefined) {
+			if (m_dataCache[url] === undefined) {
 				self.callSvr(url, onLoadOptions);
 			}
 			else {
@@ -331,7 +328,7 @@ function mycombobox(force)
 
 		function applyData(data) 
 		{
-			opts.dirty = false;
+			opts.isLoaded_ = true;
 			function getText(row)
 			{
 				if (opts.formatter) {
@@ -372,9 +369,18 @@ function mycombobox(force)
 			loadOptions();
 		}
 
-		function markRefresh()
+		function markRefresh(ev, obj)
 		{
-			opts.dirty = true;
+			var url = opts.url_ || opts.url;
+			if (url == null)
+				return;
+			if (obj) {
+				var ac = obj + ".query";
+				if (url.action != ac)
+					return;
+			}
+			delete m_dataCache[url];
+			opts.isLoaded_ = false;
 		}
 	}
 }

@@ -223,6 +223,60 @@ function app_show(msg)
 }
 
 /**
+@fn app_progress(value, msg?)
+
+@param value 0-100间数值.
+
+显示进度条对话框. 达到100%后自动关闭.
+
+注意：同一时刻只能显示一个进度条。
+ */
+self.app_progress = app_progress;
+var m_isPgShow = false;
+function app_progress(value, msg)
+{
+	value = Math.round(value);
+	if (! m_isPgShow) {
+		$.messager.progress({interval:0});
+		m_isPgShow = true;
+	}
+	if (msg !== undefined) {
+		$(".messager-p-msg").html(msg || '');
+	}
+	var bar = $.messager.progress('bar');
+	bar.progressbar("setValue", value);
+	if (value >= 100) {
+		setTimeout(function () {
+			if (m_isPgShow) {
+				$.messager.progress('close');
+				m_isPgShow = false;
+			}
+		}, 500);
+	}
+	/*
+	var jdlg = $("#dlgProgress");
+	if (jdlg.size() == 0) {
+		jdlg = $('<div id="dlgProgress"><p class="easyui-progressbar"></p></div>');
+	}
+	if (value >= 100) {
+		setTimeout(function () {
+			jdlg.dialog('close');
+		}, 500);
+	}
+	if (!jdlg.data('dialog')) {
+		jdlg.dialog({title:'进度', closable:false, width: 200});
+		$.parser.parse(jdlg);
+	}
+	else if (jdlg.dialog('options').closed) {
+		jdlg.dialog('open');
+	}
+	var jpg = jdlg.find(".easyui-progressbar");
+	jpg.progressbar("setValue", value);
+	return jdlg;
+	*/
+}
+
+/**
 @fn makeLinkTo(dlg, id, text?=id, obj?)
 
 生成一个链接的html代码，点击该链接可以打开指定对象的对话框。
