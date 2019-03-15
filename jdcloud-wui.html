@@ -33,7 +33,7 @@ code {
 </head>
 
 <h1>WUI</h1>
-<div>最后更新：2018-12-30</div>
+<div>最后更新：2019-03-15</div>
 <h2>Modules</h2>
 <div class="toc">
 <p><a href="#WUI">WUI (module)</a></p>
@@ -45,6 +45,7 @@ code {
 <p><a href="#.easyui-validatebox">.easyui-validatebox (key)</a></p>
 <p><a href="#.my-combobox">.my-combobox (key)</a></p>
 <p><a href="#.my-reset">.my-reset (key)</a></p>
+<p><a href="#.noData">.noData (key)</a></p>
 <p><a href="#.notForFind">.notForFind (key)</a></p>
 <p><a href="#.wui-dialog">.wui-dialog (key)</a></p>
 <p><a href="#.wui-find-field">.wui-find-field (key)</a></p>
@@ -145,6 +146,7 @@ code {
 <p><a href="#isAndroid">isAndroid (fn)</a></p>
 <p><a href="#isBusy">isBusy (var)</a></p>
 <p><a href="#isIOS">isIOS (fn)</a></p>
+<p><a href="#isSmallScreen">isSmallScreen (fn)</a></p>
 <p><a href="#isWeixin">isWeixin (fn)</a></p>
 <p><a href="#jQuery.fn.jdata">jQuery.fn.jdata (fn)</a></p>
 <p><a href="#jQuery.fn.mycombobox">jQuery.fn.mycombobox (fn)</a></p>
@@ -692,6 +694,14 @@ function initPageItem(storeId)
 <p>显然，第二个参数随着商户名称不同而不同，这保证了不同商户打开的商品页面不会共用。<br />
 在商品页面初始化时，第三参数将传递给初始化函数：</p>
 <pre><code>function initPageItem(storeId) // storeId=row.id</code></pre>
+<p>此外，在Item页对应的详情对话框上（dlgItem.html页面中），还应设置storeId字段是只读的，在添加、设置和查询时不可被修改。</p>
+<pre><code>&lt;select name="storeId" class="my-combobox" data-options="ListOptions.Store()" readonly&gt;&lt;/select&gt;</code></pre>
+<p>注意：select组件默认不支持readonly属性，框架定义了CSS：为select[readonly]设置<code>pointer-events:none</code>达到类似效果。</p>
+<p>然后，在initDlgItem函数中(dlgItem.js文件)，应设置在添加时自动填好该字段：</p>
+<pre><code>function onBeforeShow(ev, formMode, opt)
+    if (formMode == FormMode.forAdd &amp;&amp; objParam.storeId) {
+        opt.data.storeId = objParam.storeId);
+    }</code></pre>
 <p class="see"><strong>@see <a href="#showPage">showPage</a></strong> </p>
 <h5 id="WUI-1.8 设计模式：页面间调用">1.8 设计模式：页面间调用</h5>
 <p>仍以上节数据结构为例，上节是在每个商品行上点“查看商品”，就打开一个新的该商户下的商品列表页，<br />
@@ -714,7 +724,7 @@ function initPageItem(storeId)
         ...
         PageItem.show({storeId: row.id});
     }
-    var btn1 = {text: "查看商品", iconCls: "icon-search", handler: showPageCloseOrder};
+    var btn1 = {text: "查看商品", iconCls: "icon-search", handler: showItemPage};
 
     ...
     jtbl.datagrid({
@@ -1288,9 +1298,10 @@ var arr = mCommon.rs2Array(rs);</code></pre>
 对div等其它对象, 会清空该对象的内容.</li>
 <li>如果对象设置有属性&quot;noReset&quot;, 则不会对它进行设置.</li>
 </ul>
-<p class="param"><strong>@param opt</strong>  {setOrigin?=false}</p>
-<p>选项 setOrigin: 为true时将data设置为数据源, 这样在getFormData时, 只会返回与数据源相比有变化的数据.<br />
-缺省会设置该DOM对象数据源为空.</p>
+<p class="param"><strong>@param opt</strong>  {setOrigin?=false, setOnlyDefined?=false}</p>
+<p class="param"><strong>@param opt.setOrigin</strong>  为true时将data设置为数据源, 这样在getFormData时, 只会返回与数据源相比有变化的数据.</p>
+<p>缺省会设置该DOM对象数据源为空.</p>
+<p class="param"><strong>@param opt.setOnlyDefined</strong>  设置为true时，只设置form中name在data中存在的项，其它项保持不变；而默认是其它项会清空。</p>
 <p>对象关联的数据源, 可以通过 jo.data(&quot;origin<em>&quot;) 来获取, 或通过 jo.data(&quot;origin</em>&quot;, newOrigin) 来设置.</p>
 <p>示例：</p>
 <pre><code>&lt;div id="div1"&gt;
@@ -2033,6 +2044,8 @@ WUI.showPage("pageHome", "首页2");</code></pre><hr>
 <h2 id="wui-pageFile">@key wui-pageFile</h2>
 <p>动态加载的逻辑页(或对话框)具有该属性，值为源文件名。</p><hr>
 <h2 id="closeDlg">@fn closeDlg(jdlg)</h2><hr>
+<h2 id="isSmallScreen">@fn isSmallScreen</h2>
+<p>判断是否为手机小屏显示. 宽度低于640当作小屏处理.</p><hr>
 <h2 id="showDlg">@fn showDlg(jdlg, opt?)</h2>
 <p class="param"><strong>@param jdlg</strong>  可以是jquery对象，也可以是selector字符串或DOM对象，比如 "#dlgOrder".</p>
 <p>注意：当对话框动态从外部加载时，jdlg=$(&quot;#dlgOrder&quot;) 一开始会为空数组，这时也可以调用该函数，且调用后jdlg会被修改为实际加载的对话框对象。</p>
@@ -2048,6 +2061,7 @@ WUI.showPage("pageHome", "首页2");</code></pre><hr>
 <li>opt.onSubmit: Function(data) 自动提交前回调。用于验证或补齐提交数据，返回false可取消提交。opt.url为空时不回调。</li>
 <li>opt.onOk: Function(jdlg, data?) 如果自动提交(opt.url非空)，则服务端接口返回数据后回调，data为返回数据。如果是手动提交，则点确定按钮时回调，没有data参数。</li>
 <li>opt.title: String. 如果指定，则更新对话框标题。</li>
+<li>opt.dialogOpt: 底层jquery-easyui dialog选项。参考http://www.jeasyui.net/plugins/159.html</li>
 </ul>
 <p>对话框有两种编程模式，一是通过opt参数在启动对话框时设置属性及回调函数(如onOk)，另一种是在dialog初始化函数中处理事件(如validate事件)实现逻辑，有利于独立模块化。</p>
 <p>对于自动提交数据的对话框(设置了opt.url)，提交数据过程中回调函数及事件执行顺序为：</p>
@@ -2135,7 +2149,18 @@ function onValidate(ev, mode, oriData, newData)
 <pre><code>&lt;div class="my-reset"&gt;...&lt;/div&gt;</code></pre>
 <p class="key"><strong>@key <a id="[noReset]">[noReset]</a></strong> </p>
 <p>某些字段希望设置后一直保留，不要被清空，可以设置noReset属性，例如：</p>
-<pre><code>&lt;input type="hidden" name="status" value="PA" noReset&gt;</code></pre><hr>
+<pre><code>&lt;input type="hidden" name="status" value="PA" noReset&gt;</code></pre>
+<p><strong>控制底层jquery-easyui对话框</strong></p>
+<p>示例：关闭对话框时回调事件：</p>
+<pre><code>var dialogOpt = {  
+    onClose:function(){
+        console.log("close");
+    }  
+};
+
+jfrm.on("beforeshow",function(ev, formMode, opt) {
+    opt.dialogOpt = dialogOpt;
+})</code></pre><hr>
 <h2 id="batchOp">@fn batchOp(obj, ac, jtbl, data/dataFn, onBatchDone?, forceFlag?)</h2>
 <p class="param"><strong>@param ac</strong>  "setIf"/"delIf"</p>
 <p class="param"><strong>@param data/dataFn</strong>  批量操作的参数。</p>
@@ -2339,6 +2364,8 @@ Formatter = $.extend(WUI.formatter, Formatter);</code></pre>
 &lt;th data-options="field:'userName', sortable:true, formatter:Formatter.userId"&gt;用户&lt;/th&gt;
 &lt;th data-options="field:'status', sortable:true, jdEnumMap: OrderStatusMap, formatter: Formatter.orderStatus"&gt;状态&lt;/th&gt;
 &lt;th data-options="field:'done', sortable:true, formatter: Formatter.flag()"&gt;已处理&lt;/th&gt;</code></pre><hr>
+<h2 id=".noData">@key .noData</h2>
+<p>CSS类, 可定义无数据提示的样式</p><hr>
 <h2 id=".easyui-validatebox">@key .easyui-validatebox</h2>
 <p>为form中的组件加上该类，可以限制输入类型，如：</p>
 <pre><code>&lt;input name="amount" class="easyui-validatebox" data-options="required:true,validType:'number'" &gt;</code></pre>
