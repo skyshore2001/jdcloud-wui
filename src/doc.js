@@ -574,6 +574,19 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 
 	function initPageItem(storeId) // storeId=row.id
 
+此外，在Item页对应的详情对话框上（dlgItem.html页面中），还应设置storeId字段是只读的，在添加、设置和查询时不可被修改。
+
+	<select name="storeId" class="my-combobox" data-options="ListOptions.Store()" readonly></select>
+
+注意：select组件默认不支持readonly属性，框架定义了CSS：为select[readonly]设置`pointer-events:none`达到类似效果。
+
+然后，在initDlgItem函数中(dlgItem.js文件)，应设置在添加时自动填好该字段：
+
+	function onBeforeShow(ev, formMode, opt)
+		if (formMode == FormMode.forAdd && objParam.storeId) {
+			opt.data.storeId = objParam.storeId);
+		}
+
 @see showPage
 
 ### 设计模式：页面间调用
@@ -602,7 +615,7 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 			...
 			PageItem.show({storeId: row.id});
 		}
-		var btn1 = {text: "查看商品", iconCls: "icon-search", handler: showPageCloseOrder};
+		var btn1 = {text: "查看商品", iconCls: "icon-search", handler: showItemPage};
 
 		...
 		jtbl.datagrid({

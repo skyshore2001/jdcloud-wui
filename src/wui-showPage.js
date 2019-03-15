@@ -173,7 +173,7 @@ function appendRow(jtbl, id)
 
 function tabid(title)
 {
-	return "pg_" + title.replace(/[ ()\[\]]/g, "_");
+	return "pg_" + title.replace(/[ ()\[\]\/\\,>]/g, "_");
 }
 function istab(o)
 {
@@ -414,19 +414,32 @@ $.fn.okCancel = function (fnOk, fnCancel) {
 			return false;
 		}
 		// Ctrl-F: find mode
-		else if (e.ctrlKey && e.which == 70)
+		else if ((e.ctrlKey||e.metaKey) && e.which == 70)
 		{
 			showObjDlg($(this), FormMode.forFind, null);
 			return false;
 		}
 /* // Ctrl-A: add mode
-		else if (e.ctrlKey && e.which == 65)
+		else if ((e.ctrlKey||e.metaKey) && e.which == 65)
 		{
 			showObjDlg($(this), FormMode.forAdd, null);
 			return false;
 		}
 */
 	});
+}
+
+/**
+@fn isSmallScreen
+
+判断是否为手机小屏显示. 宽度低于640当作小屏处理.
+*/
+self.isSmallScreen = isSmallScreen;
+function isSmallScreen() {
+	return $(document.body).width() < 640;
+}
+if (isSmallScreen()) {
+	$('<meta name="viewport" content="width=device-width, initial-scale=0.8, maximum-scale=0.8">').appendTo(document.head);
 }
 
 /**
@@ -447,6 +460,7 @@ $.fn.okCancel = function (fnOk, fnCancel) {
 - opt.onSubmit: Function(data) 自动提交前回调。用于验证或补齐提交数据，返回false可取消提交。opt.url为空时不回调。
 - opt.onOk: Function(jdlg, data?) 如果自动提交(opt.url非空)，则服务端接口返回数据后回调，data为返回数据。如果是手动提交，则点确定按钮时回调，没有data参数。
 - opt.title: String. 如果指定，则更新对话框标题。
+- opt.dialogOpt: 底层jquery-easyui dialog选项。参考http://www.jeasyui.net/plugins/159.html
 
 对话框有两种编程模式，一是通过opt参数在启动对话框时设置属性及回调函数(如onOk)，另一种是在dialog初始化函数中处理事件(如validate事件)实现逻辑，有利于独立模块化。
 
@@ -561,7 +575,20 @@ form提交后事件，用于处理返回数据
 
 	<input type="hidden" name="status" value="PA" noReset>
 
- */
+**控制底层jquery-easyui对话框**
+
+示例：关闭对话框时回调事件：
+
+	var dialogOpt = {  
+		onClose:function(){
+			console.log("close");
+		}  
+	};
+
+	jfrm.on("beforeshow",function(ev, formMode, opt) {
+		opt.dialogOpt = dialogOpt;
+	})
+*/
 self.showDlg = showDlg;
 function showDlg(jdlg, opt) 
 {
@@ -596,11 +623,12 @@ function showDlg(jdlg, opt)
 	if ($.isArray(opt.buttons))
 		btns.push.apply(btns, opt.buttons);
 
-	var dlgOpt = {
+	var small = self.isSmallScreen();
+	var dlgOpt = $.extend({
 //		minimizable: true,
-		maximizable: true,
-		collapsible: true,
-		resizable: true,
+		maximizable: !small,
+		collapsible: !small,
+		resizable: !small,
 
 		// reset default pos.
 		left: null,
@@ -610,7 +638,7 @@ function showDlg(jdlg, opt)
 		modal: opt.modal,
 		buttons: btns,
 		title: opt.title
-	};
+	}, opt.dialogOpt);
 	if (jdlg.is(":visible")) {
 		dlgOpt0 = jdlg.dialog("options");
 		$.extend(dlgOpt, {
@@ -706,10 +734,10 @@ function showDlg(jdlg, opt)
 	}
 }
 
-// 按住Ctrl键进入批量模式。
+// 按住Ctrl/Command键进入批量模式。
 var tmrBatch_;
 $(document).keydown(function (e) {
-	if (e.keyCode == 17) {
+	if (e.ctrlKey || e.metaKey) {
 		m_batchMode = true;
 		clearTimeout(tmrBatch_);
 		tmrBatch_ = setTimeout(function () {
@@ -719,7 +747,7 @@ $(document).keydown(function (e) {
 	}
 });
 $(window).keyup(function (e) {
-	if (e.keyCode == 17) {
+	if (e.ctrlKey || e.metaKey) {
 		m_batchMode = false;
 		clearTimeout(tmrBatch_);
 	}
@@ -815,6 +843,8 @@ function batchOp(obj, ac, jtbl, data, onBatchDone, forceFlag)
 		var p1 = dgOpt.url && dgOpt.url.params;
 		var p2 = dgOpt.queryParams;
 		queryParams = $.extend({}, p1, p2);
+		if (!queryParams.cond)
+			queryParams.cond = "t0.id>0"; // 避免后台因无条件而报错
 		var p3 = $.extend({}, queryParams, {res: "count(*) cnt"});
 		self.callSvr(obj + ".query", p3, function (data1) {
 			confirmBatch(data1.d[0][0]);
@@ -1002,7 +1032,7 @@ function loadDialog(jdlg, onLoad)
 	var html = $(sel).html();
 	if (html) {
 		loadDialogTpl(html, dlgId, pageFile);
-		return;
+		return true;
 	}
 
 	var pageFile = getModulePath(dlgId + ".html");
@@ -1784,9 +1814,25 @@ $.extend($.fn.datagrid.defaults, {
 		resetPageNumber(jtbl);
 	},
 
-	// bugfix: 有时无法显示横向滚动条
 	onLoadSuccess: function (data) {
-		$(this).datagrid("fitColumns");
+		if (data.total) {
+			// bugfix: 有时无法显示横向滚动条
+			$(this).datagrid("fitColumns");
+		}
+		else {
+/**
+@key .noData
+
+CSS类, 可定义无数据提示的样式
+ */
+			// 提示"无数据". 在sytle.css中定义noData类
+			var body = $(this).data().datagrid.dc.body2;
+			var view =  $(this).data().datagrid.dc.view;
+			var h = 50;
+			view.height(view.height() - body.height() + h);
+			body.height(h);
+			body.find('table tbody').empty().append('<tr><td width="' + body.width() + 'px" height="50px" align="center" class="noData" style="border:none; color:#ccc; font-size:14px">没有数据</td></tr>');
+		}
 	}
 
 	// Decided in dgLoadFilter: 超过1页使用remoteSort, 否则使用localSort.

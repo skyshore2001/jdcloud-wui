@@ -180,10 +180,10 @@ function enhanceWithin(jp)
 			return;
 		jo.each(function (i, e) {
 			var je = $(e);
-			var opt = getOptions(je);
-			if (opt.enhanced)
+			var enhanced = je.data("mui-enhanced");
+			if (enhanced)
 				return;
-			opt.enhanced = true;
+			je.data("mui-enhanced", true);
 			fn(je);
 		});
 	});
