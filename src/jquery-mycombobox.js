@@ -42,13 +42,15 @@
 - (v5.0) HTML select组件的jQuery.val()方法被改写。当设置不在范围内的值时，虽然下拉框显示为空，其实际值存储在 value_ 字段中，(v5.2) 通过jQuery.val()方法仍可获取到。
  用原生JS可以分别取 this.value 和 this.value_ 字段。
 
-@param opt {url, jdEnumMap/jdEnumList, formatter, textField, valueField, loadFilter, urlParams, isLoaded_, url_}
+@param opt {url, jdEnumMap/jdEnumList, formatter, textField, valueField, loadFilter, urlParams, isLoaded_, url_, emptyText}
 
 @param opt.url 动态加载使用的url，或一个返回URL的函数（这时会调用opt.url(opt.urlParams)得到实际URL，并保存在opt.url_中）
 所以要取URL可以用
 
 	var opt = WUI.getOptions(jo);
 	url = opt.url_ || opt.url;
+
+@param opt.emptyText 设置首个空行（值为null）对应的显示文字。
 
 ## 用url选项加载下拉列表
 
@@ -108,17 +110,17 @@
 		...
 	};
 
-(v5.2) url还可以是一个函数。如果带一个参数，一般用于级联列表。参考**级联列表支持**节.
+(v5.2) url还可以是一个函数。如果带一个参数，一般用于**动态列表**或**级联列表**。参考后面相关章节。
 
 ## 用jdEnumMap选项指定下拉列表
 
 也支持通过key-value列表用jdEnumMap选项或jdEnumList选项来初始化下拉框，如：
 
-	订单状态： <select name="status" class="my-combobox" data-options="jdEnumMap:OrderStatusMap" style="width:150px"></select>
+	订单状态： <select name="status" class="my-combobox" data-options="jdEnumMap:OrderStatusMap"></select>
 	或者：
-	订单状态： <select name="status" class="my-combobox" data-options="jdEnumList:'CR:未付款;CA:已取消'" style="width:150px"></select>
+	订单状态： <select name="status" class="my-combobox" data-options="jdEnumList:'CR:未付款;CA:已取消'"></select>
 	或者：(key-value相同时, 只用';'间隔)
-	订单状态： <select name="status" class="my-combobox" data-options="jdEnumList:'未付款;已取消'" style="width:150px"></select>
+	订单状态： <select name="status" class="my-combobox" data-options="jdEnumList:'未付款;已取消'"></select>
 
 其中OrderStatusMap定义如下：
 
@@ -166,11 +168,59 @@ JS代码ListOptions.Brand:
 
 注意：jdEnumMap指定的固定选项会先出现。
 
+## 动态列表
+
+(v5.2) url选项使用函数，之后调用loadOptions方法刷新
+
+示例：在安装任务明细对话框(dlgTask)中，根据品牌(brand)过滤显示相应的门店列表(Store).
+
+	var ListOptions = {
+		Store: function () {
+			var opts = {
+				valueField: "id",
+				textField: "name",
+				// !!! url使用函数指定, 之后手工给参数调用loadOptions方法刷新 !!!
+				url: function (brand) {
+					return WUI.makeUrl('Store.query', {
+						res: 'id,name',
+						cond: "brand='" + brand + "'",
+						pagesz: -1
+					})
+				},
+				formatter: function (row) { return row.id + "-" + row.name; }
+			};
+			return opts;
+		}
+	};
+
+在明细对话框HTML中：
+
+	<form>
+		品牌 <input name="brand">
+		门店 <select name="storeId" class="my-combobox" data-options="ListOptions.Store()"></select>
+	</form>
+
+对话框初始化函数：在显示对话框或修改品牌后刷新门店列表
+
+	function initDlgTask()
+	{
+		...
+		
+		$(frm.brand).on("change", function () {
+			if (this.value)
+				$(frm.storeId).trigger("loadOptions", this.value);
+		});
+
+		function onShow() {
+			$(frm.brand).trigger("change");
+		}
+	}
+
 ## 级联列表支持
 
-(v5.2)
+(v5.2) 与动态列表机制相同。
 
-缺陷类型(defectTypeId)与缺陷代码(defectId)二级关系：选一个缺陷类型，缺陷代码自动刷新为该类型下的代码。
+示例：缺陷类型(defectTypeId)与缺陷代码(defectId)二级关系：选一个缺陷类型，缺陷代码自动刷新为该类型下的代码。
 在初始化时，如果字段有值，下拉框应分别正确显示。
 
 在一级内容切换时，二级列表自动从后台查询获取。同时如果是已经获取过的，缓存可以生效不必反复获取。
@@ -249,6 +299,7 @@ function mycombobox(force)
 			opts.isLoaded_ = true;
 		}
 		else if (opts.url) {
+			o.enableAsyncFix = true; // 有这个标志的select才做特殊处理
 			loadOptions();
 
 			if (!jo.attr("ondblclick"))
@@ -275,6 +326,11 @@ function mycombobox(force)
 			jo.change(function () {
 				this.value_ = "";
 			});
+			// 处理只读属性
+			jo.keydown(function () {
+				if ($(this).attr("readonly"))
+					return false;
+			});
 		}
 
 		function loadOptions()
@@ -282,7 +338,9 @@ function mycombobox(force)
 			jo.prop("value_", jo.val()); // 备份val到value_
 			jo.empty();
 			// 添加空值到首行
-			$("<option value=''></option>").appendTo(jo);
+			var j1 = $("<option value=''></option>").appendTo(jo);
+			if (opts.emptyText)
+				j1.text(opts.emptyText);
 
 			if (opts.jdEnumList) {
 				opts.jdEnumMap = mCommon.parseKvList(opts.jdEnumList, ';', ':');
@@ -299,7 +357,7 @@ function mycombobox(force)
 			if (opts.url == null)
 				return;
 			var url = opts.url;
-			if (url instanceof Function) {
+			if ($.isFunction(url)) {
 				if (url.length == 0) { // 无参数直接调用
 					url = url();
 				}
@@ -401,7 +459,9 @@ function mycombobox_fixAsyncSetValue()
 			return hook.set.apply(this, arguments);
 		},
 		get: function (elem) {
-			return hook.get.apply(this, arguments) || elem.value_;
+			if (elem.enableAsyncFix)
+				return hook.get.apply(this, arguments) || elem.value_;
+			return hook.get.apply(this, arguments);
 		}
 	}
 }

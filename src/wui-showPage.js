@@ -7,18 +7,40 @@ self.ctx = self.ctx || {};
 var mCommon = jdModule("jdcloud.common");
 var m_batchMode = false; // 批量操作模式, 按住Ctrl键。
 
+self.toggleBatchMode = toggleBatchMode;
+function toggleBatchMode(val) {
+	if (val !== undefined)
+		m_batchMode = val;
+	else
+		m_batchMode = !m_batchMode;
+	app_alert("批量模式: " + (m_batchMode?"ON":"OFF"));
+	// 标题栏显示红色. 在style.css中设置#my-tabMain.batchMode.
+	self.tabMain.toggleClass("batchMode", m_batchMode);
+
+	// 允许点击多选
+	var opt = WUI.getActivePage().find(".datagrid-f").datagrid("options");
+	opt.ctrlSelect = !m_batchMode;
+	$.fn.datagrid.defaults.singleSelect = false;
+	$.fn.datagrid.defaults.ctrlSelect = !m_batchMode;
+}
+
 mCommon.assert($.fn.combobox, "require jquery-easyui lib.");
 
 self.getRow = getRow;
-function getRow(jtbl)
+function getRow(jtbl, silent)
 {
-	var row = jtbl.datagrid('getSelected');   
-	if (! row)
+	var row = jtbl.datagrid('getSelected');
+	if (! row && ! silent)
 	{
 		self.app_alert("请先选择一行。", "w");
 		return null;
 	}
 	return row;
+}
+
+function isTreegrid(jtbl)
+{
+	return !! jtbl.data().treegrid;
 }
 
 /** 
@@ -27,8 +49,9 @@ function getRow(jtbl)
 self.reload = reload;
 function reload(jtbl, url, queryParams)
 {
+	var datagrid = isTreegrid(jtbl)? "treegrid": "datagrid";
 	if (url != null || queryParams != null) {
-		var opt = jtbl.datagrid("options");
+		var opt = jtbl[datagrid]("options");
 		if (url != null) {
 			opt.url = url;
 		}
@@ -45,8 +68,8 @@ function reload(jtbl, url, queryParams)
 	}
 
 	resetPageNumber(jtbl);
-	jtbl.datagrid('reload');
-	jtbl.datagrid('clearSelections');
+	jtbl[datagrid]('reload');
+	jtbl[datagrid]('clearSelections');
 }
 
 /** 
@@ -116,6 +139,55 @@ function jdListToArray(data)
 	return ret;
 }
 
+/*
+jdListToDgList处理后的数据格式：
+
+	{total:10, rows:[
+		{id:1, name, fatherId: null},
+		{id:2, name, fatherId: 1},
+		...
+	]}
+
+为适合treegrid显示，应为子结点添加_parentId字段：
+
+	{total:10, rows:[
+		{id:1, ...}
+		{id:2, ..., _parentId:1},
+		...
+	]}
+
+easyui-treegrid会将其再转成层次结构：
+
+	{total:10, rows:[
+		{id:1, ..., children: [
+			{id:2, ...},
+		]}
+		...
+	]}
+
+特别地，为了查询结果能正常显示（排除展开结点操作的查询，其它查询的树表是残缺不全的），当发现数据有fatherId但父结点不在列表中时，不去设置_parentId，避免该行无法显示。
+*/
+function jdListToTree(data, fatherField, parentId, isLeaf)
+{
+	var data1 = jdListToDgList(data)
+
+	var idMap = {};
+	$.each(data1.rows, function (i, e) {
+		idMap[e.id] = true;
+	});
+	$.each(data1.rows, function (i, e) {
+		var fatherId = e[fatherField];
+		// parentId存在表示异步查询子结点, 应设置_parentId字段.
+		if (fatherId && (idMap[fatherId] || parentId)) {
+			e._parentId = fatherId;
+		}
+		if (isLeaf && !isLeaf(e)) {
+			e.state = 'closed'; // 如果无结点, 则其展开时将触发ajax查询子结点
+		}
+	})
+	return data1;
+}
+
 /** 
 @fn reloadRow(jtbl, rowData?)
 
@@ -126,20 +198,36 @@ rowData如果未指定，则使用当前选择的行。
 self.reloadRow = reloadRow;
 function reloadRow(jtbl, rowData)
 {
+	var datagrid = isTreegrid(jtbl)? "treegrid": "datagrid";
 	if (rowData == null) {
-		rowData = jtbl.datagrid('getSelected');
+		rowData = jtbl[datagrid]('getSelected');
 		if (rowData == null)
 			return;
 	}
-	jtbl.datagrid("loading");
-	var opt = jtbl.datagrid("options");
+	jtbl[datagrid]("loading");
+	var opt = jtbl[datagrid]("options");
 	self.callSvr(opt.url, api_queryOne, {cond: "id=" + rowData.id});
 
 	function api_queryOne(data) 
 	{
-		jtbl.datagrid("loaded");
-		var idx = jtbl.datagrid("getRowIndex", rowData);
+		jtbl[datagrid]("loaded");
+		var idx = jtbl[datagrid]("getRowIndex", rowData);
 		var objArr = jdListToArray(data);
+		if (datagrid == "treegrid") {
+			$.extend(rowData, objArr[0]);
+			if (rowData["_parentId"] && rowData["_parentId"] != rowData["fatherId"]) {
+				rowData["_parentId"] = rowData["fatherId"];
+				jtbl.treegrid("remove", rowData.id);
+				jtbl.treegrid("append", {
+					parent: rowData["_parentId"],
+					data: [rowData]
+				});
+			}
+			else {
+				jtbl.treegrid("update", {id: rowData.id, row: rowData});
+			}
+			return;
+		}
 		if (idx != -1 && objArr.length == 1) {
 			// NOTE: updateRow does not work, must use the original rowData
 // 			jtbl.datagrid("updateRow", {index: idx, row: data[0]});
@@ -153,17 +241,25 @@ function reloadRow(jtbl, rowData)
 
 function appendRow(jtbl, id)
 {
-	jtbl.datagrid("loading");
-	var opt = jtbl.datagrid("options");
+	var datagrid = isTreegrid(jtbl)? "treegrid": "datagrid";
+	jtbl[datagrid]("loading");
+	var opt = jtbl[datagrid]("options");
 	self.callSvr(opt.url, api_queryOne, {cond: "id=" + id});
 
 	function api_queryOne(data)
 	{
-		jtbl.datagrid("loaded");
+		jtbl[datagrid]("loaded");
 		var objArr = jdListToArray(data);
 		if (objArr.length != 1)
 			return;
 		var row = objArr[0];
+		if (datagrid == "treegrid") {
+			jtbl.treegrid('append',{
+				parent: row["fatherId"],
+				data: [row]
+			});
+			return;
+		}
 		if (opt.sortOrder == "desc")
 			jtbl.datagrid("insertRow", {index:0, row: row});
 		else
@@ -173,7 +269,7 @@ function appendRow(jtbl, id)
 
 function tabid(title)
 {
-	return "pg_" + title.replace(/[ ()\[\]\/\\,>]/g, "_");
+	return "pg_" + title.replace(/[ ()\[\]\/\\,<>.!@#$%^&*-+]+/g, "_");
 }
 function istab(o)
 {
@@ -253,9 +349,14 @@ page定义示例:
 page调用示例:
 
 	WUI.showPage("pageHome");
-	WUI.showPage("pageHome", "首页");
-	WUI.showPage("pageHome", "首页2");
+	WUI.showPage("pageHome", "我的首页"); // 默认标题是"首页"，这里指定显示标题为"我的首页"。
 
+(v5.4) 如果标题中含有"%s"，将替换成原始标题，同时传参到initPage:
+
+	WUI.showPage("pageHome", "%s-" + cityName, [{cityName: cityName}]); //e.g. 显示 "首页-上海"
+
+title用于唯一标识tab，即如果相同title的tab存在则直接切换过去。除非：
+(v5.5) 如果标题以"!"结尾, 则每次都打开新的tab页。
 */
 self.showPage = showPage;
 function showPage(pageName, title, paramArr)
@@ -287,13 +388,25 @@ function showPage(pageName, title, paramArr)
 
 	function initPage()
 	{
+		var title0 = jpage.attr("title") || "无标题";
 		if (title == null)
-			title = jpage.attr("title") || "无标题";
+			title = title0;
+		else
+			title = title.replace('%s', title0);
+
+		var force = false;
+		if (title.substr(-1, 1) == "!") {
+			force = true;
+			title = title.substr(0, title.length-1);
+		}
 
 		var tt = self.tabMain;
 		if (tt.tabs('exists', title)) {
-			tt.tabs('select', title);
-			return;
+			if (!force) {
+				tt.tabs('select', title);
+				return;
+			}
+			tt.tabs('close', title);
 		}
 
 		var id = tabid(title);
@@ -316,6 +429,7 @@ function showPage(pageName, title, paramArr)
 		jpageNew.attr("title", title);
 
 		$.parser.parse(jpageNew); // easyui enhancement
+		enhanceGrid(jpageNew);
 		self.enhanceWithin(jpageNew);
 		callInitfn(jpageNew, paramArr);
 
@@ -369,6 +483,16 @@ function showPage(pageName, title, paramArr)
 	}
 }
 
+// 对于页面中只有一个datagrid的情况，铺满显示，且工具栏置顶。
+function enhanceGrid(jpage)
+{
+	var o = jpage[0].firstElementChild;
+	if (o && o.tagName == "TABLE" && jpage[0].children.length == 1) {
+		if (o.style.height == "" || o.style.height == "auto")
+			o.style.height = "100%";
+	}
+}
+
 /**
 @fn closeDlg(jdlg) 
 */
@@ -416,7 +540,7 @@ $.fn.okCancel = function (fnOk, fnCancel) {
 		// Ctrl-F: find mode
 		else if ((e.ctrlKey||e.metaKey) && e.which == 70)
 		{
-			showObjDlg($(this), FormMode.forFind, null);
+			showObjDlg($(this), FormMode.forFind, $(this).data("objParam"));
 			return false;
 		}
 /* // Ctrl-A: add mode
@@ -588,6 +712,12 @@ form提交后事件，用于处理返回数据
 	jfrm.on("beforeshow",function(ev, formMode, opt) {
 		opt.dialogOpt = dialogOpt;
 	})
+
+**复用dialog模板**
+(v5.3)
+
+如 dlgUDT__A 与 dlgUDT__B 共用dlgUDT对话框模板，只要用"__"分隔对话框模板文件和后缀名。
+
 */
 self.showDlg = showDlg;
 function showDlg(jdlg, opt) 
@@ -610,7 +740,7 @@ function showDlg(jdlg, opt)
 	}, opt);
 
 	jdlg.addClass('wui-dialog');
-	callInitfn(jdlg);
+	callInitfn(jdlg, [opt]);
 
 	// TODO: 事件换成jdlg触发，不用jfrm。目前旧应用仍使用jfrm监听事件，暂应保持兼容。
 	var jfrm = jdlg.is("form")? jdlg: jdlg.find("form:first");
@@ -647,14 +777,16 @@ function showDlg(jdlg, opt)
 		});
 	}
 	jdlg.dialog(dlgOpt);
+	var perm = jdlg.attr("wui-perm") || jdlg.dialog("options").title;
+	jdlg.toggleClass("wui-readonly", (opt.objParam && opt.objParam.readonly) || !self.canDo(perm, "对话框"));
 
 	jdlg.okCancel(fnOk, opt.noCancel? undefined: fnCancel);
 
 	if (opt.reset)
 	{
 		mCommon.setFormData(jdlg); // reset
-		// !!! NOTE: setFormData or form.reset does not reset hidden items, which causes data is not cleared for find mode !!!
-		jdlg.find("[type=hidden]:not([noReset])").val("");
+		// !!! NOTE: form.reset does not reset hidden items, which causes data is not cleared for find mode !!!
+		// jdlg.find("[type=hidden]:not([noReset])").val(""); // setFormData可将hidden清除。
 		jdlg.find(".my-reset").empty();
 	}
 	if (opt.data)
@@ -670,6 +802,9 @@ function showDlg(jdlg, opt)
 // 			$(e).combobox('setValue', opt.data[$(e).attr("comboname")]);
 // 		});
 	}
+
+	// 含有固定值的对话框，根据opt.objParam[fieldName]填充值并设置只读.
+	setFixedFields(jdlg, opt);
 
 // 	openDlg(jdlg);
 	focusDlg(jdlg);
@@ -705,6 +840,14 @@ function showDlg(jdlg, opt)
 				if (opt.onSubmit && opt.onSubmit(data) === false)
 					return false;
 
+				var m = opt.url.action.match(/\.(add|set|del)$/);
+				if (m) {
+					var cmd = {add: "新增", set: "修改", del: "删除"}[m[1]];
+					if (!self.canDo(perm, cmd)) {
+						app_alert("无权限操作! 本操作需要权限：" + perm + "." + cmd, "w");
+						throw "abort";
+					}
+				}
 				// 批量更新
 				if (formMode==FormMode.forSet && opt.url.action && /.set$/.test(opt.url.action)) {
 					var jtbl = jdlg.jdata().jtbl;
@@ -883,6 +1026,28 @@ function batchOp(obj, ac, jtbl, data, onBatchDone, forceFlag)
 	}
 }
 
+/*
+如果objParam中指定了值，则字段只读，并且在forAdd模式下填充值。
+如果objParam中未指定值，则不限制该字段，可自由设置或修改。
+*/
+function setFixedFields(jdlg, beforeShowOpt) {
+	jdlg.find(".wui-fixedField[name]").each(function () {
+		var je = $(this);
+		var name = je.attr("name");
+		var fixedVal = beforeShowOpt && beforeShowOpt.objParam && beforeShowOpt.objParam[name];
+		if (fixedVal || fixedVal == '') {
+			je.attr("readonly", true);
+			var forAdd = beforeShowOpt.objParam.mode == FormMode.forAdd;
+			if (forAdd) {
+				je.val(fixedVal);
+			}
+		}
+		else {
+			je.attr("readonly", null);
+		}
+	});
+}
+
 /**
 @fn getTopDialog()
 
@@ -975,6 +1140,119 @@ function unloadDialog(all)
 	return jdlg;
 }
 
+/**
+@fn canDo(topic, cmd=null, defaultVal=true)
+
+权限检查回调，支持以下场景：
+
+1. 页面上的操作（按钮）
+
+	canDo(页面标题, 按钮标题, true);// 返回false则不显示该按钮
+
+2. 对话框上的操作
+
+	canDo(对话框标题, "对话框", true); // 返回false表示对话框只读
+
+TODO:通过设置 WUI.options.canDo(topic, cmd) 可扩展定制权限。
+TODO: 链接的对话框有安全问题
+
+默认情况下，所有菜单不显示，其它操作均允许。
+如果指定了"*"权限，则显示所有菜单。
+如果指定了"不可XX"权限，则topic或cmd匹配XX则不允许。
+
+- topic: 通过菜单、页面、对话框、按钮的wui-perm属性指定（按钮参考dg_toolbar函数），如果未指定，则取其text.
+- cmd: 对话框，新增，修改，删除，导出，自定义的按钮
+
+示例：假设有菜单结构如下（不包含最高管理员专有的“系统设置”）
+
+	主数据管理
+		企业
+		用户
+
+	运营管理
+		活动
+		公告
+		积分商城
+
+只显示“公告”菜单项：
+
+	公告
+
+只显示“运营管理”菜单组：
+
+	运营管理
+
+显示除了“运营管理”外的所有内容：
+
+	* 不可运营管理
+
+其中`*`表示显示所有菜单项。
+显示所有内容（与管理员权限相同），但只能查看不可操作
+
+	* 只读
+
+“只读”权限排除了“新增”、“修改”等操作。
+特别地，“只读”权限也不允许“导出”操作（虽然导出是读操作，但一般要求较高权限），假如要允许导出公告，可以设置：
+
+	* 只读 公告.导出
+
+显示“运营管理”，在列表页中不显示“删除”、“导出”按钮：
+
+	运营管理 不可删除 不可导出
+
+显示“运营管理”，在列表页中，不显示“删除”、“导出”按钮，但“公告”中显示“删除”按钮：
+
+	运营管理 不可删除 不可导出 公告.删除
+
+或等价于：
+
+	运营管理 不可导出 活动.不可删除 积分商城.不可删除
+
+显示“运营管理”和“主数据管理”菜单组，但“主数据管理”下面内容均是只读的：
+
+	运营管理 主数据管理 企业.只读 用户.只读
+
+ */
+self.canDo = canDo;
+function canDo(topic, cmd, defaultVal)
+{
+//	console.log('canDo: ', topic, cmd);
+	if (!g_data.permSet)
+		return true;
+	self.assert(topic);
+
+	if (defaultVal === undefined)
+		defaultVal = true;
+	if (cmd == null) {
+		var rv = g_data.permSet[topic];
+		if (rv !== undefined)
+			return rv;
+		return defaultVal;
+	}
+
+	var rv = g_data.permSet[topic + "." + cmd];
+	if (rv !== undefined)
+		return rv;
+
+	rv = g_data.permSet[cmd];
+	if (rv !== undefined)
+		return rv;
+
+	rv = g_data.permSet[topic + ".只读"];
+	if (rv === undefined)
+		rv = g_data.permSet["只读"];
+	if (rv && (cmd == "新增" || cmd == "修改" || cmd == "删除" || cmd == "导出" || cmd == "对话框")) {
+		return false;
+	}
+
+	rv = g_data.permSet[topic];
+	if (rv !== undefined)
+		return rv;
+	
+	return defaultVal;
+//	return self.options.canDo(topic, cmd);
+}
+
 // ---- object CRUD {{{
 var BTN_TEXT = ["添加", "保存", "保存", "查找", "删除"];
 // e.g. var text = BTN_TEXT[mode];
@@ -983,16 +1261,16 @@ function getFindData(jfrm)
 {
 	var kvList = {};
 	var kvList2 = {};
-	jfrm.find(":input[name]").each(function(i,e) {
-		if ($(e).hasClass("notForFind"))
+	self.formItems(jfrm, function (ji, name, it) {
+		if (ji.hasClass("notForFind"))
 			return;
-		var v = $(e).val();
+		var v = it.getValue(ji);
 		if (v == null || v === "")
 			return;
-		if ($(e).hasClass("wui-notCond"))
-			kvList2[e.name] = v;
+		if (ji.hasClass("wui-notCond"))
+			kvList2[name] = v;
 		else
-			kvList[e.name] = v;
+			kvList[name] = v;
 	})
 	var param = self.getQueryParam(kvList);
 	if (kvList2) 
@@ -1028,14 +1306,17 @@ function loadDialog(jdlg, onLoad)
 	}
 
 	var dlgId = jdlg.selector.substr(1);
-	var sel = "#tpl_" + dlgId;
+	// 支持dialog复用，dlgId格式为"{模板id}__{后缀名}"。如 dlgUDT__A 与 dlgUDT__B 共用dlgUDT对话框模板。
+	var arr = dlgId.split("__");
+	var tplName = arr[0];
+	var sel = "#tpl_" + tplName;
 	var html = $(sel).html();
 	if (html) {
 		loadDialogTpl(html, dlgId, pageFile);
 		return true;
 	}
 
-	var pageFile = getModulePath(dlgId + ".html");
+	var pageFile = getModulePath(tplName + ".html");
 	$.ajax(pageFile).then(function (html) {
 		loadDialogTpl(html, dlgId, pageFile);
 	})
@@ -1065,7 +1346,7 @@ function loadDialog(jdlg, onLoad)
 		jdlg.addClass('wui-dialog');
 
 		$.parser.parse(jdlg); // easyui enhancement
-		jdlg.find(">table:first, form>table:first").addClass("wui-form-table");
+		jdlg.find(">table:first, form>table:first").has(":input").addClass("wui-form-table");
 		self.enhanceWithin(jdlg);
 
 		var val = jdlg.attr("wui-script");
@@ -1077,10 +1358,63 @@ function loadDialog(jdlg, onLoad)
 			});
 		}
 		else {
-			onLoad();
+			// bugfix: 第1次点击对象链接时(showObjDlg动态加载对话框), 如果出错(如id不存在), 系统报错但遮罩层未清, 导致无法继续操作.
+			// 原因是, 在ajax回调中再调用*同步*ajax操作且失败(这时$.active=2), 在dataFilter中会$.active减1, 然后强制用app_abort退出, 导致$.active清0, 从而在leaveWaiting时无法hideLoading
+			// 解决方案: 在ajax回调处理中, 为防止后面调用同步ajax出错, 使用setTimeout让第一个调用先结束.
+			setTimeout(onLoad);
 		}
 	}
 	return true;
+}
+
+/**
+@fn doFind(jo, jtbl?, appendFilter?=false)
+
+根据对话框中jo部分内容查询，结果显示到表格(jtbl)中。
+jo一般为对话框内的form或td，也可以为dialog自身。
+查询时，取jo内部带name属性的字段作为查询条件。如果有多个字段，则生成AND条件。
+
+如果查询条件为空，则不做查询；但如果指定jtbl的话，则强制查询。
+
+jtbl未指定时，自动取对话框关联的表格；如果未关联，则不做查询。
+appendFilter=true时，表示追加过滤条件。
+
+@see .wui-notCond 指定独立查询条件
+ */
+self.doFind = doFind;
+function doFind(jo, jtbl, appendFilter)
+{
+	var force = (jtbl!=null);
+	if (!jtbl) {
+		var jdlg = jo.closest(".wui-dialog");
+		if (jdlg.size() > 0)
+			jtbl = jdlg.jdata().jtbl;
+	}
+	if (!jtbl || jtbl.size() == 0) {
+		console.warn("doFind: no table");
+		return;
+	}
+
+	var param = getFindData(jo);
+	if (!force && $.isEmptyObject(param)) {
+		console.warn("doFind: no param");
+		return;
+	}
+
+	// 归并table上的cond条件. dgOpt.url是makeUrl生成的，保存了原始的params
+	// 避免url和queryParams中同名cond条件被覆盖，因而用AND合并。
+	var dgOpt = jtbl.datagrid("options");
+	if (!appendFilter || $.isEmptyObject(dgOpt.queryParams)) { // 设置过滤条件
+		if (param.cond && dgOpt && dgOpt.url && dgOpt.url.params && dgOpt.url.params.cond) {
+			param.cond = dgOpt.url.params.cond + " AND (" + param.cond + ")";
+		}
+	}
+	else { // 追加过滤条件
+		if (dgOpt.queryParams.cond)
+			dgOpt.queryParams.cond += " AND (" + param.cond + ")";
+		$.extend(param, dgOpt.queryParams);
+	}
+	reload(jtbl, undefined, param);
 }
 
 /**
@@ -1093,6 +1427,7 @@ function loadDialog(jdlg, onLoad)
 @param opt.obj String. (v5.1) 对象对话框的对象名，如果未指定，则从my-obj属性获取。通过该参数可动态指定对象名。
 @param opt.offline Boolean. (v5.1) 不与后台交互。
 @param opt.title String. (v5.1) 指定对话框标题。
+@param opt.readonly String. (v5.5) 指定对话框只读。即设置wui-readonly类。
 
 @key objParam 对象对话框的初始参数。
 
@@ -1106,6 +1441,7 @@ function loadDialog(jdlg, onLoad)
 	// 等价于 showObjDlg(jdlg, FormMode.forSet, {id:101, obj: "Customer", type: "C"});
 
 在dialog的事件beforeshow(ev, formMode, opt)中，可以通过opt.objParam取出showObjDlg传入的所有参数opt。
+(v5.3) 可在对象对话框的初始化函数中使用 initDlgXXX(opt)，注意：非对象对话框初始化函数的opt参数与此不同。
 
 @param opt.onCrud Function(). (v5.1) 对话框操作完成时回调。
 一般用于点击表格上的增删改查工具按钮完成操作时插入逻辑。
@@ -1150,13 +1486,15 @@ function showObjDlg(jdlg, mode, opt)
 	opt = $.extend({mode: mode}, jdlg.objParam, opt);
 	if (jdlg.constructor != jQuery)
 		jdlg = $(jdlg);
+	else
+		jdlg.data("objParam", jdlg.objParam);
 	if (loadDialog(jdlg, onLoad))
 		return;
 	function onLoad() {
 		showObjDlg(jdlg, mode, opt);
 	}
 
-	callInitfn(jdlg);
+	callInitfn(jdlg, [opt]);
 	if (opt.jtbl) {
 		jdlg.jdata().jtbl = opt.jtbl;
 	}
@@ -1197,8 +1535,8 @@ function showObjDlg(jdlg, mode, opt)
 	if (mode == FormMode.forAdd) {
 		if (! opt.offline)
 			url = self.makeUrl([obj, "add"], jd.url_param);
-		if (jd.jtbl) 
-			jd.jtbl.datagrid("clearSelections");
+//		if (jd.jtbl) 
+//			jd.jtbl.datagrid("clearSelections");
 	}
 	else if (mode == FormMode.forSet) {
 		if (! opt.offline)
@@ -1235,7 +1573,7 @@ function showObjDlg(jdlg, mode, opt)
 	// 设置find模式
 	var doReset = ! (jd.mode == FormMode.forFind && mode == FormMode.forFind) // 一直是find, 则不清除
 	if (mode == FormMode.forFind && jd.mode != FormMode.forFind) {
-		jfrm.find(":input[name]").each (function (i,e) {
+		jfrm.find(":input[name], .textbox-text").each (function (i,e) {
 			var je = $(e);
 			var bak = je.jdata().bak = {
 				disabled: je.prop("disabled"),
@@ -1245,6 +1583,8 @@ function showObjDlg(jdlg, mode, opt)
 			if (je.hasClass("notForFind") || je.attr("notForFind") != null) {
 				je.prop("disabled", true);
 				je.css("backgroundColor", "");
+			}
+			else if (je.is("[type=hidden]")) {
 			}
 			else {
 				je.prop("disabled", false);
@@ -1260,9 +1600,11 @@ function showObjDlg(jdlg, mode, opt)
 		jfrm.find(".easyui-validatebox").validatebox("disableValidation");
 	}
 	else if (jd.mode == FormMode.forFind && mode != FormMode.forFind) {
-		jfrm.find(":input[name]").each (function (i,e) {
+		jfrm.find(":input[name], .textbox-text").each (function (i,e) {
 			var je = $(e);
 			var bak = je.jdata().bak;
+			if (bak == null)
+				return;
 			je.prop("disabled", bak.disabled);
 			je.removeClass("wui-find-field");
 			je.prop("title", bak.title);
@@ -1280,6 +1622,18 @@ function showObjDlg(jdlg, mode, opt)
 	if (mode == FormMode.forAdd) {
 		var init_data = jd.init_data || (jd2 && jd2.init_data);
 		load_data = $.extend({}, init_data);
+		// 添加时尝试设置父结点
+		if (jd.jtbl && isTreegrid(jd.jtbl) && (rowData=getRow(jd.jtbl, true))) {
+			// 在展开的结点上点添加，默认添加子结点；否则添加兄弟结点
+			if (rowData.state == "open") {
+				load_data["fatherId"] = rowData.id;
+				//load_data["level"] = rowData.level+1;
+			}
+			else {
+				load_data["fatherId"] = rowData["fatherId"];
+				//load_data["level"] = rowData["level"];
+			}
+		}
 	}
 	else if (mode == FormMode.forSet) {
 		if (rowData) {
@@ -1327,14 +1681,8 @@ function showObjDlg(jdlg, mode, opt)
 	function onOk (retData) {
 		var jtbl = jd.jtbl;
 		if (mode==FormMode.forFind) {
-			var param = getFindData(jfrm);
 			mCommon.assert(jtbl); // 查询结果显示到jtbl中
-			// 归并table上的cond条件. dgOpt.url是makeUrl生成的，保存了原始的params
-			var dgOpt = jtbl.datagrid("options");
-			if (param.cond && dgOpt && dgOpt.url && dgOpt.url.params && dgOpt.url.params.cond) {
-				param.cond = dgOpt.url.params.cond + " AND (" + param.cond + ")";
-			}
-			reload(jtbl, undefined, param);
+			doFind(jfrm, jtbl);
 			onCrud();
 			return;
 		}
@@ -1361,7 +1709,7 @@ function showObjDlg(jdlg, mode, opt)
 					reload(jtbl);
 			}
 		}
-		if (mode == FormMode.forAdd)
+		if (mode == FormMode.forAdd && !self.options.closeAfterAdd)
 		{
 			showObjDlg(jdlg, mode); // reset and add another
 		}
@@ -1425,14 +1773,40 @@ function showObjDlg(jdlg, mode, opt)
 	jtbl.datagrid(dgOpt);
 
 特别地，要添加导出数据到Excel文件的功能按钮，可以增加参数"export"作为按钮定义：
+导入可以用"import", 快速查询可以用"qsearch" (这两个以扩展方式在jdcloud-wui-ext.js中定义):
 
 	var dgOpt = {
 		...
-		toolbar: WUI.dg_toolbar(jtbl, jdlg, "export", "-", btn1),
+		toolbar: WUI.dg_toolbar(jtbl, jdlg, "import", "export", "-", btn1, btn2, "qsearch"),
 	}
 
 如果想自行定义导出行为参数，可以参考WUI.getExportHandler
 @see getExportHandler 导出按钮设置
+
+按钮的权限（即是否显示）取决于wui-perm和text属性。优先使用wui-perm。系统内置的常用的有："新增", "修改", "删除", "导出"
+下面例子，把“导入”特别设置为内置的权限“新增”，这样不仅不必在角色管理中设置，且设置了“只读”等权限也可自动隐藏它。
+
+	var btnImport = {text: "导入", "wui-perm": "新增", iconCls:'icon-ok', handler: function () {
+		DlgImport.show({obj: "Ordr"}, function () {
+			WUI.reload(jtbl);
+		});
+	}};
+
+支持定义扩展，比如importOrdr:
+
+	// ctx = {jtbl, jpage, jdlg} // 注意jdlg在调用时可能尚未初始化，可以访问 jdlg.selector和jdlg.objParam等。
+	dg_toolbar.importOrdr = function (ctx) {
+		return {text: "导入", "wui-perm": "新增", iconCls:'icon-ok', handler: function () {
+			DlgImport.show({obj: "Ordr"}, function () {
+				WUI.reload(jtbl);
+			});
+		}}
+	};
+
+这时就可以直接这样来指定导入按钮（便于全局重用）：
+
+	WUI.dg_toolbar(jtbl, jdlg, ..., "importOrdr")
+	
 */
 self.dg_toolbar = dg_toolbar;
 function dg_toolbar(jtbl, jdlg)
@@ -1451,41 +1825,63 @@ function dg_toolbar(jtbl, jdlg)
 	}, 100);
 	*/
 
-	var tb = {
-		r: {text:'刷新', iconCls:'icon-reload', handler: function() { reload(jtbl); /* reload(jtbl, org_url, org_param) */ } },
-		f: {text:'查询', iconCls:'icon-search', handler: function () {
-			showObjDlg(jdlg, FormMode.forFind, {jtbl: jtbl});
-		}},
-		a: {text:'新增', iconCls:'icon-add', handler: function () {
-			showObjDlg(jdlg, FormMode.forAdd, {jtbl: jtbl});
-		}},
-		s: {text:'修改', iconCls:'icon-edit', handler: function () {
-			showObjDlg(jdlg, FormMode.forSet, {jtbl: jtbl});
-		}}, 
-		d: {text:'删除', iconCls:'icon-remove', handler: function () { 
-			showObjDlg(jdlg, FormMode.forDel, {jtbl: jtbl});
-		}},
-		'export': {text: '导出', iconCls: 'icon-save', handler: getExportHandler(jtbl)}
-	};
-	$.each(toolbar.split(""), function(i, e) {
-		if (tb[e]) {
-			btns.push(tb[e]);
-			btns.push("-");
-		}
-	});
+	var btnSpecArr = toolbar.split("");
 	for (var i=2; i<arguments.length; ++i) {
-		var btn = arguments[i];
+		btnSpecArr.push(arguments[i]);
+	}
+
+	// TODO: dialog上的button未考虑
+	var jpage = jtbl.closest(".wui-page");
+	var perm = jpage.attr("wui-perm") || jpage.attr("title");
+	var ctx = {jpage: jpage, jtbl: jtbl, jdlg: jdlg};
+	for (var i=0; i<btnSpecArr.length; ++i) {
+		var btn = btnSpecArr[i];
 		if (! btn)
 			continue;
 		if (btn !== '-' && typeof(btn) == "string") {
-			btn = tb[btn];
-			mCommon.assert(btn, "toolbar button name does not support");
+			var btnfn = dg_toolbar[btn];
+			mCommon.assert(btnfn, "toolbar button `" + btn + "` does not support");
+			btn = btnfn(ctx);
+		}
+		if (btn.text != "-" && perm && !self.canDo(perm, btn["wui-perm"] || btn.text)) {
+			continue;
 		}
 		btns.push(btn);
 	}
 
 	return btns;
 }
+
+$.extend(dg_toolbar, {
+	r: function (ctx) {
+		return {text:'刷新', iconCls:'icon-reload', handler: function() {
+			reload(ctx.jtbl, null, m_batchMode?{}:null);
+		}} // Ctrl-点击，清空查询条件后查询。
+	},
+	f: function (ctx) {
+		return {text:'查询', iconCls:'icon-search', handler: function () {
+			showObjDlg(ctx.jdlg, FormMode.forFind, {jtbl: ctx.jtbl});
+		}}
+	},
+	a: function (ctx) {
+		return {text:'新增', iconCls:'icon-add', handler: function () {
+			showObjDlg(ctx.jdlg, FormMode.forAdd, {jtbl: ctx.jtbl});
+		}}
+	},
+	s: function (ctx) {
+		return {text:'修改', iconCls:'icon-edit', handler: function () {
+			showObjDlg(ctx.jdlg, FormMode.forSet, {jtbl: ctx.jtbl});
+		}}
+	},
+	d: function (ctx) {
+		return {text:'删除', iconCls:'icon-remove', handler: function () {
+			showObjDlg(ctx.jdlg, FormMode.forDel, {jtbl: ctx.jtbl});
+		}}
+	},
+	'export': function (ctx) {
+		return {text: '导出', iconCls: 'icon-save', handler: getExportHandler(ctx.jtbl)}
+	}
+});
 
 /**
 @fn dg_dblclick(jtbl, jdlg)
@@ -1497,7 +1893,7 @@ function dg_toolbar(jtbl, jdlg)
 self.dg_dblclick = function (jtbl, jdlg)
 {
 	return function (idx, data) {
-		jtbl.datagrid("selectRow", idx);
+//		jtbl.datagrid("selectRow", idx);
 		showObjDlg(jdlg, FormMode.forSet, {jtbl: jtbl});
 	}
 }
@@ -1516,7 +1912,7 @@ self.dg_dblclick = function (jtbl, jdlg)
 - href="#pageXXX"开头的，点击时会调用 WUI.showPage("#pageXXX");
 - href="?fn"，会直接调用函数 fn();
 */
-self.m_enhanceFn["a[href^=#]"] = enhanceAnchor;
+self.m_enhanceFn["a[href^='#']"] = enhanceAnchor;
 function enhanceAnchor(jo)
 {
 	if (jo.attr("onclick"))
@@ -1566,15 +1962,26 @@ function getExportHandler(jtbl, ac, param)
 		fmt: "excel",
 		pagesz: -1
 	}, param);
-	if (ac == null) {
-		setTimeout(function () {
-			ac = jtbl.datagrid("options").url;
-		});
-	}
 
 	return function () {
-		var debugShow = m_batchMode;
+		if (ac == null) {
+			if (jtbl.size() == 0 || !jtbl.hasClass("datagrid-f"))
+				throw "error: bad datagrid: \"" + jtbl.selector + "\"";
+			ac = jtbl.datagrid("options").url;
+		}
 		var p1 = getQueryParamFromTable(jtbl, param);
+		var debugShow = false;
+		if (m_batchMode) {
+			var fmt = prompt("输入导出格式: excel csv txt excelcsv html (以!结尾为调试输出)", p1.fmt);
+			if (!fmt)
+				return;
+			if (fmt.substr(-1) == "!") {
+				fmt = fmt.substr(0, fmt.length-1);
+				debugShow = true;
+			}
+			p1.fmt = fmt;
+		}
+
 		var url = WUI.makeUrl(ac, p1);
 		// !!! 调试导出的方法：在控制台中设置  window.open=$.get 即可查看请求响应过程。
 		console.log("export: " + url);
@@ -1633,9 +2040,23 @@ function getQueryParamFromTable(jtbl, param)
 	}
 	if (param.fname === undefined) {
 		param.fname = jtbl.prop("title") || jtbl.closest(".wui-page").prop("title");
+		if (opt.queryParams && opt.queryParams.cond) {
+			var keys = [];
+			opt.queryParams.cond.replace(/'([^']+?)'/g, function (ms, ms1) {
+				keys.push(ms1);
+			});
+			if (keys.length > 0) {
+				param.fname += "-" + keys.join("-");
+			}
+		}
 	}
 	return param;
 }
+
+window.YesNoMap = {
+	0: "否",
+	1: "是"
+};
 
 var Formatter = {
 	dt: function (value, row) {
@@ -1647,16 +2068,37 @@ var Formatter = {
 	number: function (value, row) {
 		return parseFloat(value);
 	},
-	pics: function (value, row) {
+	atts: function (value, row) {
+		if (value == null)
+			return "(无)";
+		return value.toString().replace(/(\d+)(?::([^,]+))?,?/g, function (ms, attId, name) {
+			var url = WUI.makeUrl("att", {id: attId});
+			if (name == null)
+				name = attId;
+			return "<a target='_black' href='" + url + "'>" + name + "</a>&nbsp;";
+		});
+	},
+	pics1: function (value, row) {
 		if (value == null)
 			return "(无图)";
 		return '<a target="_black" href="' + WUI.makeUrl("pic", {id:value}) + '">' + value + '</a>';
-		/*
-		return value.replace(/(\d+),?/g, function (ms, picId) {
-			var url = WUI.makeUrl("att", {thumbId: picId});
-			return "<a target='_black' href='" + url + "'>" + picId + "</a>&nbsp;";
+	},
+	pics: function (value, row) {
+		if (value == null)
+			return "(无图)";
+		var maxN = Formatter.pics.maxCnt || 3; // 最多显示图片数
+		// value = value + "," + value + "," + value;
+		value1 = value.toString().replace(/(\d+)(?::([^,]+))?,?/g, function (ms, picId, name) {
+			if (name == null)
+				name = "图" + picId;
+			if (maxN <= 0)
+				return name + " ";
+			-- maxN;
+			var url = WUI.makeUrl("att", {id: picId});
+			return '<img alt="' + name + '" src="' + url + '">';
 		});
-		*/
+		var linkUrl = WUI.makeUrl("pic", {id:value});
+		return '<a target="_black" href="' + linkUrl + '">' + value1 + '</a>';
 	},
 	flag: function (yes, no) {
 		if (yes == null)
@@ -1677,7 +2119,7 @@ var Formatter = {
 			var v = enumMap[value];
 			if (v != null)
 				return v;
-			if (value.indexOf(sep) > 0) {
+			if (value.indexOf && value.indexOf(sep) > 0) {
 				var v1 = $.map(value.split(sep), function(e) {
 					return enumMap[e] || e;
 				});
@@ -1689,30 +2131,46 @@ var Formatter = {
 			return v;
 		}
 	},
-	linkTo: function (field, dlgRef) {
+	enumStyler: function (colorMap) {
+		return function (value, row) {
+			var color = colorMap[value];
+			if (Color[color])
+				color = Color[color];
+			if (color)
+				return "background-color: " + color;
+		}
+	},
+	// showField=false: 显示value
+	// showField=true: 显示"{id}-{name}"
+	// 否则显示指定字段
+	linkTo: function (field, dlgRef, showField) {
 		return function (value, row) {
 			if (value == null)
 				return;
-			return self.makeLinkTo(dlgRef, row[field], value);
+			var val = typeof(showField)=="string"? row[showField]:
+				showField? (row[field] + "-" + value): value;
+			return self.makeLinkTo(dlgRef, row[field], val);
 		}
 	}
 };
 
 /**
-@var formatter = {dt, number, pics, flag(yes?=是,no?=否), enum(enumMap), linkTo(field, dlgRef) }
+@var formatter = {dt, number, pics, flag(yes?=是,no?=否), enum(enumMap), linkTo(field, dlgRef, showId?=false) }
 
 常常应用定义Formatter变量来扩展WUI.formatter，如
 
 	var Formatter = {
-		userId: WUI.formatter.linkTo("userId", "#dlgUser"),
-		orderStatus: WUI.formatter.enum({CR: "新创建", CA: "已取消"})
+		userId: WUI.formatter.linkTo("userId", "#dlgUser"), // 显示用户名(value)，点击后打开用户明细框
+		storeId: WUI.formatter.linkTo("storeId", "#dlgStore", true), // 显示"商户id-商户名", 点击后打开商户明细框
+		orderStatus: WUI.formatter.enum({CR: "新创建", CA: "已取消"}) // 将CR,CA这样的值转换为显示文字。
 	};
 	Formatter = $.extend(WUI.formatter, Formatter);
 
 可用值：
 
 - dt/number: 显示日期、数值
-- pics: 显示一张或一组图片链接，点一个链接可以在新页面上显示原图片
+- pics/pics1: 显示一张或一组图片链接，点一个链接可以在新页面上显示原图片。(v5.4) pics直接显示图片(最多3张，可通过Formatter.pics.maxCnt设置)，更直观；pics1只显示图片编号，效率更好。
+- atts: (v5.4) 显示一个或一组附件，点链接可下载附件。
 - enum(enumMap): 根据一个map为枚举值显示描述信息，如 `enum({CR:"创建", CA:"取消"})`。
  (v5.1) 也支持枚举值列表，如设置为 `enumList({emp:"员工", mgr:"经理"})`，则会将"emp"和"emp,mgr"分别解析为"员工", "员工,经理"
 - flag(yes?, no?): 显示yes-no字段，如 `flag("禁用","启用")`，也可以用enum，如`enum({0:"启用",1:"禁用"})`
@@ -1722,7 +2180,7 @@ var Formatter = {
 
 	<th data-options="field:'createTm', sortable:true, formatter:Formatter.dt">创建时间</th>
 	<th data-options="field:'amount', sortable:true, sorter: numberSort, formatter:Formatter.number">金额</th>
-	<th data-options="field:'userName', sortable:true, formatter:Formatter.userId">用户</th>
+	<th data-options="field:'userName', sortable:true, formatter:Formatter.linkTo('userId', '#dlgUser')">用户</th>
 	<th data-options="field:'status', sortable:true, jdEnumMap: OrderStatusMap, formatter: Formatter.orderStatus">状态</th>
 	<th data-options="field:'done', sortable:true, formatter: Formatter.flag()">已处理</th>
 */
@@ -1846,6 +2304,23 @@ CSS类, 可定义无数据提示的样式
 // 		if (idx === $(this).data("sel"))
 // 			$(this).datagrid("selectRow", idx);
 // 	}
+});
+
+$.extend($.fn.treegrid.defaults, {
+	idField: "id",
+	treeField: "id",
+	pagination: false,
+	loadFilter: function (data, parentId) {
+		var isLeaf = $(this).treegrid("options").isLeaf;
+		var ret = jdListToTree(data, "fatherId", parentId, isLeaf);
+		return ret;
+	},
+	onBeforeLoad: function (row, param) {
+		if (row) { // row非空表示展开父结点操作，须将param改为 {cond?, id} => {cond:"fatherId=1"}
+			param.cond = "fatherId=" + row.id;
+			delete param["id"];
+		}
+	}
 });
 
 /*
@@ -2031,6 +2506,17 @@ function enhanceTableLayout(jo) {
 		if (je.attr("width") == null)
 			je.attr("width", rates[colCnt][i]);
 	}
+
+	/*
+	2s内三击字段标题，触发查询。Ctrl+三击为追加过滤条件
+	 */
+	self.doSpecial(jo, 'td', function (ev) {
+		var jo = $(this).next();
+		if (jo.find("[name]").size() > 0) {
+			var appendFilter = (ev.ctrlKey || ev.metaKey);
+			doFind(jo, null, appendFilter);
+		}
+	}, 3, 2);
 
 	function dup(s, n) {
 		var ret = '';

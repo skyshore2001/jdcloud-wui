@@ -243,6 +243,10 @@ function getop(v)
 		v = "";
 	if (v.length == 0 || v.match(/\D/) || v[0] == '0') {
 		v = v.replace(/'/g, "\\'");
+		if (self.options.fuzzyMatch && op == "=" && v.length>0) {
+			op = " like ";
+			v = "%" + v + "%";
+		}
 // 		// ???? 只对access数据库: 支持 yyyy-mm-dd, mm-dd, hh:nn, hh:nn:ss
 // 		if (!is_like && v.match(/^((19|20)\d{2}[\/.-])?\d{1,2}[\/.-]\d{1,2}$/) || v.match(/^\d{1,2}:\d{1,2}(:\d{1,2})?$/))
 // 			return op + "#" + v + "#";
@@ -324,7 +328,7 @@ function getQueryCond(kvList)
 	}
 
 	function handleOne(k,v) {
-		if (v == null || v === "")
+		if (v == null || v === "" || ($.isArray(v) && v.length==0))
 			return;
 
 		var arr = v.toString().split(/\s+(and|or)\s+/i);
@@ -434,25 +438,33 @@ function getQueryParam(kvList)
 }
 
 /**
-@fn doSpecial(jo, filter, fn)
+@fn doSpecial(jo, filter, fn, cnt=5, interval=2s)
 
-连续5次点击某处，执行隐藏动作。
+连续5次点击某处，每次点击间隔不超过2s, 执行隐藏动作。
 
 例：
-	// 连续5次点击当前tab标题，重新加载页面
+	// 连续5次点击当前tab标题，重新加载页面. ev为最后一次点击事件.
 	var self = WUI;
-	self.doSpecial(self.tabMain.find(".tabs-header"), ".tabs-selected", function () {
+	self.doSpecial(self.tabMain.find(".tabs-header"), ".tabs-selected", function (ev) {
 		self.reloadPage();
 		self.reloadDialog(true);
+
+		// 弹出菜单
+		//jmenu.menu('show', {left: ev.pageX, top: ev.pageY});
+		return false;
 	});
+
+连续3次点击对话框中的字段标题，触发查询：
+
+	WUI.doSpecial(jdlg, ".wui-form-table td", fn, 3);
 
 */
 self.doSpecial = doSpecial;
-function doSpecial(jo, filter, fn)
+function doSpecial(jo, filter, fn, cnt, interval)
 {
-	jo.on("click", filter, function (ev) {
-		var INTERVAL = 4; // 4s
-		var MAX_CNT = 5;
+	var MAX_CNT = cnt || 5;
+	var INTERVAL = interval || 2; // 2s
+	jo.on("click.special", filter, function (ev) {
 		var tm = new Date();
 		var obj = this;
 		// init, or reset if interval 
@@ -467,7 +479,7 @@ function doSpecial(jo, filter, fn)
 		fn.cnt = 0;
 		fn.lastTm = tm;
 
-		fn();
+		fn.call(this, ev);
 	});
 }
 }

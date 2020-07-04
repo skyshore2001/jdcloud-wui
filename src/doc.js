@@ -32,7 +32,7 @@
 						<th data-options="field:'id', sortable:true, sorter:intSort">订单号</th>
 						<th data-options="field:'userPhone', sortable:true">用户联系方式</th>
 						<th data-options="field:'createTm', sortable:true">创建时间</th>
-						<th data-options="field:'status', jdEnumMap: OrderStatusMap, formatter:Formatter.orderStatus, styler:OrderColumns.statusStyler, sortable:true">状态</th>
+						<th data-options="field:'status', jdEnumMap: OrderStatusMap, formatter:Formatter.enum(OrderStatusMap), styler:Formatter.enumStyler({PA:'Warning'}), sortable:true">状态</th>
 						<th data-options="field:'dscr', sortable:true">描述</th>
 						<th data-options="field:'cmt'">用户备注</th>
 					</tr></thead>
@@ -56,7 +56,7 @@
 			<form method="POST">
 				订单号：<input name="id" disabled></td>
 				订单状态：
-						<select name="status" style="width:150px">
+						<select name="status">
 							<option value="">&nbsp;</option>
 							<option value="CR">未付款</option>
 							<option value="PA">待服务(已付款)</option>
@@ -180,13 +180,43 @@
 			.on("retdata", onRetData);
 		
 		function onBeforeShow(ev, formMode, opt) {
-			jdlg.find(".forFind").toggle(formMode == FormMode.forFind);
+			// beforeshow用于设置字段是否隐藏、是否可编辑；或是设置opt(即WUI.showDlg的opt)。
+
+			var objParam = opt.objParam;
+			var forAdd = formMode == FormMode.forAdd;
+			var forSet = formMode == FormMode.forSet;
+
 			jdlg.find(".notForFind").toggle(formMode != FormMode.forFind);
+
+			// WUI.toggleFields也常用于控制jfrm上字段显示或jtbl上列显示
+			var type = opt.objParam && opt.objParam.type;
+			var isMgr = g_data.hasRole("mgr"); // 最高管理员
+			var isAdm = g_data.hasRole("mgr,emp"); // 管理员
+			WUI.toggleFields(jfrm, {
+				type: !type,
+				status: !type || type!="公告",
+				atts: isAdm
+			});
+
+			// 根据权限控制字段是否可编辑。注意：find模式下一般不禁用。
+			if (formMode != FormMode.forFind) {
+				$(frm.empId).prop("disabled", !isMgr);
+				$(frm.status).prop("disabled", forAdd || !isAdm);
+				$(frm.code).prop("disabled", !isAdm);
+			}
 		}
 		function onShow(ev, formMode, initData) {
-			// data是列表页中一行对应的数据，框架自动根据此数据将对应属性填上值。
+			// 常用于add模式下设置初值，或是set模式下将原值转换并显示。
+			// initData是列表页中一行对应的数据，框架自动根据此数据将对应属性填上值。
 			// 如果界面上展示的字段无法与属性直接对应，可以在该事件回调中设置。
 			// hiddenToCheckbox(jdlg.find("#divPerms"));
+			if (forAdd) {
+				$(frm.status).val("CR");
+			}
+			else if (forSet) {
+				// 显示成表格
+				jdlg.find("#tbl1").datagrid(...);
+			}
 		}
 		function onValidate(ev, formMode, initData, newData) {
 			// 在form提交时，所有带name属性且不带disabled属性的对象值会被发往服务端。
@@ -242,7 +272,7 @@
 
 订单状态字段定义为：
 
-	status:: Enum. 订单状态。CR-新创建,RE-已服务,CA-已取消. 
+	- status: 订单状态. Enum(CR-新创建,RE-已服务,CA-已取消). 
 
 在显示时，要求显示其中文名称，且根据状态不同，显示不同的背景颜色。
 
@@ -253,12 +283,12 @@
 			<thead><tr>
 				<th data-options="field:'id', sortable:true, sorter:intSort">订单号</th>
 				...
-				<th data-options="field:'status', jdEnumMap: OrderStatusMap, formatter:Formatter.orderStatus, styler:OrderColumns.statusStyler, sortable:true">状态</th>
+				<th data-options="field:'status', jdEnumMap: OrderStatusMap, formatter:Formatter.enum(OrderStatusMap), styler:Formatter.enumStyler({PA:'Warning', RE:'Disabled', CR:'#00ff00', null: 'Error'}), sortable:true">状态</th>
 			</tr></thead>
 		</table>
 	</div>
 
-formatter用于控制Cell中的HTML标签，styler用于控制Cell自己的CSS style.
+formatter用于控制Cell中的HTML标签，styler用于控制Cell自己的CSS style, 常用于标记颜色.
 在JS中定义：
 
 	var OrderStatusMap = {
@@ -266,15 +296,16 @@ formatter用于控制Cell中的HTML标签，styler用于控制Cell自己的CSS s
 		RE: "已服务", 
 		CA: "已取消"
 	};
-	var Formatter = {
-		// 显示枚举值的描述，相当于`return map[value] || value`；
-		orderStatus: WUI.formatter.enum(OrderStatusMap),
-		// 显示链接，点击打开用户详情对话框
-		userId: WUI.formatter.linkTo("userId", "#dlgUser")
-	};
 	Formatter = $.extend(WUI.formatter, Formatter);
 
+上面Formatter.enum及Formatter.enumStyler是框架预定义的常用项，也可自定义formatter或styler，例：
+
 	var OrderColumns = {
+		status: function (value, row) {
+			if (! value)
+				return;
+			return OrderStatusMap[value] || value;
+		},
 		statusStyler: function (value, row) {
 			var colors = {
 				CR: "#000",
@@ -459,6 +490,40 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 	jtbl.datagrid("loadData", {h: ["id","name"], d: [ [1, "name1"], [2, "name2"]}); // 筋斗云query接口默认返回格式。
 	jtbl.datagrid("loadData", {list: rows}); // 筋斗云query接口指定fmt=list参数时，返回这种格式
 
+#### treegrid集成
+
+后端数据模型中有fatherId字段, 即可适配treegrid.
+
+- 支持一次全部加载和分层次加载两种模式。
+- 支持查询时，只展示部分行。
+- 点添加时，如果当前有选中行，当这一行是展开的父结点（或是叶子结点，也相当于是展开的），则默认行为是为选中行添加子项，预置fatherId, level字段；
+ 如果是未展开的父结点，则是加同级的结点。
+- 更新时如果修改了父结点, 它将移动到新的父结点下。否则直接刷新这行。
+- 支持排序和导出。
+
+在初始化页面时, 与datagrid类似: pageItemType.js
+
+	var dgOpt = {
+		// treegrid查询时不分页. 设置pagesz=-1. (注意后端默认返回1000条, 可设置放宽到10000条. 再多应考虑按层级展开)
+		url: WUI.makeUrl("ItemType.query", {pagesz: -1}),
+		toolbar: WUI.dg_toolbar(jtbl, jdlg),
+		onDblClickRow: WUI.dg_dblclick(jtbl, jdlg)
+	};
+	// 用treegrid替代常规的datagrid
+	jtbl.treegrid(dgOpt);
+
+如果数据量非常大, 可以只显示第一层级, 展开时再查询.
+仅需增加初始查询条件(只查第一级)以及一个判断是否终端结点的回调函数isLeaf (否则都当作终端结点将无法展开):
+
+	var dgOpt = {
+		queryParams: {cond: "fatherId is null"},
+		isLeaf: function (row) {
+			return row.level>1;
+		},
+		...
+	};
+	jtbl.treegrid(dgOpt);
+
 ### 详情页对话框的常见需求
 
 #### 通用查询
@@ -492,6 +557,11 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 	状态: <select name="status" class="my-combobox wui-notCond" data-options="jdEnumList:'0:可用;1:禁用'"></select>
 
 如果不加wui-notCond类，生成的查询参数为：`{cond: "status=0"}`；加上后，生成查询参数如：`{status: 0}`.
+
+(v5.3)
+
+- 在对话框中三击（2秒内）字段标题栏，可快速按查询该字段。Ctrl+三击为追加过滤条件。
+- 在页面工具栏中，按住Ctrl(batch模式)点击“刷新”按钮，可清空当前查询条件。
 
 #### 设计模式：关联选择框
 
@@ -574,11 +644,19 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 
 	function initPageItem(storeId) // storeId=row.id
 
-此外，在Item页对应的详情对话框上（dlgItem.html页面中），还应设置storeId字段是只读的，在添加、设置和查询时不可被修改。
+@see showPage
+@key .wui-fixedField 固定值字段
+
+此外，在Item页对应的详情对话框上（dlgItem.html页面中），还应设置storeId字段是只读的，在添加、设置和查询时不可被修改，在添加时还应自动填充值。
+(v5.3) 只要在字段上添加wui-fixedField类即可：
+
+	<select name="storeId" class="my-combobox wui-fixedField" data-options="ListOptions.Store()"></select>
+
+注意：wui-fixedField在v5.3引入，之前方法是应先设置字段为readonly:
 
 	<select name="storeId" class="my-combobox" data-options="ListOptions.Store()" readonly></select>
 
-注意：select组件默认不支持readonly属性，框架定义了CSS：为select[readonly]设置`pointer-events:none`达到类似效果。
+（select组件默认不支持readonly属性，框架定义了CSS：为select[readonly]设置`pointer-events:none`达到类似效果。）
 
 然后，在initDlgItem函数中(dlgItem.js文件)，应设置在添加时自动填好该字段：
 
@@ -586,8 +664,6 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 		if (formMode == FormMode.forAdd && objParam.storeId) {
 			opt.data.storeId = objParam.storeId);
 		}
-
-@see showPage
 
 ### 设计模式：页面间调用
 
@@ -767,6 +843,23 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 	jdlg.toggleClass("wui-readonly", isReadonly);
 
 只读对话框不可输入(在style.css中设定pointer-events为none)，点击确定按钮后直接关闭。
+
+### 只读字段：使用disabled和readonly属性
+
+- disabled：不可添加或更新该字段，但可查询（即forAdd/forSet模式下只显示不提交，forFind时可设置和提交)，例如编号字段、计算字段。示例：
+
+		<input name="id" disabled>
+		<input name="userName" disabled>
+
+- readonly：不可手工添加、更新和查询（但可通过代码设置）。示例：
+
+		<input name="total" readonly>
+
+(v5.3) 如果是在展示层次对象（参考[[设计模式：展示层次对象]]章节），某些字段是外部传入的固定值，这时用wui-fixedField类标识：
+
+	<select name="storeId" class="my-combobox wui-fixedField" data-options="ListOptions.Store()"></select>
+
+@see .wui-fixedField
 
 ## 模块化开发
 

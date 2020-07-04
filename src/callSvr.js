@@ -294,8 +294,16 @@ function defDataProc(rv)
 	}
 
 	if (rv && $.isArray(rv) && rv.length >= 2 && typeof rv[0] == "number") {
-		if (rv[0] == 0)
+		var that = this;
+		if (rv[0] == 0) {
+			ctx.dfd && setTimeout(function () {
+				ctx.dfd.resolve.call(that, rv[1]);
+			});
 			return rv[1];
+		}
+		ctx.dfd && setTimeout(function () {
+			ctx.dfd.reject.call(that, rv[1]);
+		});
 
 		if (this.noex)
 		{
@@ -502,7 +510,7 @@ function makeUrl(action, params)
 
 @see callSvrExt[].beforeSend(opt) 为callSvr选项设置缺省值
 
-@return deferred对象，与$.ajax相同。
+@return deferred对象，在Ajax调用成功后回调。
 例如，
 
 	var dfd = callSvr(ac, fn1);
@@ -511,7 +519,20 @@ function makeUrl(action, params)
 	function fn1(data) {}
 	function fn2(data) {}
 
-在接口调用成功后，会依次回调fn1, fn2.
+在接口调用成功后，会依次回调fn1, fn2. 在回调函数中this表示ajax参数。例如：
+
+	callSvr(ac, function (data) {
+		// 可以取到传入的参数。
+		console.log(this.key1);
+	}, null, {key1: 'val1'});
+
+(v5.4) 支持失败时回调：
+
+	var dfd = callSvr(ac);
+	dfd.fail(function (data) {
+		console.log('error', data);
+		console.log(this.ctx_.ret); // 和设置选项{noex:1}时回调中取MUI.lastError.ret 或 this.lastError相同。
+	});
 
 @key callSvr.noex 调用接口时忽略出错，可由回调函数fn自己处理错误。
 
@@ -837,12 +858,24 @@ callSvr扩展示例：
 		}
 	}
 
+## jQuery的$.Deferred兼容Promise接口
+
+	var dfd = callSvr("...");
+	dfd.then(function (data) {
+		console.log(data);
+	})
+	.catch(function (err) {
+		app_alert(err);
+	})
+	.finally(...)
+
+支持catch/finally等Promise类接口。接口逻辑失败时，dfd.reject()触发fail/catch链。
 */
 self.callSvr = callSvr;
 self.callSvrExt = {};
 function callSvr(ac, params, fn, postParams, userOptions)
 {
-	if (params instanceof Function) {
+	if ($.isFunction(params)) {
 		// 兼容格式：callSvr(url, fn?, postParams?, userOptions?);
 		userOptions = postParams;
 		postParams = fn;
@@ -884,6 +917,7 @@ function callSvr(ac, params, fn, postParams, userOptions)
 	if (ext) {
 		ctx.ext = ext;
 	}
+	ctx.dfd = $.Deferred();
 	if (self.mockData && self.mockData[ac0]) {
 		ctx.isMock = true;
 		ctx.getMockData = function () {
@@ -929,6 +963,16 @@ function callSvr(ac, params, fn, postParams, userOptions)
 		self.callSvrExt[ext].beforeSend(opt);
 	}
 
+	// 自动判断是否用json格式
+	if (!opt.contentType && opt.data && $.isPlainObject(opt.data)) {
+		$.each(opt.data, function (i, e) {
+			if (typeof(e) == "object") {
+				opt.contentType = "application/json";
+				return false;
+			}
+		})
+	}
+
 	// post json content
 	var isJson = opt.contentType && opt.contentType.indexOf("/json")>0;
 	if (isJson && opt.data instanceof Object)
@@ -937,13 +981,15 @@ function callSvr(ac, params, fn, postParams, userOptions)
 	console.log(callType + ": " + opt.type + " " + ac0);
 	if (ctx.isMock)
 		return callSvrMock(opt, isSyncCall);
-	return $.ajax(opt);
+	$.ajax(opt);
+	// dfd.resolve/reject is done in defDataProc
+	return ctx.dfd;
 }
 
-// opt = {success, .ctx_={isMock, getMockData} }
+// opt = {success, .ctx_={isMock, getMockData, dfd} }
 function callSvrMock(opt, isSyncCall)
 {
-	var dfd_ = $.Deferred();
+	var dfd_ = opt.ctx_.dfd;
 	var opt_ = opt;
 	if (isSyncCall) {
 		callSvrMock1();
@@ -962,7 +1008,7 @@ function callSvrMock(opt, isSyncCall)
 		if (rv != null)
 		{
 			opt_.success && opt_.success(rv);
-			dfd_.resolve(rv);
+//			dfd_.resolve(rv); // defDataProc resolve it
 			return;
 		}
 		self.app_abort();
@@ -981,17 +1027,17 @@ self.callSvrSync = callSvrSync;
 function callSvrSync(ac, params, fn, postParams, userOptions)
 {
 	var ret;
-	if (params instanceof Function) {
+	if ($.isFunction(params)) {
 		userOptions = postParams;
 		postParams = fn;
 		fn = params;
 		params = null;
 	}
 	userOptions = $.extend({async: false}, userOptions);
-	var dfd = callSvr(ac, params, fn, postParams, userOptions);
-	dfd.then(function(data) {
+	var dfd = callSvr(ac, params, function (data) {
 		ret = data;
-	});
+		fn && fn.call(this, data);
+	}, postParams, userOptions);
 	return ret;
 }
 

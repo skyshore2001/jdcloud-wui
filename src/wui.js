@@ -27,13 +27,14 @@ URL参数会自动加入该对象，例如URL为 `http://{server}/{app}/index.ht
 	g_args.orderId=10; // 注意：如果参数是个数值，则自动转为数值类型，不再是字符串。
 	g_args.dscr="上门洗车"; // 对字符串会自动进行URL解码。
 
-此外，框架会自动加一些参数：
+框架会自动处理一些参数：
 
-@var g_args._app?="user" 应用名称，由 WUI.options.appName 指定。
+- g_args._debug: 在测试模式下，指定后台的调试等级，有效值为1-9. 参考：后端测试模式 P_TEST_MODE，调试等级 P_DEBUG.
+- g_args.autoLogin: 记住登录信息(token)，下次自动登录；注意：如果是在手机模式下打开，此行为是默认的。示例：http://server/jdcloud/web/?autoLogin
 
 @see parseQuery URL参数通过该函数获取。
 */
-window.g_args = {}; // {_test, _debug}
+window.g_args = {}; // {_debug}
 
 /**
 @var g_data = {userInfo?}
@@ -66,13 +67,15 @@ window.FormMode = {
 };
 
 /**
-@var options
+@var WUI.options
 
 {appName=user, title="客户端", onShowLogin, pageHome="pageHome", pageFolder="page"}
 
 - appName: 用于与后端通讯时标识app.
 - pageHome: 首页的id, 默认为"pageHome"
 - pageFolder: 子页面或对话框所在文件夹, 默认为"page"
+- closeAfterAdd: (=false) 设置为true时，添加数据后关闭窗口。默认行为是添加数据后保留并清空窗口以便连续添加。
+- fuzzyMatch: (=false) 设置为true时，则查询对话框中的文本查询匹配字符串任意部分。
 */
 self.options = {
 	title: "客户端",
@@ -91,16 +94,11 @@ self.options = {
 
 //}}}
 
-// TODO: remove testmode
 // set g_args
 function parseArgs()
 {
 	if (location.search) {
 		g_args = mCommon.parseQuery(location.search.substr(1));
-		if (g_args.test || g_args._test) {
-			g_args._test = 1;
-			alert("测试模式!");
-		}
 	}
 }
 parseArgs();
@@ -192,7 +190,11 @@ function app_alert(msg)
 		jbtn.focus();
 		if (alertOpt.timeoutInterval) {
 			setTimeout(function() {
-				jbtn.click();
+				try {
+					jbtn.click();
+				} catch (ex) {
+					console.error(ex);
+				}
 			}, alertOpt.timeoutInterval);
 		}
 	});
@@ -311,8 +313,6 @@ function tokenName()
 	var name = "token";
 	if (self.options.appName)
 		name += "_" + self.options.appName;
-	if (g_args._test)
-		name += "_test";
 	return name;
 }
 
@@ -349,11 +349,12 @@ function deleteLoginToken()
 			onShowLogin: showDlgLogin
 		});
 
-		WUI.tryAutoLogin(WUI.handleLogin, "whoami");
+		WUI.tryAutoLogin(WUI.handleLogin, "Employee.get");
 	}
 
 	$(main);
 
+该函数同步调用后端接口。如果要异步调用，请改用tryAutoLoginAsync函数，返回Deferred对象，resolve表示登录成功，reject表示登录失败。
 */
 self.tryAutoLogin = tryAutoLogin;
 function tryAutoLogin(onHandleLogin, reuseCmd)
@@ -392,6 +393,58 @@ function tryAutoLogin(onHandleLogin, reuseCmd)
 	return ok;
 }
 
+self.tryAutoLoginAsync = tryAutoLoginAsync;
+function tryAutoLoginAsync(onHandleLogin, reuseCmd)
+{
+	var ajaxOpt = {noex: true};
+	var dfd = $.Deferred();
+
+	function success(data) {
+		if (onHandleLogin)
+			onHandleLogin.call(this, data);
+		dfd.resolve();
+	}
+	function fail() {
+		dfd.reject();
+		self.options.onShowLogin();
+	}
+
+	// first try "User.get"
+	if (reuseCmd != null) {
+		self.callSvr(reuseCmd, function (data) {
+			if (data === false) {
+				loginByToken()
+				return;
+			}
+			success(data);
+		}, null, ajaxOpt);
+	}
+	else {
+		loginByToken();
+	}
+
+	// then use "login(token)"
+	function loginByToken()
+	{
+		var token = loadLoginToken();
+		if (token != null)
+		{
+			var postData = {token: token};
+			self.callSvr("login", function (data) {
+				if (data === false) {
+					fail();
+					return;
+				}
+				success(data);
+			}, postData, ajaxOpt);
+		}
+		else {
+			fail();
+		}
+	}
+	return dfd.promise();
+}
+
 /**
 @fn handleLogin(data)
 @param data 调用API "login"成功后的返回数据.
@@ -420,12 +473,13 @@ var plugins_ = {};
 function initClient()
 {
 	self.callSvrSync('initClient', function (data) {
+		g_data.initClient = data;
 		plugins_ = data.plugins || {};
 		$.each(plugins_, function (k, e) {
 			if (e.js) {
 				// plugin dir
 				var js = BASE_URL + 'plugin/' + k + '/' + e.js;
-				mCommon.loadScript(js, null, true);
+				mCommon.loadScript(js, {async:true});
 			}
 		});
 	});
@@ -469,13 +523,14 @@ function setApp(app)
 @param dontReload 如果非0, 则注销后不刷新页面.
 
 注销当前登录, 成功后刷新页面(除非指定dontReload=1)
+返回logout调用的deferred对象
 */
 self.logout = logout;
 function logout(dontReload)
 {
 	deleteLoginToken();
 	g_data.userInfo = null;
-	self.callSvr("logout", function (data) {
+	return self.callSvr("logout", function (data) {
 		if (! dontReload)
 			mCommon.reloadSite();
 	});
@@ -566,11 +621,29 @@ function mainInit()
 		}
 	});
 
-	// 连续5次点击当前tab标题，重新加载页面
-	self.doSpecial(self.tabMain.find(".tabs-header"), ".tabs-selected", function () {
-		self.reloadPage();
-		self.reloadDialog(true);
+	// 标题栏右键菜单
+	var jmenu = $('<div><div id="mnuReload">刷新页面</div><div id="mnuBatch">批量模式</div></div>');
+	jmenu.menu({
+		onClick: function (mnuItem) {
+			var mnuId = mnuItem.id;
+			switch (mnuItem.id) {
+			case "mnuReload":
+				self.reloadPage();
+				self.reloadDialog(true);
+				break;
+			case "mnuBatch":
+				self.toggleBatchMode();
+				break;
+			}
+		}
 	});
+	function onSpecial(ev) {
+		jmenu.menu('show', {left: ev.pageX, top: ev.pageY});
+		return false;
+	}
+	// 连续3次点击当前tab标题，或右键点击, 弹出特别菜单, 可重新加载页面等
+	self.doSpecial(self.tabMain.find(".tabs-header"), ".tabs-selected", onSpecial, 3);
+	self.tabMain.find(".tabs-header").on("contextmenu", ".tabs-selected", onSpecial);
 
 	// bugfix for datagrid size after resizing
 	var tmr;
