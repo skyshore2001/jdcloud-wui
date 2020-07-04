@@ -401,7 +401,12 @@ Date.prototype.diff = function(sInterval, dtEnd)
 	var dtStart = this;
 	switch (sInterval) 
 	{
-		case 'd' :return Math.round((dtEnd - dtStart) / 86400000);
+		case 'd' :
+		{
+			var d1 = (dtStart.getTime() - dtStart.getTimezoneOffset()*60000) / 86400000;
+			var d2 = (dtEnd.getTime() - dtEnd.getTimezoneOffset()*60000) / 86400000;
+			return Math.floor(d2) - Math.floor(d1);
+		}	
 		case 'm' :return dtEnd.getMonth() - dtStart.getMonth() + (dtEnd.getFullYear()-dtStart.getFullYear())*12;
 		case 'y' :return dtEnd.getFullYear() - dtStart.getFullYear();
 		case 's' :return Math.round((dtEnd - dtStart) / 1000);
@@ -965,10 +970,9 @@ function appendParam(url, param)
 self.deleteParam = deleteParam;
 function deleteParam(url, paramName)
 {
-	var ret = url.replace(new RegExp('&?' + paramName + "(=[^&#]+)?"), '');
-	if (ret.indexOf('?&') >=0) {
-		ret = ret.replace('?&', '?');
-	}
+	var ret = url.replace(new RegExp('&?\\b' + paramName + "\\b(=[^&#]+)?"), '');
+	ret = ret.replace(/\?&/, '?');
+	// ret = ret.replace(/\?(#|$)/, '$1'); // 问号不能去掉，否则history.replaceState(null,null,"#xxx")会无效果
 	return ret;
 }
 

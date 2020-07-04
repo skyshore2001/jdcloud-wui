@@ -144,6 +144,8 @@ function setOnError()
 			return true;
 		if (errObj instanceof DirectReturn || /abort$/.test(msg) || (!script && !line))
 			return true;
+		if (self.options.skipErrorRegex && self.options.skipErrorRegex.test(msg))
+			return true;
 		if (errObj === undefined && msg === "[object Object]") // fix for IOS9
 			return true;
 		debugger;

@@ -452,6 +452,27 @@ function waitFor(dfd)
 }
 
 /**
+@fn rgb(r,g,b)
+
+生成"#112233"形式的颜色值.
+
+	rgb(255,255,255) -> "#ffffff"
+
+ */
+self.rgb = rgb;
+function rgb(r,g,b,a)
+{
+	if (a === 0) // transparent (alpha=0)
+		return;
+	return '#' + pad16(r) + pad16(g) + pad16(b);
+
+	function pad16(n) {
+		var ret = n.toString(16);
+		return n>16? ret: '0'+ret;
+	}
+}
+
+/**
 @fn rgb2hex(rgb)
 
 将jquery取到的颜色转成16进制形式，如："rgb(4, 190, 2)" -> "#04be02"
@@ -462,8 +483,15 @@ function waitFor(dfd)
 
  */
 self.rgb2hex = rgb2hex;
-function rgb2hex(rgb)
+function rgb2hex(rgbFormat)
 {
+	var rgba = rgb; // function rgb or rgba
+	try {
+		return eval(rgbFormat);
+	} catch (ex) {
+		console.log(ex);
+	}
+/*
 	var ms = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
 	if (ms == null)
 		return;
@@ -478,6 +506,7 @@ function rgb2hex(rgb)
 		}
 	}
 	return hex;
+*/
 }
 
 /**
