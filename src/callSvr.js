@@ -156,7 +156,7 @@ function enterWaiting(ctx)
 	setTimeout(function () {
 		if (self.isBusy)
 			self.showLoading();
-	}, 200);
+	}, (self.options.showLoadingDelay || 200));
 // 		if ($.mobile && !(ctx && ctx.noLoadingImg))
 // 			$.mobile.loading("show");
 	//},1);
@@ -248,18 +248,21 @@ function defDataProc(rv)
 			console.log("Server Revision: " + val);
 			g_data.serverRev = val;
 		}
+		var modeStr;
 		val = mCommon.parseValue(this.xhr_.getResponseHeader("X-Daca-Test-Mode"));
 		if (g_data.testMode != val) {
 			g_data.testMode = val;
 			if (g_data.testMode)
-				self.app_alert("测试模式!", {timeoutInterval:2000});
+				modeStr = "测试模式";
 		}
 		val = mCommon.parseValue(this.xhr_.getResponseHeader("X-Daca-Mock-Mode"));
 		if (g_data.mockMode != val) {
 			g_data.mockMode = val;
 			if (g_data.mockMode)
-				self.app_alert("模拟模式!", {timeoutInterval:2000});
+				modeStr = "测试模式+模拟模式";
 		}
+		if (modeStr)
+			self.app_alert(modeStr, {timeoutInterval:2000});
 	}
 
 	try {
@@ -291,8 +294,16 @@ function defDataProc(rv)
 	}
 
 	if (rv && $.isArray(rv) && rv.length >= 2 && typeof rv[0] == "number") {
-		if (rv[0] == 0)
+		var that = this;
+		if (rv[0] == 0) {
+			ctx.dfd && setTimeout(function () {
+				ctx.dfd.resolve.call(that, rv[1]);
+			});
 			return rv[1];
+		}
+		ctx.dfd && setTimeout(function () {
+			ctx.dfd.reject.call(that, rv[1]);
+		});
 
 		if (this.noex)
 		{
@@ -499,7 +510,7 @@ function makeUrl(action, params)
 
 @see callSvrExt[].beforeSend(opt) 为callSvr选项设置缺省值
 
-@return deferred对象，与$.ajax相同。
+@return deferred对象，在Ajax调用成功后回调。
 例如，
 
 	var dfd = callSvr(ac, fn1);
@@ -508,7 +519,20 @@ function makeUrl(action, params)
 	function fn1(data) {}
 	function fn2(data) {}
 
-在接口调用成功后，会依次回调fn1, fn2.
+在接口调用成功后，会依次回调fn1, fn2. 在回调函数中this表示ajax参数。例如：
+
+	callSvr(ac, function (data) {
+		// 可以取到传入的参数。
+		console.log(this.key1);
+	}, null, {key1: 'val1'});
+
+(v5.4) 支持失败时回调：
+
+	var dfd = callSvr(ac);
+	dfd.fail(function (data) {
+		console.log('error', data);
+		console.log(this.ctx_.ret); // 和设置选项{noex:1}时回调中取MUI.lastError.ret 或 this.lastError相同。
+	});
 
 @key callSvr.noex 调用接口时忽略出错，可由回调函数fn自己处理错误。
 
@@ -834,12 +858,24 @@ callSvr扩展示例：
 		}
 	}
 
+## jQuery的$.Deferred兼容Promise接口
+
+	var dfd = callSvr("...");
+	dfd.then(function (data) {
+		console.log(data);
+	})
+	.catch(function (err) {
+		app_alert(err);
+	})
+	.finally(...)
+
+支持catch/finally等Promise类接口。接口逻辑失败时，dfd.reject()触发fail/catch链。
 */
 self.callSvr = callSvr;
 self.callSvrExt = {};
 function callSvr(ac, params, fn, postParams, userOptions)
 {
-	if (params instanceof Function) {
+	if ($.isFunction(params)) {
 		// 兼容格式：callSvr(url, fn?, postParams?, userOptions?);
 		userOptions = postParams;
 		postParams = fn;
@@ -881,6 +917,7 @@ function callSvr(ac, params, fn, postParams, userOptions)
 	if (ext) {
 		ctx.ext = ext;
 	}
+	ctx.dfd = $.Deferred();
 	if (self.mockData && self.mockData[ac0]) {
 		ctx.isMock = true;
 		ctx.getMockData = function () {
@@ -926,6 +963,16 @@ function callSvr(ac, params, fn, postParams, userOptions)
 		self.callSvrExt[ext].beforeSend(opt);
 	}
 
+	// 自动判断是否用json格式
+	if (!opt.contentType && opt.data && $.isPlainObject(opt.data)) {
+		$.each(opt.data, function (i, e) {
+			if (typeof(e) == "object") {
+				opt.contentType = "application/json";
+				return false;
+			}
+		})
+	}
+
 	// post json content
 	var isJson = opt.contentType && opt.contentType.indexOf("/json")>0;
 	if (isJson && opt.data instanceof Object)
@@ -934,13 +981,15 @@ function callSvr(ac, params, fn, postParams, userOptions)
 	console.log(callType + ": " + opt.type + " " + ac0);
 	if (ctx.isMock)
 		return callSvrMock(opt, isSyncCall);
-	return $.ajax(opt);
+	$.ajax(opt);
+	// dfd.resolve/reject is done in defDataProc
+	return ctx.dfd;
 }
 
-// opt = {success, .ctx_={isMock, getMockData} }
+// opt = {success, .ctx_={isMock, getMockData, dfd} }
 function callSvrMock(opt, isSyncCall)
 {
-	var dfd_ = $.Deferred();
+	var dfd_ = opt.ctx_.dfd;
 	var opt_ = opt;
 	if (isSyncCall) {
 		callSvrMock1();
@@ -959,7 +1008,7 @@ function callSvrMock(opt, isSyncCall)
 		if (rv != null)
 		{
 			opt_.success && opt_.success(rv);
-			dfd_.resolve(rv);
+//			dfd_.resolve(rv); // defDataProc resolve it
 			return;
 		}
 		self.app_abort();
@@ -978,17 +1027,17 @@ self.callSvrSync = callSvrSync;
 function callSvrSync(ac, params, fn, postParams, userOptions)
 {
 	var ret;
-	if (params instanceof Function) {
+	if ($.isFunction(params)) {
 		userOptions = postParams;
 		postParams = fn;
 		fn = params;
 		params = null;
 	}
 	userOptions = $.extend({async: false}, userOptions);
-	var dfd = callSvr(ac, params, fn, postParams, userOptions);
-	dfd.then(function(data) {
+	var dfd = callSvr(ac, params, function (data) {
 		ret = data;
-	});
+		fn && fn.call(this, data);
+	}, postParams, userOptions);
 	return ret;
 }
 
@@ -1068,22 +1117,39 @@ function setupCallSvrViaForm($form, $iframe, url, fn, callOpt)
 
 参数中可以引用之前结果中的值，引用部分需要用"{}"括起来，且要在opt.ref参数中指定哪些参数使用了引用：
 
-	var batch = new MUI.batchCall({useTrans: 1});
-	callSvr("Attachment.add", api_AttAdd, {path: "path-1"}); // 假如返回 22
-	var opt = {ref: ["id"]};
-	callSvr("Attachment.get", {id: "{$1}"}, api_AttGet, null, opt); // {$1}=22, 假如返回 {id: 22, path: '/data/1.png'}
-	opt = {ref: ["cond"]};
-	callSvr("Attachment.query", {res: "count(*) cnt", cond: "path='{$-1.path}'"}, api_AttQuery, null, opt); // {$-1.path}计算出为 '/data/1.png'
-	batch.commit();
+
+	MUI.useBatchCall();
+	callSvr("..."); // 这个返回值的结果将用于以下调用
+	callSvr("Ordr.query", {
+		res: "id,dscr",
+		status: "{$-1.status}",  // 整体替换，结果可以是一个对象
+		cond: "id>{$-1.id}" // 部分替换，其结果只能是字符串
+	}, api_OrdrQuery, {
+		ref: ["status", "cond"] // 须在ref中指定需要处理的key
+	});
+
+特别地，当get/post整个是一个字符串时，直接整体替换，无须在ref中指定，如：
+
+	callSvr("Ordr.add", $.noop, "{$-1}", {contentType:"application/json"});
 
 以下为引用格式示例：
 
-	{$-2} // 前2次的结果。
-	{$2[0]} // 取第2次结果（是个数组）的第0个值。
-	{$-1.path} // 取前一次结果的path属性
-	{$2 -1}  // 可以做简单的计算
+	{$1} // 第1次调用的结果。
+	{$-1} // 前1次调用的结果。
+	{$-1.path} // 取前一次调用结果的path属性
+	{$1[0]} // 取第1次调用结果（是个数组）的第0个值。
+	{$1[0].amount}
+	{$-1.price * $-1.qty} // 可以做简单的数值计算
 
 如果值计算失败，则当作"null"填充。
+
+综合示例：
+
+	MUI.useBatchCall();
+	callSvr("Ordr.completeItem", $.noop, {itemId:1})
+	callSvr("Ordr.completeItem", $.noop, {itemId:2, qty:2})
+	callSvr("Ordr.calc", $.noop, {items:["{$1}", "{$2}"]}, {contentType:"application/json", ref:["items"] });
+	callSvr("Ordr.add", $.noop, "{$3}", {contentType:"application/json"});
 
 @see useBatchCall
 @see disableBatch

@@ -60,7 +60,17 @@ function getFormData(jo)
 		if (content !== String(orgContent)) // 避免 "" == 0 或 "" == false
 		{
 			if (! isFormData) {
-				data[name] = content;
+				// URL参数支持数组，如`a[]=hello&a[]=world`，表示数组`a=["hello","world"]`
+				if (name.substr(-2) == "[]") {
+					name = name.substr(0, name.length-2);
+					if (! data[name]) {
+						data[name] = [];
+					}
+					data[name].push(content);
+				}
+				else {
+					data[name] = content;
+				}
 			}
 			else {
 				if (ji.is(":file")) {
@@ -96,7 +106,7 @@ self.formItems = formItems;
 function formItems(jo, cb)
 {
 	jo.find("[name]:not([disabled])").each (function () {
-		var name = this.name;
+		var name = this.name || $(this).attr("name");
 		if (! name)
 			return;
 
@@ -130,10 +140,12 @@ function formItems(jo, cb)
  对div等其它对象, 会清空该对象的内容.
 - 如果对象设置有属性"noReset", 则不会对它进行设置.
 
-@param opt {setOrigin?=false}
+@param opt {setOrigin?=false, setOnlyDefined?=false}
 
-选项 setOrigin: 为true时将data设置为数据源, 这样在getFormData时, 只会返回与数据源相比有变化的数据.
+@param opt.setOrigin 为true时将data设置为数据源, 这样在getFormData时, 只会返回与数据源相比有变化的数据.
 缺省会设置该DOM对象数据源为空.
+
+@param opt.setOnlyDefined 设置为true时，只设置form中name在data中存在的项，其它项保持不变；而默认是其它项会清空。
 
 对象关联的数据源, 可以通过 jo.data("origin_") 来获取, 或通过 jo.data("origin_", newOrigin) 来设置.
 
@@ -177,6 +189,8 @@ function setFormData(jo, data, opt)
 		var ji = $(this);
 		var name = ji.attr("name");
 		var content = data[name];
+		if (opt1.setOnlyDefined && content === undefined)
+			return;
 		var isInput = ji.is(":input");
 		if (content === undefined) {
 			if (isInput) {
@@ -191,7 +205,7 @@ function setFormData(jo, data, opt)
 				content = "";
 			}
 		}
-		if (ji.is(":input")) {
+		if (isInput) {
 			ji.val(content);
 		}
 		else {
@@ -365,6 +379,27 @@ function waitFor(dfd)
 }
 
 /**
+@fn rgb(r,g,b)
+
+生成"#112233"形式的颜色值.
+
+	rgb(255,255,255) -> "#ffffff"
+
+ */
+self.rgb = rgb;
+function rgb(r,g,b,a)
+{
+	if (a === 0) // transparent (alpha=0)
+		return;
+	return '#' + pad16(r) + pad16(g) + pad16(b);
+
+	function pad16(n) {
+		var ret = n.toString(16);
+		return n>16? ret: '0'+ret;
+	}
+}
+
+/**
 @fn rgb2hex(rgb)
 
 将jquery取到的颜色转成16进制形式，如："rgb(4, 190, 2)" -> "#04be02"
@@ -375,8 +410,15 @@ function waitFor(dfd)
 
  */
 self.rgb2hex = rgb2hex;
-function rgb2hex(rgb)
+function rgb2hex(rgbFormat)
 {
+	var rgba = rgb; // function rgb or rgba
+	try {
+		return eval(rgbFormat);
+	} catch (ex) {
+		console.log(ex);
+	}
+/*
 	var ms = rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
 	if (ms == null)
 		return;
@@ -391,6 +433,7 @@ function rgb2hex(rgb)
 		}
 	}
 	return hex;
+*/
 }
 
 /**
@@ -571,7 +614,7 @@ function compressImg(fileObj, cb, opt)
 		// 无压缩效果，则直接用原图
 		if (blob.size > fileObj.size) {
 			blob = fileObj;
-			b64src = img.src;
+			// b64src = img.src;
 			opt.mimeType = fileObj.type;
 		}
 		// 如果没有扩展名或文件类型发生变化，自动更改扩展名
@@ -630,6 +673,81 @@ function compressImg(fileObj, cb, opt)
 			return fname;
 		return fname.replace(/(\.\w+)?$/, ext1);
 	}
+}
+
+/**
+@fn getDataOptions(jo, defVal?)
+@key data-options
+
+读取jo上的data-options属性，返回JS对象。例如：
+
+	<div data-options="a:1,b:'hello',c:true"></div>
+
+上例可返回 `{a:1, b:'hello', c:true}`.
+
+也支持各种表达式及函数调用，如：
+
+	<div data-options="getSomeOption()"></div>
+
+@see getOptions
+ */
+self.getDataOptions = getDataOptions;
+function getDataOptions(jo, defVal)
+{
+	var optStr = jo.attr("data-options");
+	var opts;
+	try {
+		if (optStr != null) {
+			if (optStr.indexOf(":") > 0) {
+				opts = eval("({" + optStr + "})");
+			}
+			else {
+				opts = eval("(" + optStr + ")");
+			}
+		}
+	}catch (e) {
+		alert("bad data-options: " + optStr);
+	}
+	return $.extend({}, defVal, opts);
+}
+
+/**
+@fn triggerAsync(jo, ev, paramArr)
+
+触发含有异步操作的事件，在异步事件完成后继续。兼容同步事件处理函数，或多个处理函数中既有同步又有异步。
+返回Deferred对象，或false表示要求取消之后操作。
+
+@param ev 事件名，或事件对象$.Event()
+
+示例：以事件触发方式调用jo的异步方法submit:
+
+	var dfd = WUI.triggerAsync(jo, 'submit');
+	if (dfd === false)
+		return;
+	dfd.then(doNext);
+
+	function doNext() { }
+
+jQuery对象这样提供异步方法：triggerAsync会用事件对象ev创建一个dfds数组，将Deferred对象存入即可支持异步调用。
+
+	jo.on('submit', function (ev) {
+		var dfd = $.ajax("upload", ...);
+		if (ev.dfds)
+			ev.dfds.push(dfd);
+	});
+
+*/
+self.triggerAsync = triggerAsync;
+function triggerAsync(jo, ev, paramArr)
+{
+	if (typeof(ev) == "string") {
+		ev = $.Event(ev);
+	}
+	ev.dfds = [];
+	jo.trigger(ev, paramArr);
+	if (ev.isDefaultPrevented())
+		return false;
+	return $.when.apply(this, ev.dfds);
 }
 
 }
