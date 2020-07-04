@@ -4,6 +4,8 @@ function JdcloudCommonJq()
 var self = this;
 
 self.assert(window.jQuery, "require jquery lib.");
+var mCommon = jdModule("jdcloud.common");
+
 /**
 @fn getFormData(jo)
 
@@ -50,11 +52,13 @@ function getFormData(jo)
 		data = new FormData();
 	}
 	var orgData = jo.data("origin_") || {};
-	formItems(jo, function (name, content) {
-		var ji = this;
+	formItems(jo, function (ji, name, it) {
+		if (it.getDisabled(ji))
+			return;
 		var orgContent = orgData[name];
 		if (orgContent == null)
 			orgContent = "";
+		var content = it.getValue(ji);
 		if (content == null)
 			content = "";
 		if (content !== String(orgContent)) // 避免 "" == 0 或 "" == false
@@ -91,40 +95,129 @@ function getFormData(jo)
 /**
 @fn formItems(jo, cb)
 
-遍历jo下带name属性的有效控件，回调cb函数。
+表单对象遍历。对表单jo（实际可以不是form标签）下带name属性的控件，交给回调cb处理。
+可通过扩展`WUI.formItems[sel]`来为表单扩展其它类型控件，参考 `WUI.defaultFormItems`来查看要扩展的接口方法。
 
 注意:
 
 - 忽略有disabled属性的控件
 - 忽略未选中的checkbox/radiobutton
 
-@param cb(name, val) this=ji=当前jquery对象
+对于checkbox，设置时根据val确定是否选中；取值时如果选中取value属性否则取value-off属性。
+缺省value为"on", value-off为空(非标准属性，本框架支持)，可以设置：
+
+	<input type="checkbox" name="flag" value="1">
+	<input type="checkbox" name="flag" value="1" value-off="0">
+
+@param cb(ji, name, it) it.getDisabled/setDisabled/getValue/setValue/getShowbox
 当cb返回false时可中断遍历。
 
+@key defaultFormItems
  */
 self.formItems = formItems;
-function formItems(jo, cb)
-{
-	jo.find("[name]:not([disabled])").each (function () {
-		var name = this.name || $(this).attr("name");
-		if (! name)
+self.formItems["[name]"] = self.defaultFormItems = {
+	getName: function (jo) {
+		// !!! NOTE: 为避免控件处理两次，这里忽略easyui控件的值控件textbox-value。其它表单扩展控件也可使用该类。
+		if (jo.hasClass("textbox-value"))
 			return;
-
-		var ji = $(this);
-		var val;
-		if (ji.is(":input")) {
-			if (this.type == "checkbox" && !this.checked)
-				return;
-			if (this.type == "radio" && !this.checked)
-				return;
-			val = ji.val();
+		return jo.attr("name") || jo.prop("name");
+	},
+	getDisabled: function (jo) {
+		var v = jo.prop("disabled") || jo.attr("disabled");
+		var o = jo[0];
+		if (! v && o.tagName == "INPUT") {
+			if (o.type == "radio" && !o.checked)
+				return true;
+		}
+		return v;
+	},
+	setDisabled: function (jo, val) {
+		jo.prop("disabled", !!val);
+		if (val)
+			jo.attr("disabled", "disabled");
+		else
+			jo.removeAttr("disabled");
+	},
+	setValue: function (jo, val) {
+		var isInput = jo.is(":input");
+		if (val === undefined) {
+			if (isInput) {
+				var o = jo[0];
+				// 取初始值
+				if (o.tagName === "TEXTAREA")
+					val = jo.html();
+				else if (! (o.tagName == "INPUT") && (o.type == "hidden")) // input[type=hidden]对象比较特殊：设置property value后，attribute value也会被设置。
+					val = jo.attr("value");
+				if (val === undefined)
+					val = "";
+			}
+			else {
+				val = "";
+			}
+		}
+		if (jo.is(":checkbox")) {
+			jo.prop("checked", mCommon.tobool(val));
+		}
+		else if (isInput) {
+			jo.val(val);
 		}
 		else {
-			val = ji.html();
+			jo.html(val);
 		}
-		if (cb.call(ji, name,  val) === false)
+	},
+	getValue: function (jo) {
+		var val;
+		if (jo.is(":checkbox")) {
+			val = jo.prop("checked")? jo.val(): jo.attr("value-off");
+		}
+		else if (jo.is(":input")) {
+			val = jo.val();
+		}
+		else {
+			val = jo.html();
+		}
+		return val;
+	},
+	// TODO: 用于find模式设置。搜索"设置find模式"/datetime
+	getShowbox: function (jo) {
+		return jo;
+	}
+};
+
+/*
+// 倒序遍历对象obj, 用法与$.each相同。
+function eachR(obj, cb)
+{
+	var arr = [];
+	for (var prop in obj) {
+		arr.push(prop);
+	}
+	for (var i=arr.length-1; i>=0; --i) {
+		var v = obj[arr[i]];
+		if (cb.call(v, arr[i], v) === false)
+			break;
+	}
+}
+*/
+
+function formItems(jo, cb)
+{
+	var doBreak = false;
+	$.each(self.formItems, function (sel, it) {
+		jo.filter(sel).add(jo.find(sel)).each (function () {
+			var ji = $(this);
+			var name = it.getName(ji);
+			if (! name)
+				return;
+			if (cb(ji, name, it) === false) {
+				doBreak = true;
+				return false;
+			}
+		});
+		if (doBreak)
 			return false;
 	});
+	return !doBreak;
 }
 
 /**
@@ -136,7 +229,7 @@ function formItems(jo, cb)
 注意:
 - DOM项的内容指: 如果是input/textarea/select等对象, 内容为其value值; 如果是div组件, 内容为其innerHTML值.
 - 当data[name]未设置(即值为undefined, 注意不是null)时, 对于input/textarea等组件, 行为与form.reset()逻辑相同, 
- 即恢复为初始化值, 除了input[type=hidden]对象, 它的内容不会变.
+ 即恢复为初始化值。（特别地，form.reset无法清除input[type=hidden]对象的内容, 而setFormData可以)
  对div等其它对象, 会清空该对象的内容.
 - 如果对象设置有属性"noReset", 则不会对它进行设置.
 
@@ -184,33 +277,13 @@ function setFormData(jo, data, opt)
 	}, opt);
 	if (data == null)
 		data = {};
-	var jo1 = jo.filter("[name]:not([noReset])");
-	jo.find("[name]:not([noReset])").add(jo1).each (function () {
-		var ji = $(this);
-		var name = ji.attr("name");
+	formItems(jo, function (ji, name, it) {
+		if (ji.attr("noReset"))
+			return;
 		var content = data[name];
 		if (opt1.setOnlyDefined && content === undefined)
 			return;
-		var isInput = ji.is(":input");
-		if (content === undefined) {
-			if (isInput) {
-				if (ji[0].tagName === "TEXTAREA")
-					content = ji.html();
-				else
-					content = ji.attr("value");
-				if (content === undefined)
-					content = "";
-			}
-			else {
-				content = "";
-			}
-		}
-		if (isInput) {
-			ji.val(content);
-		}
-		else {
-			ji.html(content);
-		}
+		it.setValue(ji, content);
 	});
 	jo.data("origin_", opt1.setOrigin? data: null);
 }
@@ -748,6 +821,26 @@ function triggerAsync(jo, ev, paramArr)
 	if (ev.isDefaultPrevented())
 		return false;
 	return $.when.apply(this, ev.dfds);
+}
+
+/**
+@fn $.Deferred
+@alias Promise
+兼容Promise的接口，如then/catch/finally
+ */
+var fnDeferred = $.Deferred;
+$.Deferred = function () {
+	var ret = fnDeferred.apply(this, arguments);
+	ret.catch = ret.fail;
+	ret.finally = ret.always;
+	var fn = ret.promise;
+	ret.promise = function () {
+		var r = fn.apply(this, arguments);
+		r.catch = r.fail;
+		r.finally = r.always;
+		return r;
+	}
+	return ret;
 }
 
 }

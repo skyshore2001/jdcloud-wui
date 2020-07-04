@@ -19,6 +19,52 @@ function assert(cond, dscr)
 }
 
 /**
+@fn randInt(from, to)
+
+生成指定区间的随机整数。示例：
+
+	var i = randInt(1, 10); // 1-10之间的整数，包含1或10
+
+*/
+self.randInt = randInt;
+function randInt(from, to)
+{
+	return Math.floor(Math.random() * (to - from + 1)) + from;
+}
+
+/**
+@fn randInt(from, to)
+
+生成随机字符串，包含字母或数字，不包含易混淆的0或O。示例：
+
+	var dynCode = randChr(4); // e.g. "9BZ3"
+
+*/
+self.randChr = randChr;
+function randChr(cnt)
+{
+	var charCodeArr = [];
+	var code_O = 'O'.charCodeAt(0) - 'A'.charCodeAt(0) + 10;
+	
+	for (var i=0; i<cnt; ) {
+		var ch = randInt(0, 35); // 0-9 A-Z 共36个
+		// 去除0,O易混淆的
+		if (ch == 0 || ch == code_O) {
+			continue;
+		}
+		if (ch < 10) {
+			charCodeArr.push(0x30 + ch);
+		}
+		else {
+			charCodeArr.push(0x41 + ch -10);
+		}
+		i ++;
+	}
+//	console.log(charCodeArr);
+	return String.fromCharCode.apply(this, charCodeArr);
+}
+
+/**
 @fn parseQuery(str)
 
 解析url编码格式的查询字符串，返回对应的对象。
@@ -638,6 +684,18 @@ key可以为一个函数，返回实际key值，示例：
 		"USER-101": {id: 101, name: "Jane"}
 	};
 
+key函数也可以返回[key, value]数组：
+
+	var hash = rs2Hash(rs, function (o) {
+		return ["USER-" + o.id, o.name];
+	}); 
+
+	// 结果为
+	hash = {
+		"USER-100": "Tom",
+		"USER-101": "Jane"
+	};
+
 @see rs2Array
 */
 self.rs2Hash = rs2Hash;
@@ -655,7 +713,10 @@ function rs2Hash(rs, key)
 			obj[rs.h[j]] = row[j];
 		}
 		var k = keyfn?  keyfn(obj): obj[key];
-		ret[ k ] = obj;
+		if (Array.isArray(k) && k.length == 2)
+			ret[k[0]] = k[1];
+		else
+			ret[ k ] = obj;
 	}
 	return ret;
 }
@@ -700,6 +761,19 @@ key也可以是一个函数，返回实际的key值，示例，按生日年份�
 		"1999": [{id: 101, name: "Jane", birthday: "1999-1-10"}]
 	};
 
+key作为函数，也可返回[key, value]:
+
+	var hash = rs2MultiHash(rs, function (o) {
+		return [o.name, [o.id, o.birthday]];
+	});
+
+	// 结果为
+	hash = {
+		"Tom": [[100, "1998-10-1"], [102, "1998-3-8"]],
+		"Jane": [[101, "1999-1-10"]]
+	};
+
+
 @see rs2Hash
 @see rs2Array
 */
@@ -718,6 +792,10 @@ function rs2MultiHash(rs, key)
 			obj[rs.h[j]] = row[j];
 		}
 		var k = keyfn?  keyfn(obj): obj[key];
+		if (Array.isArray(k) && k.length == 2) {
+			obj = k[1];
+			k = k[0];
+		}
 		if (ret[ k ] === undefined)
 			ret[ k ] = [obj];
 		else
@@ -959,7 +1037,7 @@ function parseValue(str)
 self.applyTpl = applyTpl;
 function applyTpl(tpl, data)
 {
-	return tpl.replace(/{(\w+)}/g, function(m0, m1) {
+	return tpl.replace(/{([^{}]+)}/g, function(m0, m1) {
 		return data[m1];
 	});
 }
