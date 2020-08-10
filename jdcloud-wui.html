@@ -33,7 +33,7 @@ code {
 </head>
 
 <h1>WUI</h1>
-<div>最后更新：2020-07-04</div>
+<div>最后更新：2020-08-11</div>
 <h2>Modules</h2>
 <div class="toc">
 <p><a href="#WUI">WUI (module)</a></p>
@@ -1417,6 +1417,20 @@ var arr = mCommon.rs2Array(rs);</code></pre>
 &lt;input type="checkbox" name="flag" value="1" value-off="0"&gt;</code></pre>
 <p class="param"><strong>@param cb</strong> (ji, name, it) it.getDisabled/setDisabled/getValue/setValue/getShowbox</p>
 <p>当cb返回false时可中断遍历。</p>
+<p>示例：</p>
+<pre><code>WUI.formItems(jdlg.find(".my-fixedField"), function (ji, name, it) {
+    var fixedVal = ...
+    if (fixedVal || fixedVal == '') {
+        it.setReadonly(ji, true);
+        var forAdd = beforeShowOpt.objParam.mode == FormMode.forAdd;
+        if (forAdd) {
+            it.setValue(ji, fixedVal);
+        }
+    }
+    else {
+        it.setReadonly(ji, false);
+    }
+});</code></pre>
 <p class="key"><strong>@key <a id="defaultFormItems">defaultFormItems</a></strong> </p><hr>
 <h2 id="setFormData">@fn setFormData(jo, data?, opt?)</h2>
 <p>用于为带name属性的DOM对象设置内容为data[name].<br />
@@ -1685,6 +1699,10 @@ WUI.getQueryCond(kvList); // 结果同上。</code></pre>
 <pre><code>{k1:'1-5,7-10', k2:'1-10 and &lt;&gt;6'}</code></pre>
 <p>符号优先级依次为：&quot;-&quot;(类似and) &quot;,&quot;(类似or) and or</p>
 <p>在详情页对话框中，切换到查找模式，在任一输入框中均可支持以上格式。</p>
+<p>(v5.5) value支持用数组表示范围（前闭后开区间），主要内部使用：</p>
+<pre><code>var cond = getQueryCond({tm: ["2019-1-1", "2020-1-1"]}); // 生成 "tm&gt;='2019-1-1' AND tm&lt;'2020-1-1'"
+var cond = getQueryCond({tm: [null, "2020-1-1"]}); // 生成 "tm&lt;'2020-1-1'"
+var cond = getQueryCond({tm: [null, null]); // 返回null</code></pre>
 <p class="see"><strong>@see <a href="#getQueryParam">getQueryParam</a></strong> </p>
 <p class="see"><strong>@see <a href="#getQueryParamFromTable">getQueryParamFromTable</a></strong>  获取datagrid的当前查询参数</p><hr>
 <h2 id="getQueryParam">@fn getQueryParam(kvList)</h2>
@@ -1774,8 +1792,8 @@ callSvr('token/get-token', ...);</code></pre>
 <h2 id="leaveWaiting">@fn leaveWaiting(ctx?)</h2><hr>
 <h2 id="defDataProc">@fn defDataProc(rv)</h2>
 <p class="param"><strong>@param rv</strong>  BQP协议原始数据，如 "[0, {id: 1}]"，一般是字符串，也可以是JSON对象。</p>
-<p class="return"><strong>@return data</strong>  按接口定义返回的数据对象，如 {id: 1}. 如果返回==null，调用函数应直接返回，不回调应用层。</p>
-<p>注意：服务端不应返回null, 否则客户回调无法执行; 习惯上返回false表示让回调处理错误。</p><hr>
+<p class="return"><strong>@return data</strong>  按接口定义返回的数据对象，如 {id: 1}. 如果返回值===RV_ABORT，调用函数应直接返回，不回调应用层。</p>
+<p>注意：如果callSvr设置了<code>noex:1</code>选项，则当调用失败时返回false。</p><hr>
 <h2 id="getBaseUrl">@fn getBaseUrl()</h2>
 <p>取服务端接口URL对应的目录。可用于拼接其它服务端资源。<br />
 相当于dirname(WUI.options.serverUrl);</p>
@@ -2232,7 +2250,7 @@ WUI.showPage("pageHome", "我的首页"); // 默认标题是"首页"，这里指
 <li>opt.url: String. 点击确定后，提交到后台的URL。如果设置则自动提交数据，否则应在opt.onOk回调或validate事件中手动提交。</li>
 <li>opt.buttons: Object数组。用于添加“确定”、“取消”按钮以外的其它按钮，如<code>[{text: '下一步', iconCls:'icon-ok', handler: btnNext_click}]</code>。<br />
 用opt.okLabel/cancelLabel可修改“确定”、“取消”按钮的名字，用opt.noCancel=true可不要“取消”按钮。</li>
-<li>opt.model: Boolean.模态对话框，这时不可操作对话框外其它部分，如登录框等。设置为false改为非模态对话框。</li>
+<li>opt.modal: Boolean.模态对话框，这时不可操作对话框外其它部分，如登录框等。设置为false改为非模态对话框。</li>
 <li>opt.data: Object. 自动加载的数据, 将自动填充到对话框上带name属性的DOM上。在修改对象时，仅当与opt.data有差异的数据才会传到服务端。</li>
 <li>opt.reset: Boolean. 显示对话框前先清空。</li>
 <li>opt.validate: Boolean. 是否提交前用easyui-form组件验证数据。内部使用。</li>
@@ -2258,6 +2276,10 @@ opt.onOk(jdlg); // 同上</code></pre>
 </ul>
 <p>调用此函数后，对话框将加上以下CSS Class:</p>
 <p class="key"><strong>@key <a id=".wui-dialog">.wui-dialog</a></strong>  标识WUI对话框的类名。</p>
+<p>示例：显示一个对话框</p>
+<pre><code>WUI.showDlg("#dlgReportCond", {modal:false, reset:false});</code></pre>
+<p>默认为模态框，指定modal:false使它成为非模态；<br />
+默认每次打开都清空数据，指定reset:false使它保留状态。</p>
 <p><strong>对象型对话框与formMode</strong></p>
 <p>函数showObjDlg()会调用本函数显示对话框，称为对象型对话框，用于对象增删改查，它将以下操作集中在一起。<br />
 打开窗口时，会设置窗口模式(formMode):</p>
@@ -2593,14 +2615,20 @@ dg_toolbar.importOrdr = function (ctx) {
 也可以通过设置param参数手工指定，如：</p>
 <pre><code>handler: WUI.getExportHandler(jtbl, "User.query", {res: "id 编号, name 姓名, createTm 注册时间", orderby: "createTm DESC"})</code></pre>
 <p>注意：由于分页机制影响，会设置参数{pagesz: -1}以便在一页中返回所有数据，而实际一页能导出的最大数据条数取决于后端设置（默认1000，参考后端文档 AccessControl::$maxPageSz）。</p>
+<p>会根据datagrid当前设置，自动为query接口添加res(输出字段), cond(查询条件), fname(导出文件名), orderby(排序条件)参数。</p>
+<p>若是已有url，希望从datagrid获取cond, fname等参数，而不要覆盖res参数，可以这样做：</p>
+<pre><code>var url = WUI.makeUrl("PdiRecord.query", ...); // makeUrl生成的url具有params属性，为原始查询参数
+var btnExport = {text:'导出', iconCls:'icon-save', handler: WUI.getExportHandler(jtbl, null, {res: url.params.res || null}) };</code></pre>
 <p class="see"><strong>@see <a href="#getQueryParamFromTable">getQueryParamFromTable</a></strong>  获取datagrid的当前查询参数</p><hr>
 <h2 id="getQueryParamFromTable">@fn getQueryParamFromTable(jtbl, param?)</h2>
 <p class="alias"><strong>@alias <a id="getParamFromTable">getParamFromTable</a></strong> </p>
 <p>根据数据表当前设置，获取查询参数。<br />
-可能会设置{cond, orderby, res}参数。</p>
+可能会设置{cond, orderby, res, fname}参数。</p>
 <p>res参数从列设置中获取，如&quot;id 编号,name 姓名&quot;, 特别地，如果列对应字段以&quot;_&quot;结尾，不会加入res参数。</p>
 <p>(v5.2)<br />
 如果表上有多选行，则导出条件为cond=&quot;t0.id IN (id1, id2)&quot;这种形式。</p>
+<p>fname自动根据当前页面的title以及datagrid当前的queryParam自动拼接生成。<br />
+如title是&quot;检测记录报表&quot;, queryParam为&quot;tm&gt;='2020-1-1' and tm&lt;='2020-7-1&quot;，则生成文件名fname=&quot;检测记录报表-2020-1-1-2020-7-1&quot;.</p>
 <p class="see"><strong>@see <a href="#getExportHandler">getExportHandler</a></strong>  导出Excel</p><hr>
 <h2 id="formatter">@var formatter = {dt, number, pics, flag(yes?=是,no?=否), enum(enumMap), linkTo(field, dlgRef, showId?=false) }</h2>
 <p>常常应用定义Formatter变量来扩展WUI.formatter，如</p>
@@ -2741,7 +2769,8 @@ $(main);</code></pre>
 <p>该函数同步调用后端接口。如果要异步调用，请改用tryAutoLoginAsync函数，返回Deferred对象，resolve表示登录成功，reject表示登录失败。</p><hr>
 <h2 id="handleLogin">@fn handleLogin(data)</h2>
 <p class="param"><strong>@param data</strong>  调用API "login"成功后的返回数据.</p>
-<p>处理login相关的操作, 如设置g_data.userInfo, 保存自动登录的token等等.</p><hr>
+<p>处理login相关的操作, 如设置g_data.userInfo, 保存自动登录的token等等.</p>
+<p>(v5.5) 如果URL中包含hash（即&quot;#pageIssue&quot;这样），且以&quot;#page&quot;开头，则登录后会自动打开同名的列表页（如&quot;pageIssue&quot;页面）。</p><hr>
 <h2 id="initClient">@fn initClient()</h2><hr>
 <h2 id="Plugins">@class Plugins</h2><hr>
 <h2 id="Plugins.exists">@fn Plugins.exists(pluginName)</h2><hr>
