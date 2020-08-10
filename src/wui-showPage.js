@@ -577,7 +577,7 @@ if (isSmallScreen()) {
 - opt.url: String. 点击确定后，提交到后台的URL。如果设置则自动提交数据，否则应在opt.onOk回调或validate事件中手动提交。
 - opt.buttons: Object数组。用于添加“确定”、“取消”按钮以外的其它按钮，如`[{text: '下一步', iconCls:'icon-ok', handler: btnNext_click}]`。
  用opt.okLabel/cancelLabel可修改“确定”、“取消”按钮的名字，用opt.noCancel=true可不要“取消”按钮。
-- opt.model: Boolean.模态对话框，这时不可操作对话框外其它部分，如登录框等。设置为false改为非模态对话框。
+- opt.modal: Boolean.模态对话框，这时不可操作对话框外其它部分，如登录框等。设置为false改为非模态对话框。
 - opt.data: Object. 自动加载的数据, 将自动填充到对话框上带name属性的DOM上。在修改对象时，仅当与opt.data有差异的数据才会传到服务端。
 - opt.reset: Boolean. 显示对话框前先清空。
 - opt.validate: Boolean. 是否提交前用easyui-form组件验证数据。内部使用。
@@ -608,6 +608,13 @@ if (isSmallScreen()) {
 
 调用此函数后，对话框将加上以下CSS Class:
 @key .wui-dialog 标识WUI对话框的类名。
+
+示例：显示一个对话框
+
+	WUI.showDlg("#dlgReportCond", {modal:false, reset:false});
+
+默认为模态框，指定modal:false使它成为非模态；
+默认每次打开都清空数据，指定reset:false使它保留状态。
 
 **对象型对话框与formMode**
 
@@ -1031,19 +1038,17 @@ function batchOp(obj, ac, jtbl, data, onBatchDone, forceFlag)
 如果objParam中未指定值，则不限制该字段，可自由设置或修改。
 */
 function setFixedFields(jdlg, beforeShowOpt) {
-	jdlg.find(".wui-fixedField[name]").each(function () {
-		var je = $(this);
-		var name = je.attr("name");
+	self.formItems(jdlg.find(".wui-fixedField"), function (ji, name, it) {
 		var fixedVal = beforeShowOpt && beforeShowOpt.objParam && beforeShowOpt.objParam[name];
 		if (fixedVal || fixedVal == '') {
-			je.attr("readonly", true);
+			it.setReadonly(ji, true);
 			var forAdd = beforeShowOpt.objParam.mode == FormMode.forAdd;
 			if (forAdd) {
-				je.val(fixedVal);
+				it.setValue(ji, fixedVal);
 			}
 		}
 		else {
-			je.attr("readonly", null);
+			it.setReadonly(ji, false);
 		}
 	});
 }
@@ -1953,6 +1958,13 @@ function enhanceAnchor(jo)
 
 注意：由于分页机制影响，会设置参数{pagesz: -1}以便在一页中返回所有数据，而实际一页能导出的最大数据条数取决于后端设置（默认1000，参考后端文档 AccessControl::$maxPageSz）。
 
+会根据datagrid当前设置，自动为query接口添加res(输出字段), cond(查询条件), fname(导出文件名), orderby(排序条件)参数。
+
+若是已有url，希望从datagrid获取cond, fname等参数，而不要覆盖res参数，可以这样做：
+
+	var url = WUI.makeUrl("PdiRecord.query", ...); // makeUrl生成的url具有params属性，为原始查询参数
+	var btnExport = {text:'导出', iconCls:'icon-save', handler: WUI.getExportHandler(jtbl, null, {res: url.params.res || null}) };
+
 @see getQueryParamFromTable 获取datagrid的当前查询参数
 */
 self.getExportHandler = getExportHandler;
@@ -1999,12 +2011,15 @@ function getExportHandler(jtbl, ac, param)
 @alias getParamFromTable
 
 根据数据表当前设置，获取查询参数。
-可能会设置{cond, orderby, res}参数。
+可能会设置{cond, orderby, res, fname}参数。
 
 res参数从列设置中获取，如"id 编号,name 姓名", 特别地，如果列对应字段以"_"结尾，不会加入res参数。
 
 (v5.2)
 如果表上有多选行，则导出条件为cond="t0.id IN (id1, id2)"这种形式。
+
+fname自动根据当前页面的title以及datagrid当前的queryParam自动拼接生成。
+如title是"检测记录报表", queryParam为"tm>='2020-1-1' and tm<='2020-7-1"，则生成文件名fname="检测记录报表-2020-1-1-2020-7-1".
 
 @see getExportHandler 导出Excel
 */
