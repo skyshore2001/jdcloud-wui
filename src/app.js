@@ -185,10 +185,17 @@ function enhanceWithin(jp)
 			return;
 		jo.each(function (i, e) {
 			var je = $(e);
+			// 支持一个DOM对象绑定多个组件，分别初始化
 			var enhanced = je.data("mui-enhanced");
-			if (enhanced)
-				return;
-			je.data("mui-enhanced", true);
+			if (enhanced) {
+				if (enhanced.indexOf(sel) >= 0)
+					return;
+				enhanced.push(sel);
+			}
+			else {
+				enhanced = [sel];
+			}
+			je.data("mui-enhanced", enhanced);
 			fn(je);
 		});
 	});
@@ -307,6 +314,12 @@ function getop(v)
 
 在详情页对话框中，切换到查找模式，在任一输入框中均可支持以上格式。
 
+(v5.5) value支持用数组表示范围（前闭后开区间），主要内部使用：
+
+	var cond = getQueryCond({tm: ["2019-1-1", "2020-1-1"]}); // 生成 "tm>='2019-1-1' AND tm<'2020-1-1'"
+	var cond = getQueryCond({tm: [null, "2020-1-1"]}); // 生成 "tm<'2020-1-1'"
+	var cond = getQueryCond({tm: [null, null]); // 返回null
+
 @see getQueryParam
 @see getQueryParamFromTable 获取datagrid的当前查询参数
 */
@@ -330,8 +343,15 @@ function getQueryCond(kvList)
 	}
 
 	function handleOne(k,v) {
-		if (v == null || v === "" || ($.isArray(v) && v.length==0))
+		if (v == null || v === "" || v.length==0)
 			return;
+		if ($.isArray(v)) {
+			if (v[0])
+				condArr.push(k + ">='" + v[0] + "'");
+			if (v[1])
+				condArr.push(k + "<'" + v[1] + "'");
+			return;
+		}
 
 		var arr = v.toString().split(/\s+(and|or)\s+/i);
 		var str = '';
