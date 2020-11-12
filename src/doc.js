@@ -563,6 +563,17 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 - 在对话框中三击（2秒内）字段标题栏，可快速按查询该字段。Ctrl+三击为追加过滤条件。
 - 在页面工具栏中，按住Ctrl(batch模式)点击“刷新”按钮，可清空当前查询条件。
 
+@key wui-find-hint 控制查询条件的生成。(v5.5) 
+
+- 设置为"s"，表示是字符串，禁用数值区间或日期区间。
+- 设置为"tm"或"dt"，表示是日期时间或日期，可匹配日期匹配。
+
+示例：
+
+	视频代码 <input name="code" wui-find-hint="s">
+
+当输入'126231-191024'时不会当作查询126231到191024的区间。
+
 #### 设计模式：关联选择框
 
 示例：下拉框中显示员工列表 (Choose-from-list / 关联选择框)
@@ -662,7 +673,7 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 
 	function onBeforeShow(ev, formMode, opt)
 		if (formMode == FormMode.forAdd && objParam.storeId) {
-			opt.data.storeId = objParam.storeId);
+			opt.data.storeId = objParam.storeId;
 		}
 
 ### 设计模式：页面间调用
@@ -754,10 +765,12 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 
 	<div id="dlgSendSms" title="群发短信" style="width:500px;height:300px;">  
 		<form method="POST">
-			手机号：<input name="phone" data-options="required:true">
-			发送内容： <textarea rows=5 cols=30 name="content"></textarea>
+			手机号：<input name="phone" class="easyui-validatebox" data-options="required:true">
+			发送内容： <textarea rows=5 cols=30 name="content" class="easyui-validatebox"  data-options="required:true"></textarea>
 		</form>
 	</div>
+
+在form中带name属性的字段上，可以设置class="easyui-validatebox"对输入进行验证。
 
 ### 显示对话框
 
@@ -777,6 +790,15 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 
 在showDlg的选项url中指定了接口为"sendSms"。操作成功后，显示一个消息。
 
+(v5.5) 新的编程惯例，建议使用定义对话框接口的方式，写在主应用（如store.js）的接口区域，如：
+
+	// 把showDlgSendSms换成DlgSendSms.show
+	var DlgSendSms = {
+		show: function () {
+			// 同showDlgSendSms
+		}
+	};
+
 @see showDlg
 @see app_show
 
@@ -785,6 +807,20 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 	<a href="?showDlgSendSms" class="easyui-linkbutton" icon="icon-ok">群发短信</a><br/><br/>
 
 点击该按钮，即调用了showDlgSendSms函数打开对话框。
+
+可以通过my-initfn属性为对话框指定初始化函数。复杂对话框的逻辑一般都写在初始化函数中。习惯上命令名initDlgXXX，如：
+
+	<div id="dlgSendSms" title="群发短信" style="width:500px;height:300px;" my-initfn="initDlgSendSms">
+
+	function initDlgSendSms() {
+		var jdlg = $(this);
+		// 处理对话框事件
+		jdlg.on("beforeshow", onBeforeShow)
+			.on("validate", onValidate);
+		// 处理内部组件事件
+		jdlg.find("#btn1").click(btn1_click);
+		...
+	}
 
 ### 页面传参数给对话框
 
@@ -990,6 +1026,39 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 测试发现，将这些个script模板放在head标签中不会闪烁。
 
 这个特性可用于未来WEB应用编译打包。
+
+### 按需加载依赖库
+
+@key wui-deferred
+(v5.5)
+
+如果页面或对话框依赖一个或一组库，且这些库不想在主页面中用script默认加载，这时可以使用`wui-deferred`属性。
+页面或对话框初始化函数wui-initfn将在该deferred对象操作成功后执行。
+
+示例：想在工艺对话框上使用mermaid库显示流程图，该库比较大，只在这一处使用，故不想在应用入口加载。
+可在app.js中添加库的加载函数：
+
+	var m_dfdMermaid;
+	function loadMermaidLib()
+	{
+		if (m_dfdMermaid == null)
+			m_dfdMermaid = WUI.loadScript("lib/mermaid.min.js");
+		return m_dfdMermaid;
+	}
+
+在对话框html中用wui-deferred引入依赖库：
+
+	<form my-obj="Flow" title="工艺" ... wui-deferred="loadMermaidLib()">
+
+在对话框模块（初始化函数）中就可以直接使用这个库了：
+
+	function initDlgFlow()
+	{
+		...
+		mermaid.render("graph", def, function (svg) {
+			jdlg.find(".graph").html(svg);
+		});
+	}
 
 ## 参考文档说明
 

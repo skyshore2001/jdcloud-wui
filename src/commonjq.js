@@ -394,6 +394,57 @@ function loadScript(url, fnOK, options)
 }
 
 /**
+@fn loadJson(url, fnOK, options)
+
+从远程获取JSON结果. 
+注意: 与$.getJSON不同, 本函数不直接调用JSON.parse解析结果, 而是将返回当成JS代码使用eval执行得到JSON结果再回调fnOK.
+
+示例:
+
+	WUI.loadJson("1.js", function (data) {
+		// handle json value `data`
+	});
+
+1.js可以是返回任意JS对象的代码, 如:
+
+	{
+		a: 2 * 3600,
+		b: "hello",
+		// c: {}
+	}
+
+如果不处理结果, 则该函数与$.getScript效果类似.
+ */
+self.loadJson = loadJson;
+function loadJson(url, fnOK, options)
+{
+	var ajaxOpt = $.extend({
+		dataType: "text",
+		jdFilter: false,
+		success: function (data) {
+			val = eval("(" + data + ")");
+			fnOK.call(this, val);
+		}
+	}, options);
+	return $.ajax(url, ajaxOpt);
+}
+
+/**
+@fn loadCss(url)
+
+动态加载css文件, 示例:
+
+	WUI.loadCss("lib/bootstrap.min.css");
+
+ */
+self.loadCss = loadCss;
+function loadCss(url)
+{
+	var jo = $('<link type="text/css" rel="stylesheet" />').attr("href", url);
+	jo.appendTo($("head"));
+}
+
+/**
 @fn setDateBox(jo, defDateFn?)
 
 设置日期框, 如果输入了非法日期, 自动以指定日期(如未指定, 用当前日期)填充.

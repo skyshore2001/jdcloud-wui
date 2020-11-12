@@ -300,6 +300,7 @@ function callInitfn(jo, paramArr)
 {
 	if (jo.jdata().init)
 		return;
+	jo.jdata().init = true;
 
 	var attr = jo.attr("my-initfn");
 	if (attr == null)
@@ -314,7 +315,7 @@ function callInitfn(jo, paramArr)
 
 	if (initfn)
 	{
-		console.log("### initfn: " + attr);
+		console.log("### initfn: " + attr, jo.selector);
  		try {
 			initfn.apply(jo, paramArr || []);
 		} catch (ex) {
@@ -322,7 +323,6 @@ function callInitfn(jo, paramArr)
 			throw(ex);
 		}
 	}
-	jo.jdata().init = true;
 }
 
 function getModulePath(file)
@@ -428,14 +428,25 @@ function showPage(pageName, title, paramArr)
 		jpageNew.attr("wui-pageName", pageName);
 		jpageNew.attr("title", title);
 
-		$.parser.parse(jpageNew); // easyui enhancement
-		enhanceGrid(jpageNew);
-		self.enhanceWithin(jpageNew);
-		callInitfn(jpageNew, paramArr);
+		var dep = self.evalAttr(jpageNew, "wui-deferred");
+		if (dep) {
+			self.assert(dep.then, "*** wui-deferred attribute DOES NOT return a deferred object");
+			dep.then(initPage1);
+			return;
+		}
+		initPage1();
 
-		jpageNew.data("showPageArgs_", showPageArgs_); // used by WUI.reloadPage
-		jpageNew.trigger('pagecreate');
-		jpageNew.trigger('pageshow');
+		function initPage1()
+		{
+			$.parser.parse(jpageNew); // easyui enhancement
+			enhanceGrid(jpageNew);
+			self.enhanceWithin(jpageNew);
+			callInitfn(jpageNew, paramArr);
+
+			jpageNew.data("showPageArgs_", showPageArgs_); // used by WUI.reloadPage
+			jpageNew.trigger('pagecreate');
+			jpageNew.trigger('pageshow');
+		}
 	}
 
 	function loadPage(html, pageClass, pageFile)
@@ -585,8 +596,14 @@ if (isSmallScreen()) {
 - opt.onOk: Function(jdlg, data?) 如果自动提交(opt.url非空)，则服务端接口返回数据后回调，data为返回数据。如果是手动提交，则点确定按钮时回调，没有data参数。
 - opt.title: String. 如果指定，则更新对话框标题。
 - opt.dialogOpt: 底层jquery-easyui dialog选项。参考http://www.jeasyui.net/plugins/159.html
+- opt.reload: (v5.5) 先重置再加载。只用于开发环境，方便在Chrome控制台中调试。
 
 对话框有两种编程模式，一是通过opt参数在启动对话框时设置属性及回调函数(如onOk)，另一种是在dialog初始化函数中处理事件(如validate事件)实现逻辑，有利于独立模块化。
+
+对话框显示时会触发以下事件：
+
+	事件beforeshow
+	事件show
 
 对于自动提交数据的对话框(设置了opt.url)，提交数据过程中回调函数及事件执行顺序为：
 
@@ -731,6 +748,13 @@ function showDlg(jdlg, opt)
 {
 	if (jdlg.constructor != jQuery)
 		jdlg = $(jdlg);
+
+	if (opt && opt.reload) {
+		opt = $.extend({}, opt);
+		delete opt.reload;
+		if (jdlg.size() > 0)
+			unloadDialog(jdlg);
+	}
 	if (loadDialog(jdlg, onLoad))
 		return;
 	function onLoad() {
@@ -857,11 +881,19 @@ function showDlg(jdlg, opt)
 				}
 				// 批量更新
 				if (formMode==FormMode.forSet && opt.url.action && /.set$/.test(opt.url.action)) {
+					if ($.isEmptyObject(data)) {
+						app_alert("没有需要更新的内容。");
+						return;
+					}
 					var jtbl = jdlg.jdata().jtbl;
 					var obj = opt.url.action.replace(".set", "");
-					var rv = batchOp(obj, "setIf", jtbl, data, function () {
-						// TODO: onCrud();
-						closeDlg(jdlg);
+					var rv = batchOp(obj, obj+".setIf", jtbl, {
+						acName: "更新",
+						data: data, 
+						onBatchDone: function () {
+							// TODO: onCrud();
+							closeDlg(jdlg);
+						}
 					});
 					if (rv !== false)
 						return;
@@ -904,43 +936,68 @@ $(window).keyup(function (e) {
 });
 
 /**
-@fn batchOp(obj, ac, jtbl, data/dataFn, onBatchDone?, forceFlag?)
+@fn batchOp(obj, ac, jtbl, opt={data, acName="操作", onBatchDone, batchOpMode=0})
 
-@param ac "setIf"/"delIf"
-@param data/dataFn 批量操作的参数。
-可以是一个函数dataFn(batchCnt)，参数batchCnt为当前批量操作的记录数。
+@param ac 对象接口名, 如"Task.setIf"/"Task.delIf"
+
+@param opt.acName 操作名称, 如"更新"/"删除"/"打印"等, 一个动词. 用于拼接操作提示语句.
+
+@param opt.data  调用支持批量的接口的POST参数
+
+opt.data也可以是一个函数dataFn(batchCnt)，参数batchCnt为当前批量操作的记录数(必定大于0)。
 该函数返回data或一个Deferred对象(该对象适时应调用dfd.resolve(data)做批量操作)。dataFn返回false表示不做后续处理。
 
-批量操作支持两种方式: 
+支持批量操作的接口须符合下列原型:
 
-1. 基于多选: 按Ctrl/Shift在表上多选，然后点删除或更新，批量操作选中行；
-2. 基于条件: 按住Ctrl键点删除或更新，批量操作过滤条件下的所有行
+	$obj.$ac($queryParam)($data) -> $cnt
 
-函数返回false表示当前非批量处理模式，不予处理。
+接受过滤查询条件(可通过$obj.query接口查询), 返回实际操作的数量.
+其中obj, ac, data(即POST参数)由本函数参数传入(data也可以是个函数, 返回POST参数), queryParam根据表格jtbl的选择行或过滤条件自动生成.
 
-@param forceFlag 强制批量操作。
-默认仅当多选或按住Ctrl键才认为是批量操作；
-如果值为1，表示无须按Ctrl键，即如果有多选，就用多选；如果没有多选，则使用当前的过滤条件；
-如果值为2，表示只基于选择项操作，即使只选了一项也对其操作。但如果没有选任何行，则使用过滤条件。
+操作完成会自动刷新表格, 无须手工刷新.
 
-示例：批量更新附件到行记录上, 在onBatch中返回一个Deferred对象，并在获得数据后调用dfd.resolve(data)
+默认批量操作方式为:
 
-	var forceFlag = 1; // 如果没有多选，则按当前过滤条件全部更新。
-	WUI.batchOp("Task", "setIf", jtbl, onBatch, function () {
-		WUI.closeDlg(jdlg);
-	}, forceFlag);
+1. 基于多选: 按Ctrl/Shift在表上选择多行，然后点操作按钮(如"删除"按钮, 更新时的"确定"按钮)，批量操作选中行；生成过滤条件形式是`{cond: "id IN (100,101)"}`, 
 
-	function onBatch(batchCnt)
-	{
-		if (batchCnt == 0) {
-			app_alert("没有记录更新。");
-			return false;
+2. 基于表格当前过滤条件: 按住Ctrl键(进入批量操作模式)点操作按钮, 批量操作表格过滤条件下的所有行. 若无过滤条件, 自动以`{cond: "id>0"}`做为过滤条件.
+
+3. 如果未按Ctrl键, 且当前未选行或是单选行, 函数返回false表示当前非批量处理模式，不予处理。
+
+@param batchOpMode 定制批量操作行为, 比如是否需要按Ctrl激活批量模式, 未按Ctrl时如何处理未选行或单选行。
+
+- batchOpMode未指定或为0时, 使用上面所述的默认批量操作方式.
+- 如果值为1: 总是批量操作, 无须按Ctrl键, 无论选择了0行或1行, 都使用当前的过滤条件.
+- 如果值为2: 按住Ctrl键时与默认行为相同; 没按Ctrl时, 若选了0行则报错, 若选了1行, 则按批量操作对这1行操作, 过滤条件形式是是`{cond:"id=100"}`
+
+简单来说, 默认模式对单个记录不处理, 返回false留给调用者处理; 模式2是对单个记录也按批量处理; 模式1是无须按Ctrl键就批量处理.
+
+## 示例：点"批量上传"按钮, 打开上传文件对话框, 选择上传并点击"确定"按钮后, 先上传文件, 再将返回的附件编号批量更新到行记录上.
+
+先选择操作模式batchOpMode=1, 点确定按钮时总是批量处理.
+参数data传入一个函数(onGetData)用于生成POST参数; 
+为了支持其中的异步上传文件操作, 函数除了直接返回data, 还可以返回一个Deferred对象(简称dfd), 在dfd.resolve(data)之后才会执行真正的批量操作.
+
+	WUI.batchOp("Task", "Task.setIf", jtbl, {
+		batchOpMode: 1,  // 无须按Ctrl键, 一律当成批量操作
+		data: onGetData,
+		onBatchDone: function () {
+			WUI.closeDlg(jdlg);
 		}
+	});
+
+	// 一定batchCnt>0. 若batchCnt=0即没有操作数据时, 会报错结束, 不会回调该函数.
+	function onGetData(batchCnt)
+	{
 		var dfd = $.Deferred();
 		app_alert("批量上传附件到" + batchCnt + "行记录?", "q", function () {
 			var dfd1 = triggerAsync(jdlg.find(".wui-upload"), "submit"); // 异步上传文件，返回Deferred对象
 			dfd1.then(function () {
 				var data = WUI.getFormData(jfrm);
+				if ($.isEmptyObject(data)) {
+					app_alert("没有需要更新的内容。");
+					return false;
+				}
 				dfd.resolve(data);
 			});
 		});
@@ -956,36 +1013,63 @@ $(window).keyup(function (e) {
 	jupload.submit();
 	return getFormData(jfrm);
 
+## 示例2: 点"打印"按钮, 打印选中的1行或多行的标签, 如果未选则报错. 如果按住Ctrl点击, 则按表格过滤条件批量打印所有行的标签.
+
+显然, 这是一个batchOpMode=2的操作模式, 调用后端`Sn.print`接口, 对一行或多行数据统一处理:
+
+	WUI.batchOp("Sn", "Sn.print", jtbl, {
+		acName: "打印",
+		batchOpMode: 2
+	});
+
+后端应实现接口`Sn.print(查询条件)`, 实现示例:
+
+	// class AC2_Sn
+	function api_print() {
+		// 通过query接口查询操作对象内容. 
+		$param = array_merge($_GET, ["res"=>"code", "fmt"=>"array" ]);
+		$rv = $this->callSvc(null, "query", $param);
+		addLog($rv);
+		// 应返回操作数量
+		return count($rv);
+	}
+
 */
 self.batchOp = batchOp;
-function batchOp(obj, ac, jtbl, data, onBatchDone, forceFlag)
+function batchOp(obj, ac, jtbl, opt)
 {
 	if (obj == null || jtbl == null)
 		return false;
+	opt = $.extend({
+		batchOpMode: 0,
+		acName: "操作"
+	}, opt);
+
 	var selArr =  jtbl.datagrid("getChecked");
-	if (!forceFlag && ! (m_batchMode || selArr.length > 1)) {
+	var batchOpMode = opt.batchOpMode;
+	if (!batchOpMode && ! (m_batchMode || selArr.length > 1)) {
+		return false;
+	}
+	if (batchOpMode === 2 && !m_batchMode && selArr.length == 0) {
+		self.app_alert("请先选择一行。", "w");
 		return false;
 	}
 
-	var acName;
-	if (ac == "setIf") {
-		acName = "批量更新";
-	}
-	else if (ac == "delIf") {
-		acName = "批量删除";
-	}
-	else {
-		return;
-	}
 	var queryParams;
 	var doBatchOnSel = selArr.length > 1 && selArr[0].id != null;
-	// forceFlag=2时，一行也批量操作
-	if (!doBatchOnSel && forceFlag === 2 && selArr.length == 1 && selArr[0].id != null)
+	var acName = opt.acName;
+	// batchOpMode=2时，未按Ctrl时选中一行也按批量操作
+	if (!doBatchOnSel && batchOpMode === 2 && !m_batchMode && selArr.length == 1 && selArr[0].id != null)
 		doBatchOnSel = true;
 	// 多选，cond为`id IN (...)`
 	if (doBatchOnSel) {
-		var idList = $.map(selArr, function (e) { return e.id}).join(',');
-		queryParams = {cond: "t0.id IN (" + idList + ")"};
+		if (selArr.length == 1) {
+			queryParams = {cond: "id=" + selArr[0].id};
+		}
+		else {
+			var idList = $.map(selArr, function (e) { return e.id}).join(',');
+			queryParams = {cond: "id IN (" + idList + ")"};
+		}
 		confirmBatch(selArr.length);
 	}
 	else {
@@ -1003,8 +1087,15 @@ function batchOp(obj, ac, jtbl, data, onBatchDone, forceFlag)
 	return;
 	
 	function confirmBatch(batchCnt) {
-		console.log(obj + "." + ac + ": " + JSON.stringify(queryParams));
+		console.log(ac + ": " + JSON.stringify(queryParams));
+		if (batchCnt == 0) {
+			app_alert("没有记录需要操作。");
+			return;
+		}
+		var data = opt.data;
 		if (!$.isFunction(data)) {
+			if (batchCnt > 1)
+				acName = "批量" + acName;
 			app_confirm(acName + batchCnt + "条记录？", function (b) {
 				if (!b)
 					return;
@@ -1021,13 +1112,14 @@ function batchOp(obj, ac, jtbl, data, onBatchDone, forceFlag)
 	}
 
 	function doBatch(data) {
-		if (ac == "setIf" && $.isEmptyObject(data)) {
-			app_alert("没有需要更新的内容。");
-			return;
-		}
-		self.callSvr(obj+"."+ac, queryParams, function (cnt) {
-			onBatchDone && onBatchDone();
-			reload(jtbl);
+		self.callSvr(ac, queryParams, function (cnt) {
+			opt.onBatchDone && opt.onBatchDone();
+			if (doBatchOnSel && selArr.length == 1) {
+				reloadRow(jtbl, selArr[0]);
+			}
+			else {
+				reload(jtbl);
+			}
 			app_alert(acName + cnt + "条记录");
 		}, data);
 	}
@@ -1113,11 +1205,12 @@ function reloadPage()
 }
 
 /**
-@fn unloadDialog(all?=false)
+@fn unloadDialog(jdlg?)
 @alias reloadDialog
 
-删除当前激活的对话框。一般用于开发过程，在修改外部对话框后，调用该函数清除以便此后再载入页面，可以看到更新的内容。
+删除指定对话框jdlg，如果不指定jdlg，则删除当前激活的对话框。一般用于开发过程，在修改外部对话框后，调用该函数清除以便此后再载入页面，可以看到更新的内容。
 
+	WUI.reloadDialog(jdlg);
 	WUI.reloadDialog();
 	WUI.reloadDialog(true); // 重置所有外部加载的对话框(v5.1)
 
@@ -1128,12 +1221,24 @@ function reloadPage()
 */
 self.unloadDialog = unloadDialog;
 self.reloadDialog = unloadDialog;
-function unloadDialog(all)
+function unloadDialog(jdlg)
 {
-	var jdlg = all? $(".wui-dialog[wui-pageFile]"): getTopDialog();
+	if (jdlg == null) {
+		jdlg = getTopDialog();
+	}
+	else if (jdlg === true) {
+		jdlg = $(".wui-dialog[wui-pageFile]");
+	}
+	else if (jdlg.hasClass("wui-dialog")) {
+	}
+	else {
+		console.error("WUI.unloadDialog: bad dialog spec", jdlg);
+	}
 	if (jdlg.size() == 0)
 		return;
-	try { closeDlg(jdlg); } catch (ex) { console.log(ex); }
+	if (jdlg.is(":visible")) {
+		try { closeDlg(jdlg); } catch (ex) { console.log(ex); }
+	}
 
 	// 是内部对话框，不做删除处理
 	if (jdlg.attr("wui-pageFile") == null)
@@ -1272,6 +1377,9 @@ function getFindData(jfrm)
 		var v = it.getValue(ji);
 		if (v == null || v === "")
 			return;
+		if (ji.attr("wui-find-hint")) {
+			name += "/" + ji.attr("wui-find-hint");
+		}
 		if (ji.hasClass("wui-notCond"))
 			kvList2[name] = v;
 		else
@@ -1350,23 +1458,34 @@ function loadDialog(jdlg, onLoad)
 		jdlg.attr("wui-pageFile", pageFile);
 		jdlg.addClass('wui-dialog');
 
-		$.parser.parse(jdlg); // easyui enhancement
-		jdlg.find(">table:first, form>table:first").has(":input").addClass("wui-form-table");
-		self.enhanceWithin(jdlg);
-
-		var val = jdlg.attr("wui-script");
-		if (val != null) {
-			var path = getModulePath(val);
-			var dfd = mCommon.loadScript(path, onLoad);
-			dfd.fail(function () {
-				self.app_alert("加载失败: " + val);
-			});
+		var dep = self.evalAttr(jdlg, "wui-deferred");
+		if (dep) {
+			self.assert(dep.then, "*** wui-deferred attribute DOES NOT return a deferred object");
+			dep.then(loadDialogTpl1);
+			return;
 		}
-		else {
-			// bugfix: 第1次点击对象链接时(showObjDlg动态加载对话框), 如果出错(如id不存在), 系统报错但遮罩层未清, 导致无法继续操作.
-			// 原因是, 在ajax回调中再调用*同步*ajax操作且失败(这时$.active=2), 在dataFilter中会$.active减1, 然后强制用app_abort退出, 导致$.active清0, 从而在leaveWaiting时无法hideLoading
-			// 解决方案: 在ajax回调处理中, 为防止后面调用同步ajax出错, 使用setTimeout让第一个调用先结束.
-			setTimeout(onLoad);
+		loadDialogTpl1();
+
+		function loadDialogTpl1()
+		{
+			$.parser.parse(jdlg); // easyui enhancement
+			jdlg.find(">table:first, form>table:first").has(":input").addClass("wui-form-table");
+			self.enhanceWithin(jdlg);
+
+			var val = jdlg.attr("wui-script");
+			if (val != null) {
+				var path = getModulePath(val);
+				var dfd = mCommon.loadScript(path, onLoad);
+				dfd.fail(function () {
+					self.app_alert("加载失败: " + val);
+				});
+			}
+			else {
+				// bugfix: 第1次点击对象链接时(showObjDlg动态加载对话框), 如果出错(如id不存在), 系统报错但遮罩层未清, 导致无法继续操作.
+				// 原因是, 在ajax回调中再调用*同步*ajax操作且失败(这时$.active=2), 在dataFilter中会$.active减1, 然后强制用app_abort退出, 导致$.active清0, 从而在leaveWaiting时无法hideLoading
+				// 解决方案: 在ajax回调处理中, 为防止后面调用同步ajax出错, 使用setTimeout让第一个调用先结束.
+				setTimeout(onLoad);
+			}
 		}
 	}
 	return true;
@@ -1427,17 +1546,40 @@ function doFind(jo, jtbl, appendFilter)
 
 @param jdlg 可以是jquery对象，也可以是selector字符串或DOM对象，比如 "#dlgOrder". 注意：当对话框保存为单独模块时，jdlg=$("#dlgOrder") 一开始会为空数组，这时也可以调用该函数，且调用后jdlg会被修改为实际加载的对话框对象。
 
-@param opt.id String. mode=link时必设，set/del如缺省则从关联的opt.jtbl中取, add/find时不需要
-@param opt.jtbl Datagrid. dialog/form关联的datagrid -- 如果dlg对应多个tbl, 必须每次打开都设置
+@param opt.id String. 对话框set模式(mode=FormMode.forSet)时必设，set/del如缺省则从关联的opt.jtbl中取, add/find时不需要
+@param opt.jtbl Datagrid. 指定对话框关联的列表(datagrid)，用于从列表中取值，或最终自动刷新列表。 -- 如果dlg对应多个tbl, 必须每次打开都设置
 @param opt.obj String. (v5.1) 对象对话框的对象名，如果未指定，则从my-obj属性获取。通过该参数可动态指定对象名。
 @param opt.offline Boolean. (v5.1) 不与后台交互。
-@param opt.title String. (v5.1) 指定对话框标题。
 @param opt.readonly String. (v5.5) 指定对话框只读。即设置wui-readonly类。
+
+showObjDlg底层通过showDlg实现，(v5.5)showObjDlg的opt会合并到showDlg的opt参数中，同时showDlg的opt.objParam将保留showObjDlg的原始opt。在每次打开对话框时，可以从beforeshow回调事件参数中以opt.objParam方式取出.
+以下代码帮助你理解这几个参数的关系：
+
+	function showObjDlg(jdlg, mode, opt)
+	{
+		opt = $.extend({}, jdlg.objParam, opt);
+		var showDlgOpt = $.extend({}, opt, {
+			...
+			objParam: opt
+		});
+		showDlg(jdlg, showDlgOpt);
+	}
+	jdlg.on("beforeshow", function (ev, formMode, opt) {
+		// opt即是上述showDlgOpt
+		// opt.objParam为showObjDlg的原始opt，或由jdlg.objParam传入
+	});
+
+@param opt.title String. (v5.1) 指定对话框标题。
+@param opt.data Object. (v5.5) 为对话框指定初始数据，对话框中name属性匹配的控件会在beforeshow事件后且show事件前自动被赋值。
+
+注意：如果是forSet模式的对话框，即更新数据时，只有与原始数据不同的字段才会提交后端。
+
+其它参数可参考showDlg函数的opt参数。
 
 @key objParam 对象对话框的初始参数。
 
 (v5.1)
-此外，通过设置jdlg.objParam，具有和设置opt参数一样的功能，常在initPageXXX中使用，因为在page中不直接调用showObjDlg.
+此外，通过设置jdlg.objParam，具有和设置opt参数一样的功能，常在initPageXXX中使用，因为在page中不直接调用showObjDlg，无法直接传参数opt.
 示例：
 
 	var jdlg = $("#dlgSupplier");
@@ -1488,17 +1630,16 @@ function doFind(jo, jtbl, appendFilter)
 self.showObjDlg = showObjDlg;
 function showObjDlg(jdlg, mode, opt)
 {
-	opt = $.extend({mode: mode}, jdlg.objParam, opt);
 	if (jdlg.constructor != jQuery)
 		jdlg = $(jdlg);
-	else
-		jdlg.data("objParam", jdlg.objParam);
 	if (loadDialog(jdlg, onLoad))
 		return;
 	function onLoad() {
 		showObjDlg(jdlg, mode, opt);
 	}
 
+	opt = $.extend({mode: mode}, jdlg.objParam, opt);
+	jdlg.data("objParam", jdlg.objParam);
 	callInitfn(jdlg, [opt]);
 	if (opt.jtbl) {
 		jdlg.jdata().jtbl = opt.jtbl;
@@ -1524,7 +1665,10 @@ function showObjDlg(jdlg, mode, opt)
 
 			// 批量删除
 			if (mode == FormMode.forDel) {
-				var rv = batchOp(obj, "delIf", jd.jtbl, null, onCrud);
+				var rv = batchOp(obj, obj+".delIf", jd.jtbl, {
+					acName: "删除",
+					onBatchDone: onCrud
+				});
 				if (rv !== false)
 					return;
 			}
@@ -1625,8 +1769,8 @@ function showObjDlg(jdlg, mode, opt)
 	// load data
 	var load_data;
 	if (mode == FormMode.forAdd) {
-		var init_data = jd.init_data || (jd2 && jd2.init_data);
-		load_data = $.extend({}, init_data);
+		// var init_data = jd.init_data || (jd2 && jd2.init_data);
+		load_data = $.extend({}, opt.data);
 		// 添加时尝试设置父结点
 		if (jd.jtbl && isTreegrid(jd.jtbl) && (rowData=getRow(jd.jtbl, true))) {
 			// 在展开的结点上点添加，默认添加子结点；否则添加兄弟结点
@@ -1651,6 +1795,11 @@ function showObjDlg(jdlg, mode, opt)
 				return;
 			load_data = data;
 		}
+		if (opt.data) {
+			setTimeout(function () {
+				mCommon.setFormData(jdlg, opt.data, {setOnlyDefined: true});
+			});
+		}
 	}
 	// objParam.reloadRow()
 	opt.reloadRow = function () {
@@ -1658,9 +1807,8 @@ function showObjDlg(jdlg, mode, opt)
 			self.reloadRow(opt.jtbl, rowData);
 	};
 	// open the dialog
-	showDlg(jdlg, {
+	var showDlgOpt = $.extend({}, opt, {
 		url: url,
-		title: opt.title,
 		okLabel: BTN_TEXT[mode],
 		validate: mode!=FormMode.forFind,
 		modal: false,  // mode == FormMode.forAdd || mode == FormMode.forSet
@@ -1670,6 +1818,7 @@ function showObjDlg(jdlg, mode, opt)
 		onOk: onOk,
 		objParam: opt
 	});
+	showDlg(jdlg, showDlgOpt);
 
 	if (mode == FormMode.forSet)
 		jfrm.form("validate");
@@ -1915,7 +2064,7 @@ self.dg_dblclick = function (jtbl, jdlg)
 	<a href="?logout">退出登录</a>
 
 - href="#pageXXX"开头的，点击时会调用 WUI.showPage("#pageXXX");
-- href="?fn"，会直接调用函数 fn();
+- href="?fn"，会直接调用函数 fn(); 函数中this对象为当前DOM对象
 */
 self.m_enhanceFn["a[href^='#']"] = enhanceAnchor;
 function enhanceAnchor(jo)
@@ -2236,8 +2385,11 @@ function dgLoader(param, success, error)
 			param1[k] = param[k];
 		}
 	}
-	self.callSvr(opts.url, param1, success);
-	// TODO: 调用失败时调用error？
+	var dfd = self.callSvr(opts.url, param1, success);
+	dfd.fail(function () {
+		// hide the loading icon
+		jo.datagrid("loaded");
+	});
 }
 
 function dgLoadFilter(data)
