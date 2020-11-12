@@ -112,6 +112,22 @@ function getFormData(jo)
 @param cb(ji, name, it) it.getDisabled/setDisabled/getValue/setValue/getShowbox
 当cb返回false时可中断遍历。
 
+示例：
+
+	WUI.formItems(jdlg.find(".my-fixedField"), function (ji, name, it) {
+		var fixedVal = ...
+		if (fixedVal || fixedVal == '') {
+			it.setReadonly(ji, true);
+			var forAdd = beforeShowOpt.objParam.mode == FormMode.forAdd;
+			if (forAdd) {
+				it.setValue(ji, fixedVal);
+			}
+		}
+		else {
+			it.setReadonly(ji, false);
+		}
+	});
+
 @key defaultFormItems
  */
 self.formItems = formItems;
@@ -123,13 +139,15 @@ self.formItems["[name]"] = self.defaultFormItems = {
 		return jo.attr("name") || jo.prop("name");
 	},
 	getDisabled: function (jo) {
-		var v = jo.prop("disabled") || jo.attr("disabled");
+		var val = jo.prop("disabled");
+		if (val === undefined)
+			val = jo.attr("disabled");
 		var o = jo[0];
-		if (! v && o.tagName == "INPUT") {
+		if (! val && o.tagName == "INPUT") {
 			if (o.type == "radio" && !o.checked)
 				return true;
 		}
-		return v;
+		return val;
 	},
 	setDisabled: function (jo, val) {
 		jo.prop("disabled", !!val);
@@ -137,6 +155,19 @@ self.formItems["[name]"] = self.defaultFormItems = {
 			jo.attr("disabled", "disabled");
 		else
 			jo.removeAttr("disabled");
+	},
+	getReadonly: function (jo) {
+		var val = jo.prop("readonly");
+		if (val === undefined)
+			val = jo.attr("readonly");
+		return val;
+	},
+	setReadonly: function (jo, val) {
+		jo.prop("readonly", !!val);
+		if (val)
+			jo.attr("readonly", "readonly");
+		else
+			jo.removeAttr("readonly");
 	},
 	setValue: function (jo, val) {
 		var isInput = jo.is(":input");
