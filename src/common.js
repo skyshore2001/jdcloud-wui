@@ -454,6 +454,268 @@ function getTimeDiffDscr(tm, tm1)
 	return "很久前";
 }
 
+/**
+@fn WUI.getTmRange(dscr, now?)
+
+根据时间段描述得到`[起始时间，结束时间)`，注意结束时间是开区间（即不包含）。
+假设今天是2015-9-9 周三：
+
+	getTmRange("本周", "2015-9-9") -> ["2015-9-7"(本周一), "2015-9-14")
+	getTmRange("上周") -> ["2015-8-31", "2015-9-7")  // 或"前1周"
+
+	getTmRange("本月") -> ["2015-9-1", "2015-10-1")
+	getTmRange("上月") -> ["2015-8-1", "2015-9-1")
+
+	getTmRange("今年") -> ["2015-1-1", "2016-1-1") // 或"本年"
+	getTmRange("去年") -> ["2014-1-1", "2015-1-1") // 或"上年"
+
+	getTmRange("本季度") -> ["2015-7-1", "2015-10-1") // 7,8,9三个月
+	getTmRange("上季度") -> ["2015-4-1", "2015-7-1")
+
+	getTmRange("上半年") -> ["2015-1-1", "2015-7-1")
+	getTmRange("下半年") -> ["2015-7-1", "2016-1-1")
+
+	getTmRange("今天") -> ["2015-9-9", "2015-9-10") // 或"本日"
+	getTmRange("昨天") -> ["2015-9-8", "2015-9-9") // 或"昨日"
+
+	getTmRange("前1周") -> ["2015-8-31"(上周一)，"2015-9-7"(本周一))
+	getTmRange("前3月") -> ["2015-6-1", "2015-9-1")
+	getTmRange("前3天") -> ["2015-9-6", "2015-9-9")
+
+	getTmRange("近1周") -> ["2015-9-3"，"2015-9-10")
+	getTmRange("近3月") -> ["2015-6-10", "2015-9-10")
+	getTmRange("近3天") -> ["2015-9-6", "2015-9-10")  // "前3天"+今天
+
+dscr可以是 
+
+	"近|前|上" N "个"? "小时|日|周|月|年|季度"
+	"本|今" "小时|日/天|周|月|年|季度"
+
+注意："近X周"包括今天（即使尚未过完）。
+
+示例：快捷填充
+
+		<td>
+			<select class="cboTmRange">
+				<option value ="本月">本月</option>
+				<option value ="上月">上月</option>
+				<option value ="本周">本周</option>
+				<option value ="上周">上周</option>
+				<option value ="今年">今年</option>
+				<option value ="去年">去年</option>
+			</select>
+		</td>
+
+	var txtTmRange = jdlg.find(".cboTmRange");
+	txtTmRange.change(function () {
+		var range = WUI.getTmRange(this.value);
+		if (range) {
+			WUI.setFormData(jfrm, {tm1: range[0], tm2: range[1]}, {setOnlyDefined: true});
+		}
+	});
+	// 初始选中
+	setTimeout(function () {
+		txtTmRange.change();
+	});
+
+ */
+self.getTmRange = getTmRange;
+function getTmRange(dscr, now)
+{
+	if (! now)
+		now = new Date();
+	else if (! (now instanceof Date)) {
+		now = WUI.parseDate(now);
+	}
+	else {
+		now = new Date(now); // 不修改原时间
+	}
+
+	var rv = getTmRangeSimple(dscr, now);
+	if (rv)
+		return rv;
+
+	dscr = dscr.replace(/本|今/, "前0");
+	dscr = dscr.replace(/上|昨/, "前");
+	var re = /(近|前)(\d*).*?(小时|日|天|月|周|年)/;
+	var m = dscr.match(re);
+	if (! m)
+		return;
+	
+	var dt1, dt2, dt;
+	var type = m[1];
+	var n = parseInt(m[2] || '1');
+	var u = m[3];
+	var fmt_d = "yyyy-mm-dd";
+	var fmt_h = "yyyy-mm-dd HH:00";
+	var fmt_m = "yyyy-mm-01";
+	var fmt_y = "yyyy-01-01";
+
+	if (u == "小时") {
+		if (n == 0) {
+			now.add("h",1);
+			n = 1;
+		}
+		if (type == "近") {
+			now.add("h",1);
+		}
+		dt2 = now.format(fmt_h);
+		dt1 = now.add("h", -n).format(fmt_h);
+	}
+	else if (u == "日" || u == "天") {
+		if (n == 0 || type == "近") {
+			now.addDay(1);
+			++ n;
+		}
+		dt2 = now.format(fmt_d);
+		dt1 = now.add("d", -n).format(fmt_d);
+	}
+	else if (u == "月") {
+		if (n == 0) {
+			now.addMonth(1);
+			n = 1;
+		}
+		if (type == "近") {
+			now.addDay(1);
+			var d2 = now.getDate();
+			dt2 = now.format(fmt_d);
+			now.add("m", -n);
+			do {
+				// 5/31近一个月, 从4/30开始: [4/30, 5/31]
+				var d1 = now.getDate();
+				if (d1 == d2 || d1 > 10)
+					break;
+				now.addDay(-1);
+			} while (true);
+			dt1 = now.format(fmt_d);
+			
+			// now = WUI.parseDate(now.format(fmt_m)); // 回到1号
+			//dt1 = now.add("m", -n).format(fmt_m);
+		}
+		else if (type == "前") {
+			dt2 = now.format(fmt_m);
+			dt1 = WUI.parseDate(dt2).add("m", -n).format(fmt_m);
+		}
+	}
+	else if (u == "周") {
+		if (n == 0) {
+			now.addDay(7);
+			n = 1;
+		}
+		if (type == "近") {
+			now.addDay(1);
+			dt2 = now.format(fmt_d);
+			//now.add("d", -now.getDay()+1); // 回到周1
+			dt1 = now.add("d", -n*7).format(fmt_d);
+		}
+		else if (type == "前") {
+			dt2 = now.add("d", -now.getDay()+1).format(fmt_d);
+			dt1 = now.add("d", -7*n).format(fmt_d);
+		}
+	}
+	else if (u == "年") {
+		if (n == 0) {
+			now.add("y",1);
+			n = 1;
+		}
+		if (type == "近") {
+			now.addDay(1);
+			dt2 = now.format(fmt_d);
+			//now = WUI.parseDate(now.format(fmt_y)); // 回到1/1
+			dt1 = now.add("y", -n).format(fmt_d);
+		}
+		else if (type == "前") {
+			dt2 = now.format(fmt_y);
+			dt1 = WUI.parseDate(dt2).add("y", -n).format(fmt_y);
+		}
+	}
+	else {
+		return;
+	}
+	return [dt1, dt2];
+}
+
+function getTmRangeSimple(dscr, now)
+{
+	var fmt_d = "yyyy-mm-dd";
+	var fmt_m = "yyyy-mm-01";
+	var fmt_y = "yyyy-01-01";
+
+	if (dscr == "本月") {
+		var dt1 = now.format(fmt_m);
+		// NOTE: 不要用 now.addMonth(1). 否则: 2020/8/31取本月会得到 ["2020-08-01", "2020-10-01"]
+		var y = now.getFullYear();
+		var m = now.getMonth() + 2;
+		if (m == 12) {
+			++ y;
+			m = 1;
+		}
+		var dt2 = y + "-" + setWidth_2(m) + "-01";
+	}
+	else if (dscr == "上月") {
+		var dt2 = now.format(fmt_m);
+		var y = now.getFullYear();
+		var m = now.getMonth();
+		now.addMonth(-1);
+		if (m == 0) {
+			-- y;
+			m = 12;
+		}
+		var dt1 = y + "-" + setWidth_2(m) + "-01";
+	}
+	else if (dscr == "本周") {
+		var dt1 = now.add("d", -(now.getDay()||7)+1).format(fmt_d);
+		now.addDay(7);
+		var dt2 = now.format(fmt_d);
+	}
+	else if (dscr == "上周") {
+		var dt2 = now.add("d", -(now.getDay()||7)+1).format(fmt_d);
+		now.addDay(-7);
+		var dt1 = now.format(fmt_d);
+	}
+	else if (dscr == "今年") {
+		var dt1 = now.format(fmt_y);
+		now.addMonth(12);
+		var dt2 = now.format(fmt_y);
+	}
+	else if (dscr == "去年" || dscr == "上年") {
+		var dt2 = now.format(fmt_y);
+		now.addMonth(-12);
+		var dt1 = now.format(fmt_y);
+	}
+	else if (dscr == "本季度") {
+		var m = Math.floor(now.getMonth() / 3)*3 +1;
+		var dt1 = now.getFullYear() + "-" + setWidth_2(m) + "-01";
+		var dt2 = now.getFullYear() + "-" + setWidth_2(m+3) + "-01";
+	}
+	else if (dscr == "上季度") {
+		var m = Math.floor(now.getMonth() / 3)*3;
+		if (m > 0) {
+			var dt1 = now.getFullYear() + "-" + setWidth_2(m-3) + "-01";
+			var dt2 = now.getFullYear() + "-" + setWidth_2(m) + "-01";
+		}
+		else {
+			var y = now.getFullYear();
+			var dt1 = (y-1) + "-10-01";
+			var dt2 = y + "-01-01";
+		}
+	}
+	else if (dscr == "上半年") {
+		var y = now.getFullYear();
+		var dt1 = y + "-01-01";
+		var dt2 = y + "-07-01";
+	}
+	else if (dscr == "下半年") {
+		var y = now.getFullYear();
+		var dt1 = y + "-07-01";
+		var dt2 = (y+1) + "-01-01";
+	}
+	else {
+		return;
+	}
+	return [dt1, dt2];
+}
+
 // }}}
 
 // ====== Cookie and Storage (localStorage/sessionStorage) {{{
@@ -1111,6 +1373,21 @@ function parseKvList(str, sep, sep2)
 		map[kv[0]] = kv[1];
 	});
 	return map;
+}
+
+/**
+@fn Q(str, q?="'")
+
+	Q("abc") -> 'abc'
+	Q("a'bc") -> 'a\'bc'
+
+ */
+window.Q = self.Q = Q;
+function Q(str, q)
+{
+	if (q == null)
+		q = "'";
+	return q + str.replaceAll(q, "\\" + q) + q;
 }
 
 function initModule()

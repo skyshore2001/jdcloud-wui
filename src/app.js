@@ -322,6 +322,12 @@ function getop(v)
 
 @see getQueryParam
 @see getQueryParamFromTable 获取datagrid的当前查询参数
+@see doFind
+
+(v5.5) 支持在key中包含查询提示。如"code/s"表示不要自动猜测数值区间或日期区间。
+比如输入'126231-191024'时不会当作查询126231到191024的区间。
+
+@see wui-find-hint
 */
 self.queryHint = "查询示例\n" +
 	"文本：\"王小明\", \"王*\"(匹配开头), \"*上海*\"(匹配部分)\n" +
@@ -353,12 +359,26 @@ function getQueryCond(kvList)
 			return;
 		}
 
+		var hint = null;
+		var k1 = k.split('/');
+		if (k1.length > 1) {
+			k = k1[0];
+			hint = k1[1];
+		}
+
+		if ($.isArray(v)) {
+			if (v[0])
+				condArr.push(k + ">='" + v[0] + "'");
+			if (v[1])
+				condArr.push(k + "<'" + v[1] + "'");
+			return;
+		}
 		var arr = v.toString().split(/\s+(and|or)\s+/i);
 		var str = '';
 		var bracket = false;
 		// NOTE: 根据字段名判断时间类型
-		var isTm = /(Tm|^tm)\d*$/.test(k);
-		var isDt = /(Dt|^dt)\d*$/.test(k);
+		var isTm = hint == "tm" || /(Tm|^tm)\d*$/.test(k);
+		var isDt = hint == "dt" || /(Dt|^dt)\d*$/.test(k);
 		$.each(arr, function (i, v1) {
 			if ( (i % 2) == 1) {
 				str += ' ' + v1.toUpperCase() + ' ';
@@ -366,6 +386,7 @@ function getQueryCond(kvList)
 				return;
 			}
 			v1 = v1.replace(/，/g, ',');
+			v1 = v1.replace(/＊/g, '*');
 			// a-b,c-d,e
 			// dt1~dt2
 			var str1 = '';
@@ -377,7 +398,7 @@ function getQueryCond(kvList)
 				}
 				var mt; // match
 				var isHandled = false; 
-				if (isTm | isDt) {
+				if (hint != "s" && (isTm || isDt)) {
 					// "2018-5" => ">=2018-5-1 and <2018-6-1"
 					// "2018-5-1" => ">=2018-5-1 and <2018-5-2" (仅限Tm类型; Dt类型不处理)
 					if (mt=v2.match(/^(\d{4})-(\d{1,2})(?:-(\d{1,2}))?$/)) {
@@ -399,7 +420,7 @@ function getQueryCond(kvList)
 						}
 					}
 				}
-				if (!isHandled) {
+				if (!isHandled && hint != "s") {
 					// "2018-5-1~2018-10-1"
 					// "2018-5-1 8:00 ~ 2018-10-1 18:00"
 					if (mt=v2.match(/^(\d{4}-\d{1,2}.*?)\s*~\s*(\d{4}-\d{1,2}.*?)$/)) {

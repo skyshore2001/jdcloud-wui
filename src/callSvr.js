@@ -107,14 +107,41 @@ mockData中每项可以直接是数据，也可以是一个函数：fn(param, po
 */
 self.mockData = {};
 
+/**
+@key $.ajax
+@key ajaxOpt.jdFilter 禁用返回格式合规检查.
+
+以下调用, 如果1.json符合`[code, data]`格式, 则只返回处理data部分; 否则将报协议格式错误:
+
+	$.ajax("1.json", {dataType: "json"})
+	$.get("1.json", null, console.log, "json")
+	$.getJSON("1.json", null, console.log)
+
+对于ajax调用($.ajax,$.get,$.post,$.getJSON等), 若明确指定dataType为"json"或"text", 且未指定jdFilter为false, 
+则框架按筋斗云返回格式即`[code, data]`来处理只返回data部分, 不符合该格式, 则报协议格式错误.
+
+以下调用未指定dataType, 或指定了jdFilter=false, 则不会应用筋斗云协议格式:
+
+	$.ajax("1.json")
+	$.get("1.json", null, console.log)
+	$.ajax("1.json", {jdFilter: false}) // jdFilter选项明确指定了不应用筋斗云协议格式
+
+*/
 var ajaxOpt = {
 	beforeSend: function (xhr) {
 		// 保存xhr供dataFilter等函数内使用。
 		this.xhr_ = xhr;
+		var type = this.dataType;
+		if (this.jdFilter !== false && (type == "json" || type == "text")) {
+			this.jdFilter = true;
+			// for jquery > 1.4.2. don't convert text to json as it's processed by defDataProc.
+			// NOTE: 若指定dataType为"json"时, jquery会对dataFilter处理过的结果再进行JSON.parse导致出错, 根据jquery1.11源码修改如下:
+			this.converters["text json"] = true;
+		}
 	},
 	//dataType: "text",
 	dataFilter: function (data, type) {
-		if (this.jdFilter !== false && (type == "json" || type == "text")) {
+		if (this.jdFilter) {
 			rv = defDataProc.call(this, data);
 			if (rv !== RV_ABORT)
 				return rv;
@@ -122,10 +149,6 @@ var ajaxOpt = {
 			self.app_abort();
 		}
 		return data;
-	},
-	// for jquery > 1.4.2. don't convert text to json as it's processed by defDataProc.
-	converters: {
-		"text json": true
 	},
 
 	error: defAjaxErrProc
@@ -274,7 +297,9 @@ function defDataProc(rv)
 	catch (e)
 	{
 		leaveWaiting(ctx);
-		self.app_alert("服务器数据错误。");
+		var msg = "服务器数据错误。";
+		self.app_alert(msg);
+		ctx.dfd.reject.call(this, msg);
 		return;
 	}
 
@@ -388,6 +413,11 @@ function getBaseUrl()
 
 	MUI.makeUrl(['login', 'zhanda']) 等价于 MUI.makeUrl('zhanda:login');
 
+特别地, 如果action是相对路径, 或是'.php'文件, 则不会自动拼接WUI.options.serverUrl:
+
+	callSvr("./1.json"); // 如果是callSvr("1.json") 则url可能是 "../api.php/1.json"这样.
+	callSvr("./1.php");
+
 @see callSvrExt
  */
 self.makeUrl = makeUrl;
@@ -433,8 +463,8 @@ function makeUrl(action, params)
 	if (fnMakeUrl) {
 		url = fnMakeUrl(action, params);
 	}
-	// 缺省接口调用：callSvr('login') 或 callSvr('php/login.php');
-	else if (action.indexOf(".php") < 0)
+	// 缺省接口调用：callSvr('login'),  callSvr('./1.json') 或 callSvr("1.php") (以"./"或"../"等相对路径开头, 或是取".php"文件, 则不去自动拼接serverUrl)
+	else if (action[0] != '.' && action.indexOf(".php") < 0)
 	{
 		var opt = self.options;
 		var usePathInfo = !opt.serverUrlAc;
@@ -883,6 +913,25 @@ callSvr扩展示例：
 	.finally(...)
 
 支持catch/finally等Promise类接口。接口逻辑失败时，dfd.reject()触发fail/catch链。
+
+## 直接取json类文件
+
+(v5.5) 如果ac是调用相对路径, 则直接当成最终路径, 不做url拼接处理:
+
+	callSvr("./1.json"); // 如果是callSvr("1.json") 则实际url可能是 "../api.php/1.json"这样.
+	callSvr("../1.php");
+
+相当于调用
+
+	$.ajax("../1.php", {dataType: "json", success: callback})
+	或
+	$.getJSON("../1.php", callback);
+
+注意下面调用未指定dataType, 不会按筋斗云协议格式处理:
+
+	$.ajax("../1.php", {success: callback})
+
+@see $.ajax
 */
 self.callSvr = callSvr;
 self.callSvrExt = {};
@@ -977,13 +1026,19 @@ function callSvr(ac, params, fn, postParams, userOptions)
 	}
 
 	// 自动判断是否用json格式
-	if (!opt.contentType && opt.data && $.isPlainObject(opt.data)) {
-		$.each(opt.data, function (i, e) {
-			if (typeof(e) == "object") {
-				opt.contentType = "application/json";
-				return false;
-			}
-		})
+	if (!opt.contentType && opt.data) {
+		var useJson = $.isArray(opt.data);
+		if (!useJson && $.isPlainObject(opt.data)) {
+			$.each(opt.data, function (i, e) {
+				if (typeof(e) == "object") {
+					useJson = true;
+					return false;
+				}
+			})
+		}
+		if (useJson) {
+			opt.contentType = "application/json";
+		}
 	}
 
 	// post json content
