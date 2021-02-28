@@ -89,7 +89,35 @@ self.options = {
 	logAction: false,
 	PAGE_SZ: 20,
 	manualSplash: false,
-	mockDelay: 50
+	mockDelay: 50,
+
+/**
+@var WUI.options.moduleExt
+
+用于模块扩展。有两个回调函数选项：
+
+	// 定制模块的页面路径
+	WUI.options.moduleExt.showPage = function (name) {
+		// name为showPage或showDlg函数调用时的页面/对话框；返回实际页面地址；示例：
+		var map = {
+			"pageOrdr__Mes.html": "page/mes/pageOrdr.html",
+			"pageOrdr__Mes.js": "page/mes/pageOrdr.js",
+		};
+		return map[name] || name;
+	}
+	// 定制模块的接口调用地址
+	WUI.options.moduleExt.callSvr = function (name) {
+		// name为callSvr调用的接口名，返回实际URL地址；示例：
+		var map = {
+			"Ordr__Mes.query" => "../../mes/api/Ordr.query",
+			"Ordr__Item.query" => "../../mes/api/Item.query"
+		}
+		return map[name] || name;
+	}
+
+详细用法案例，可参考：筋斗云开发实例讲解 - 系统复用与微服务方案。
+*/
+	moduleExt: { showPage: $.noop, callSvr: $.noop }
 };
 
 //}}}
@@ -316,6 +344,7 @@ function tokenName()
 	return name;
 }
 
+self.saveLoginToken = saveLoginToken;
 function saveLoginToken(data)
 {
 	if (data._token)
@@ -323,10 +352,12 @@ function saveLoginToken(data)
 		mCommon.setStorage(tokenName(), data._token);
 	}
 }
+self.loadLoginToken = loadLoginToken;
 function loadLoginToken()
 {
 	return mCommon.getStorage(tokenName());
 }
+self.deleteLoginToken = deleteLoginToken;
 function deleteLoginToken()
 {
 	mCommon.delStorage(tokenName());
@@ -667,7 +698,8 @@ function mainInit()
 	function onResizePanel() {
 		//console.log("dialog resize");
 		// 强制datagrid重排
-		$(this).closest(".panel-body").panel("doLayout", true);
+		var jo = $(this);
+		jo.find(".datagrid").closest(".panel-body:visible").panel("doLayout", true);
 	}
 	$.fn.dialog.defaults.onResize = onResizePanel;
 }

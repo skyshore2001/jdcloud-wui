@@ -230,7 +230,7 @@ function defAjaxErrProc(xhr, textStatus, e)
 		ctx.status = xhr.status;
 		ctx.statusText = xhr.statusText;
 
-		if (xhr.status == 0) {
+		if (xhr.status == 0 && !ctx.noex) {
 			self.app_alert("连不上服务器了，是不是网络连接不给力？", "e");
 		}
 		else if (this.handleHttpError) {
@@ -240,7 +240,7 @@ function defAjaxErrProc(xhr, textStatus, e)
 				this.success && this.success(rv);
 			return;
 		}
-		else {
+		else if (!ctx.noex) {
 			self.app_alert("操作失败: 服务器错误. status=" + xhr.status + "-" + xhr.statusText, "e");
 		}
 
@@ -463,6 +463,8 @@ function makeUrl(action, params)
 	if (fnMakeUrl) {
 		url = fnMakeUrl(action, params);
 	}
+	else if (url = self.options.moduleExt["callSvr"](action)) {
+	}
 	// 缺省接口调用：callSvr('login'),  callSvr('./1.json') 或 callSvr("1.php") (以"./"或"../"等相对路径开头, 或是取".php"文件, 则不去自动拼接serverUrl)
 	else if (action[0] != '.' && action.indexOf(".php") < 0)
 	{
@@ -674,6 +676,7 @@ callSvr扩展示例：
 
 	MUI.callSvrExt['zhanda'] = {
 		makeUrl: function(ac, param) {
+			// 只需要返回接口url即可，不必拼接param
 			return 'http://hostname/lcapi/' + ac;
 		},
 		dataFilter: function (data) {
@@ -690,11 +693,15 @@ callSvr扩展示例：
 		}
 	};
 
-在调用时，ac参数传入一个数组：
+在调用时，ac参数使用"{扩展名}:{调用名}"的格式：
 
-	callSvr(['token/get-token', 'zhanda'], {user: 'test', password: 'test123'}, function (data) {
+	callSvr('zhanda:token/get-token', {user: 'test', password: 'test123'}, function (data) {
 		console.log(data);
 	});
+
+旧的调用方式ac参数使用数组，现在已不建议使用：
+
+	callSvr(['token/get-token', 'zhanda'], ...);
 
 @key callSvrExt[].makeUrl(ac, param)
 
@@ -720,8 +727,7 @@ callSvr扩展示例：
 @key callSvrExt['default']
 
 (支持版本: v3.1)
-如果要修改callSvr缺省调用方法，可以改写 MUI.callSvrExt['default'].
-例如，定义以下callSvr扩展：
+如果要修改callSvr缺省调用方法，可以改写 MUI.callSvrExt['default']。示例：
 
 	MUI.callSvrExt['default'] = {
 		makeUrl: function(ac) {
@@ -772,14 +778,6 @@ callSvr扩展示例：
 		}
 	};
 
-这样，以下调用
-
-	callSvr(['login', 'default']);
-
-可以简写为：
-
-	callSvr('login');
-
 @key callSvrExt[].beforeSend(opt) 为callSvr或$.ajax选项设置缺省值
 
 如果有ajax选项想设置，可以使用beforeSend回调，例如POST参数使用JSON格式：
@@ -798,6 +796,8 @@ callSvr扩展示例：
 			}
 		}
 	}
+
+可以从opt.ctx_中取到{ac, ext, noex, dfd}等值（如opt.ctx_.ac），可以从opt.url中取到{ac, params}值。
 
 如果要设置请求的HTTP headers，可以用`opt.headers = {header1: "value1", header2: "value2"}`.
 更多选项参考jquery文档：jQuery.ajax的选项。
@@ -976,6 +976,8 @@ function callSvr(ac, params, fn, postParams, userOptions)
 	var ctx = {ac: ac0, tm: new Date()};
 	if (userOptions && userOptions.noLoadingImg)
 		ctx.noLoadingImg = 1;
+	if (userOptions && userOptions.noex)
+		ctx.noex = 1;
 	if (ext) {
 		ctx.ext = ext;
 	}

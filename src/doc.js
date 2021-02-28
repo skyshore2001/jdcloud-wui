@@ -492,7 +492,11 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 
 #### treegrid集成
 
-后端数据模型中有fatherId字段, 即可适配treegrid.
+@key treegrid
+
+后端数据模型若要支持树类型，须在表中有父节点字段（默认为fatherId）, 即可适配treegrid. 典型的表设计如下：
+
+	@Dept: id, code, name, fatherId, level
 
 - 支持一次全部加载和分层次加载两种模式。
 - 支持查询时，只展示部分行。
@@ -508,6 +512,8 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 		url: WUI.makeUrl("ItemType.query", {pagesz: -1}),
 		toolbar: WUI.dg_toolbar(jtbl, jdlg),
 		onDblClickRow: WUI.dg_dblclick(jtbl, jdlg)
+		// treeField: "code"  // 树表专用，表示在哪个字段上显示折叠，默认为"id"
+		// fatherField: "id" // 树表专用，WUI扩展字段，表示父节点字段，默认为"fatherId"
 	};
 	// 用treegrid替代常规的datagrid
 	jtbl.treegrid(dgOpt);
@@ -520,6 +526,21 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 		isLeaf: function (row) {
 			return row.level>1;
 		},
+		...
+	};
+	jtbl.treegrid(dgOpt);
+
+**[通过非id字段关联父节点的情况]**
+
+比如通过fatherCode字段关联到父节点的code字段：
+
+	@Dept: id, code, fatherCode
+
+则可以指定idField, 这样调用：
+
+	var dgOpt = {
+		idField: "code",
+		fatherField: "fatherCode",
 		...
 	};
 	jtbl.treegrid(dgOpt);
@@ -657,6 +678,8 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 
 @see showPage
 @key .wui-fixedField 固定值字段
+
+当打开对话框时, 标识为.wui-fixedField类的字段会自动从传入的opt.objParam中取值, 如果取到值则将自己设置为只读.
 
 此外，在Item页对应的详情对话框上（dlgItem.html页面中），还应设置storeId字段是只读的，在添加、设置和查询时不可被修改，在添加时还应自动填充值。
 (v5.3) 只要在字段上添加wui-fixedField类即可：

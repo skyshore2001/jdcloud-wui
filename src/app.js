@@ -223,10 +223,10 @@ function getOptions(jo, defVal)
 //}}}
 
 // 参考 getQueryCond中对v各种值的定义
-function getop(v)
+function getexp(k, v)
 {
 	if (typeof(v) == "number")
-		return "=" + v;
+		return k + "=" + v;
 	var op = "=";
 	var is_like=false;
 	var ms;
@@ -245,23 +245,24 @@ function getop(v)
 	if (v === "null")
 	{
 		if (op == "<>")
-			return " is not null";
-		return " is null";
+			return k + " is not null";
+		return k + " is null";
 	}
 	if (v === "empty")
 		v = "";
-	if (v.length == 0 || v.match(/\D/) || v[0] == '0') {
+	var doFuzzy = self.options.fuzzyMatch && (k!="id" && k.substr(-2)!="Id");
+	if (doFuzzy || v.length == 0 || v.match(/\D/) || v[0] == '0') {
 		v = v.replace(/'/g, "\\'");
-		if (self.options.fuzzyMatch && op == "=" && v.length>0) {
+		if (doFuzzy && op == "=" && v.length>0) {
 			op = " like ";
 			v = "%" + v + "%";
 		}
 // 		// ???? 只对access数据库: 支持 yyyy-mm-dd, mm-dd, hh:nn, hh:nn:ss
 // 		if (!is_like && v.match(/^((19|20)\d{2}[\/.-])?\d{1,2}[\/.-]\d{1,2}$/) || v.match(/^\d{1,2}:\d{1,2}(:\d{1,2})?$/))
 // 			return op + "#" + v + "#";
-		return op + "'" + v + "'";
+		return k + op + "'" + v + "'";
 	}
-	return op + v;
+	return k + op + v;
 }
 
 /**
@@ -351,6 +352,14 @@ function getQueryCond(kvList)
 	function handleOne(k,v) {
 		if (v == null || v === "" || v.length==0)
 			return;
+
+		var hint = null;
+		var k1 = k.split('/');
+		if (k1.length > 1) {
+			k = k1[0];
+			hint = k1[1];
+		}
+
 		if ($.isArray(v)) {
 			if (v[0])
 				condArr.push(k + ">='" + v[0] + "'");
@@ -358,7 +367,6 @@ function getQueryCond(kvList)
 				condArr.push(k + "<'" + v[1] + "'");
 			return;
 		}
-
 		var hint = null;
 		var k1 = k.split('/');
 		if (k1.length > 1) {
@@ -438,7 +446,7 @@ function getQueryCond(kvList)
 					}
 				}
 				if (!isHandled) {
-					str1 += k + getop(v2);
+					str1 += getexp(k, v2);
 				}
 			});
 			if (bracket2)

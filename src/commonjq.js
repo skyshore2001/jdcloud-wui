@@ -93,6 +93,35 @@ function getFormData(jo)
 }
 
 /**
+@fn getFormData_vf(jo)
+
+专门取虚拟字段的值。例如：
+
+	<select name="whId" class="my-combobox" data-options="url:..., jd_vField:'whName'"></select>
+
+用WUI.getFormData可取到`{whId: xxx}`，而WUI.getFormData_vf遍历带name属性且设置了jd_vField选项的控件，调用接口getValue_vf(ji)来取其显示值。
+因而，为支持取虚拟字段值，控件须定义getValue_vf接口。
+
+	<input name="orderType" data-options="jd_vField:'orderType'" disabled>
+
+注意：与getFormData不同，它不忽略有disabled属性的控件。
+
+@see defaultFormItems
+ */
+self.getFormData_vf = getFormData_vf;
+function getFormData_vf(jo)
+{
+	var data = {};
+	formItems(jo, function (ji, name, it) {
+		var vname = WUI.getOptions(ji).jd_vField;
+		if (!vname)
+			return;
+		data[vname] = it.getValue_vf(ji);
+	});
+	return data;
+}
+
+/**
 @fn formItems(jo, cb)
 
 表单对象遍历。对表单jo（实际可以不是form标签）下带name属性的控件，交给回调cb处理。
@@ -100,8 +129,7 @@ function getFormData(jo)
 
 注意:
 
-- 忽略有disabled属性的控件
-- 忽略未选中的checkbox/radiobutton
+- 通过取getDisabled接口判断，可忽略有disabled属性的控件以及未选中的checkbox/radiobutton。
 
 对于checkbox，设置时根据val确定是否选中；取值时如果选中取value属性否则取value-off属性。
 缺省value为"on", value-off为空(非标准属性，本框架支持)，可以设置：
@@ -212,6 +240,14 @@ self.formItems["[name]"] = self.defaultFormItems = {
 	// TODO: 用于find模式设置。搜索"设置find模式"/datetime
 	getShowbox: function (jo) {
 		return jo;
+	},
+
+	// 用于显示的虚拟字段值, 此处以select为例，适用于my-combobox
+	getValue_vf: function (jo) {
+		var o = jo[0];
+		if (o.tagName == "SELECT")
+			return o.options[o.selectedIndex].innerText;
+		return this.getValue(jo);
 	}
 };
 
@@ -853,7 +889,7 @@ function getDataOptions(jo, defVal)
 	var opts;
 	try {
 		if (optStr != null) {
-			if (optStr.indexOf(":") > 0) {
+			if (/^\w+:/.test(optStr)) {
 				opts = eval("({" + optStr + "})");
 			}
 			else {

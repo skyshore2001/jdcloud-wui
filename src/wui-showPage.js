@@ -167,13 +167,13 @@ easyui-treegrid会将其再转成层次结构：
 
 特别地，为了查询结果能正常显示（排除展开结点操作的查询，其它查询的树表是残缺不全的），当发现数据有fatherId但父结点不在列表中时，不去设置_parentId，避免该行无法显示。
 */
-function jdListToTree(data, fatherField, parentId, isLeaf)
+function jdListToTree(data, idField, fatherField, parentId, isLeaf)
 {
 	var data1 = jdListToDgList(data)
 
 	var idMap = {};
 	$.each(data1.rows, function (i, e) {
-		idMap[e.id] = true;
+		idMap[e[idField]] = true;
 	});
 	$.each(data1.rows, function (i, e) {
 		var fatherId = e[fatherField];
@@ -215,16 +215,18 @@ function reloadRow(jtbl, rowData)
 		var objArr = jdListToArray(data);
 		if (datagrid == "treegrid") {
 			$.extend(rowData, objArr[0]);
-			if (rowData["_parentId"] && rowData["_parentId"] != rowData["fatherId"]) {
-				rowData["_parentId"] = rowData["fatherId"];
-				jtbl.treegrid("remove", rowData.id);
+			var fatherId = rowData[opt.fatherField]; // "fatherId"
+			var id = rowData[opt.idField];
+			if (rowData["_parentId"] && rowData["_parentId"] != fatherId) {
+				rowData["_parentId"] = fatherId;
+				jtbl.treegrid("remove", id);
 				jtbl.treegrid("append", {
 					parent: rowData["_parentId"],
 					data: [rowData]
 				});
 			}
 			else {
-				jtbl.treegrid("update", {id: rowData.id, row: rowData});
+				jtbl.treegrid("update", {id: id, row: rowData});
 			}
 			return;
 		}
@@ -254,8 +256,13 @@ function appendRow(jtbl, id)
 			return;
 		var row = objArr[0];
 		if (datagrid == "treegrid") {
+			if (jtbl.treegrid('getData').length == 0) { // bugfix: 加第一行时，使用loadData以删除“没有数据”这行
+				jtbl.treegrid('loadData', [row]);
+				return;
+			}
+			var fatherId = row[opt.fatherField];
 			jtbl.treegrid('append',{
-				parent: row["fatherId"],
+				parent: fatherId,
 				data: [row]
 			});
 			return;
@@ -327,6 +334,9 @@ function callInitfn(jo, paramArr)
 
 function getModulePath(file)
 {
+	var url = self.options.moduleExt["showPage"](file);
+	if (url)
+		return url;
 	return self.options.pageFolder + "/" + file;
 }
 
@@ -890,6 +900,7 @@ function showDlg(jdlg, opt)
 					var rv = batchOp(obj, obj+".setIf", jtbl, {
 						acName: "更新",
 						data: data, 
+						offline: opt.offline,
 						onBatchDone: function () {
 							// TODO: onCrud();
 							closeDlg(jdlg);
@@ -947,6 +958,8 @@ $(window).keyup(function (e) {
 opt.data也可以是一个函数dataFn(batchCnt)，参数batchCnt为当前批量操作的记录数(必定大于0)。
 该函数返回data或一个Deferred对象(该对象适时应调用dfd.resolve(data)做批量操作)。dataFn返回false表示不做后续处理。
 
+@return 如果返回false，表示当前非批量操作模式，或参数不正确无法操作。
+
 支持批量操作的接口须符合下列原型:
 
 	$obj.$ac($queryParam)($data) -> $cnt
@@ -972,19 +985,107 @@ opt.data也可以是一个函数dataFn(batchCnt)，参数batchCnt为当前批量
 
 简单来说, 默认模式对单个记录不处理, 返回false留给调用者处理; 模式2是对单个记录也按批量处理; 模式1是无须按Ctrl键就批量处理.
 
-## 示例：点"批量上传"按钮, 打开上传文件对话框, 选择上传并点击"确定"按钮后, 先上传文件, 再将返回的附件编号批量更新到行记录上.
+## 示例1: 无须对话框填写额外信息的批量操作
+
+工件列表页(pageSn)中，点"打印条码"按钮, 打印选中的1行或多行的标签, 如果未选则报错. 如果按住Ctrl点击, 则按表格过滤条件批量打印所有行的标签.
+
+显然, 这是一个batchOpMode=2的操作模式, 调用后端`Sn.print`接口, 对一行或多行数据统一处理，在列表页pageSn.js中为操作按钮指定操作:
+
+	// function initPageSn
+	var btn1 = {text: "打印条码", iconCls:'icon-ok', handler: function () {
+		WUI.batchOp("Sn", "printSn", jtbl, {
+			acName: "打印", 
+			batchOpMode: 2
+		});
+	}};
+
+	jtbl.datagrid({
+		...
+		toolbar: WUI.dg_toolbar(jtbl, jdlg, "export", btn1),
+	});
+
+后端应实现接口`Sn.print(查询条件)`, 实现示例:
+
+	// class AC2_Sn
+	function api_print() {
+		// 通过query接口查询操作对象内容. 
+		$param = array_merge($_GET, ["res"=>"code", "fmt"=>"array" ]);
+		$rv = $this->callSvc(null, "query", $param);
+		addLog($rv);
+		// 应返回操作数量
+		return count($rv);
+	}
+
+## 示例2：打开对话框，批量设置一些信息
+
+在列表页上添加操作按钮，pageXXX.js:
+
+	// 点按钮打开批量上传对话框
+	var btn1 = {text: "批量设置", iconCls:'icon-add', handler: function () {
+		WUI.showDlg("#dlgUpload", {modal:false, jtbl: jtbl}); // 注意：为对话框传入特别参数jtbl即列表的jQuery对象，在batchOp函数中要使用它。
+	}};
+	jtbl.datagrid({
+		...
+		toolbar: WUI.dg_toolbar(jtbl, jdlg, "export", btn1),
+	});
+
+对批量设置页面上调用接口，dlgUpload.js:
+
+	var jtbl;
+	jdlg.on("validate", onValidate)
+		on("beforeshow", onBeforeShow);
+
+	function onBeforeShow(ev, formMode, opt) {
+		jtbl = opt.jtbl; // 记录传入的参数
+	}
+	function onValidate(ev, mode, oriData, newData) 
+	{
+		WUI.batchOp("Item", "batchSetItemPrice", jtbl, {
+			batchOpMode: 1,  // 无须按Ctrl键, 一律当成批量操作
+			data: WUI.getFormData(jfrm),
+			onBatchDone: function () {
+				WUI.closeDlg(jdlg);
+			}
+		});
+	}
+
+注意：对主表字段的设置都可在通用的详情对话框上解决（若要批量设置子表，也可通过在set/setIf接口里处理虚拟字段解决）。一般无须编写批量设置操作。
+
+## 示例3：打开对话框，先上传文件再批量操作
+
+在安装任务列表页上，点"批量上传"按钮, 打开上传文件对话框(dlgUpload), 选择上传并点击"确定"按钮后, 先上传文件, 再将返回的附件编号批量更新到行记录上.
 
 先选择操作模式batchOpMode=1, 点确定按钮时总是批量处理.
-参数data传入一个函数(onGetData)用于生成POST参数; 
-为了支持其中的异步上传文件操作, 函数除了直接返回data, 还可以返回一个Deferred对象(简称dfd), 在dfd.resolve(data)之后才会执行真正的批量操作.
 
-	WUI.batchOp("Task", "Task.setIf", jtbl, {
-		batchOpMode: 1,  // 无须按Ctrl键, 一律当成批量操作
-		data: onGetData,
-		onBatchDone: function () {
-			WUI.closeDlg(jdlg);
-		}
-	});
+与示例2不同，上传文件是个异步操作，可为参数data传入一个返回Deferred对象（简称dfd）的函数(onGetData)用于生成POST参数，
+以支持异步上传文件操作，在dfd.resolve(data)之后才会执行真正的批量操作.
+
+pageTask.js:
+
+	// 点按钮打开批量上传对话框
+	var btn2 = {text: "批量上传附件", iconCls:'icon-add', handler: function () {
+		WUI.showDlg("#dlgUpload", {modal:false, jtbl: jtbl}); // 注意：为对话框传入特别参数jtbl即列表的jQuery对象，在batchOp函数中要使用它。
+	}};
+
+dlgUpload.js:
+
+	var jtbl;
+	jdlg.on("validate", onValidate)
+		on("beforeshow", onBeforeShow);
+
+	function onBeforeShow(ev, formMode, opt) {
+		jtbl = opt.jtbl; // 记录传入的参数
+	}
+	function onValidate(ev, mode, oriData, newData) 
+	{
+		WUI.batchOp("Task", "Task.setIf", jtbl, {
+			batchOpMode: 1,  // 无须按Ctrl键, 一律当成批量操作
+			data: onGetData,
+			onBatchDone: function () {
+				WUI.closeDlg(jdlg);
+			}
+		});
+	}
 
 	// 一定batchCnt>0. 若batchCnt=0即没有操作数据时, 会报错结束, 不会回调该函数.
 	function onGetData(batchCnt)
@@ -1013,27 +1114,6 @@ opt.data也可以是一个函数dataFn(batchCnt)，参数batchCnt为当前批量
 	jupload.submit();
 	return getFormData(jfrm);
 
-## 示例2: 点"打印"按钮, 打印选中的1行或多行的标签, 如果未选则报错. 如果按住Ctrl点击, 则按表格过滤条件批量打印所有行的标签.
-
-显然, 这是一个batchOpMode=2的操作模式, 调用后端`Sn.print`接口, 对一行或多行数据统一处理:
-
-	WUI.batchOp("Sn", "Sn.print", jtbl, {
-		acName: "打印",
-		batchOpMode: 2
-	});
-
-后端应实现接口`Sn.print(查询条件)`, 实现示例:
-
-	// class AC2_Sn
-	function api_print() {
-		// 通过query接口查询操作对象内容. 
-		$param = array_merge($_GET, ["res"=>"code", "fmt"=>"array" ]);
-		$rv = $this->callSvc(null, "query", $param);
-		addLog($rv);
-		// 应返回操作数量
-		return count($rv);
-	}
-
 */
 self.batchOp = batchOp;
 function batchOp(obj, ac, jtbl, opt)
@@ -1056,11 +1136,29 @@ function batchOp(obj, ac, jtbl, opt)
 	}
 
 	var queryParams;
-	var doBatchOnSel = selArr.length > 1 && selArr[0].id != null;
+	var doBatchOnSel = selArr.length > 1 && (selArr[0].id != null || opt.offline);
 	var acName = opt.acName;
 	// batchOpMode=2时，未按Ctrl时选中一行也按批量操作
 	if (!doBatchOnSel && batchOpMode === 2 && !m_batchMode && selArr.length == 1 && selArr[0].id != null)
 		doBatchOnSel = true;
+
+	// offline时批量删除单独处理
+	if (opt.offline) {
+		if (acName == "删除") {
+			var totalCnt = jtbl.datagrid("getRows").length;
+			if (doBatchOnSel && selArr.length < totalCnt) {
+				$.each(selArr, function (i, row) {
+					var idx = jtbl.datagrid("getRowIndex", row);
+					jtbl.datagrid("deleteRow", idx)
+				});
+			}
+			else {
+				jtbl.datagrid("loadData", []);
+			}
+		}
+		return;
+	}
+
 	// 多选，cond为`id IN (...)`
 	if (doBatchOnSel) {
 		if (selArr.length == 1) {
@@ -1073,7 +1171,8 @@ function batchOp(obj, ac, jtbl, opt)
 		confirmBatch(selArr.length);
 	}
 	else {
-		var dgOpt = jtbl.datagrid("options");
+		var datagrid = isTreegrid(jtbl)? "treegrid": "datagrid";
+		var dgOpt = jtbl[datagrid]("options");
 		var p1 = dgOpt.url && dgOpt.url.params;
 		var p2 = dgOpt.queryParams;
 		queryParams = $.extend({}, p1, p2);
@@ -1135,7 +1234,8 @@ function setFixedFields(jdlg, beforeShowOpt) {
 		if (fixedVal || fixedVal == '') {
 			it.setReadonly(ji, true);
 			var forAdd = beforeShowOpt.objParam.mode == FormMode.forAdd;
-			if (forAdd) {
+			var forFind = beforeShowOpt.objParam.mode == FormMode.forFind;
+			if (forAdd || forFind) {
 				it.setValue(ji, fixedVal);
 			}
 		}
@@ -1419,8 +1519,8 @@ function loadDialog(jdlg, onLoad)
 	}
 
 	var dlgId = jdlg.selector.substr(1);
-	// 支持dialog复用，dlgId格式为"{模板id}__{后缀名}"。如 dlgUDT__A 与 dlgUDT__B 共用dlgUDT对话框模板。
-	var arr = dlgId.split("__");
+	// 支持dialog复用，dlgId格式为"{模板id}_inst_{后缀名}"。如 dlgUDT_inst_A 与 dlgUDT_inst_B 共用dlgUDT对话框模板。
+	var arr = dlgId.split("_inst_"); // TODO: UDT功能重新设计
 	var tplName = arr[0];
 	var sel = "#tpl_" + tplName;
 	var html = $(sel).html();
@@ -1667,7 +1767,8 @@ function showObjDlg(jdlg, mode, opt)
 			if (mode == FormMode.forDel) {
 				var rv = batchOp(obj, obj+".delIf", jd.jtbl, {
 					acName: "删除",
-					onBatchDone: onCrud
+					onBatchDone: onCrud,
+					offline: opt.offline
 				});
 				if (rv !== false)
 					return;
@@ -1844,6 +1945,8 @@ function showObjDlg(jdlg, mode, opt)
 		// TODO: add option to force reload all (for set/add)
 		if (jtbl) {
 			if (opt.offline) {
+				var retData_vf = self.getFormData_vf(jfrm);
+				retData = $.extend(retData_vf, retData);
 				if (mode == FormMode.forSet && rowData) {
 					var idx = jtbl.datagrid("getRowIndex", rowData);
 					$.extend(rowData, retData);
@@ -1879,7 +1982,7 @@ function showObjDlg(jdlg, mode, opt)
 	function onCrud() {
 		if (obj && !opt.offline) {
 			console.log("refresh: " + obj);
-			$(".my-combobox").trigger("markRefresh", obj);
+			$(".my-combobox,.wui-combogrid").trigger("markRefresh", obj);
 		}
 		opt.onCrud && opt.onCrud();
 	}
@@ -1893,7 +1996,8 @@ function showObjDlg(jdlg, mode, opt)
 设置easyui-datagrid上toolbar上的按钮。缺省支持的按钮有r(refresh), f(find), a(add), s(set), d(del), 可通过以下设置方式修改：
 
 	// jtbl.jdata().toolbar 缺省值为 "rfasd"
-	jtbl.jdata().toolbar = "rfs"; // 没有a-添加,d-删除
+	jtbl.jdata().toolbar = "rfs"; // 没有a-添加,d-删除.
+	// (v5.5) toolbar也可以是数组, 如 ["r", "f", "s", "export"]; 空串或空数组表示没有按钮.
 
 如果要添加自定义按钮，可通过button_lists一一传递.
 示例：添加两个自定义按钮查询“今天订单”和“所有未完成订单”。
@@ -1965,7 +2069,9 @@ function showObjDlg(jdlg, mode, opt)
 self.dg_toolbar = dg_toolbar;
 function dg_toolbar(jtbl, jdlg)
 {
-	var toolbar = jtbl.jdata().toolbar || "rfasd";
+	var toolbar = jtbl.jdata().toolbar;
+	if (toolbar == null)
+		toolbar = "rfasd";
 	var btns = [];
 
 	/*
@@ -1979,7 +2085,7 @@ function dg_toolbar(jtbl, jdlg)
 	}, 100);
 	*/
 
-	var btnSpecArr = toolbar.split("");
+	var btnSpecArr = $.isArray(toolbar)? $.extend([], toolbar): toolbar.split("");
 	for (var i=2; i<arguments.length; ++i) {
 		btnSpecArr.push(arguments[i]);
 	}
@@ -2003,6 +2109,8 @@ function dg_toolbar(jtbl, jdlg)
 		btns.push(btn);
 	}
 
+	if (btns.length == 0)
+		return null;
 	return btns;
 }
 
@@ -2219,7 +2327,8 @@ function getQueryParamFromTable(jtbl, param)
 
 window.YesNoMap = {
 	0: "否",
-	1: "是"
+	1: "是",
+	2: "处理中"
 };
 
 var Formatter = {
@@ -2232,6 +2341,11 @@ var Formatter = {
 	number: function (value, row) {
 		return parseFloat(value);
 	},
+/**
+@fn Formatter.atts
+
+列表中显示附件（支持多个）, 每个附件一个链接，点击后可下载该附件。（使用服务端att接口）
+*/
 	atts: function (value, row) {
 		if (value == null)
 			return "(无)";
@@ -2242,11 +2356,21 @@ var Formatter = {
 			return "<a target='_black' href='" + url + "'>" + name + "</a>&nbsp;";
 		});
 	},
+/**
+@fn Formatter.pics1
+
+显示图片（支持多图）, 显示为一个链接，点击后在新页面打开并依次显示所有的图片。（使用服务端pic接口）
+*/
 	pics1: function (value, row) {
 		if (value == null)
 			return "(无图)";
 		return '<a target="_black" href="' + WUI.makeUrl("pic", {id:value}) + '">' + value + '</a>';
 	},
+/**
+@fn Formatter.pics
+
+显示图片（支持多图）, 每个图有预览, 点击后在新页面打开并依次显示所有的图片.（使用服务端pic接口）
+*/
 	pics: function (value, row) {
 		if (value == null)
 			return "(无图)";
@@ -2264,6 +2388,18 @@ var Formatter = {
 		var linkUrl = WUI.makeUrl("pic", {id:value});
 		return '<a target="_black" href="' + linkUrl + '">' + value1 + '</a>';
 	},
+/**
+@fn Formatter.flag(yes, no)
+
+显示flag类的值，示例：
+
+	<th data-options="field:'clearFlag', sortable:true, formatter:Formatter.flag("已结算", "未结算"), styler:Formatter.enumStyler({1:'Disabled',0:'Warning'}, 'Warning')">结算状态</th>
+
+注意flag字段建议用Formatter.enum和jdEnumMap，因为在导出表格时，只用flag的话，导出值还是0,1无法被转换，还不如定义一个Map来的更清晰。
+
+@see datagrid.formatter
+@see Formatter.enum
+*/
 	flag: function (yes, no) {
 		if (yes == null)
 			yes = "是";
@@ -2275,6 +2411,27 @@ var Formatter = {
 			return value? yes: no;
 		}
 	},
+/**
+@fn Formatter.enum(enumMap, sep=',')
+
+将字段的枚举值显示为描述信息。示例：
+
+		<th data-options="field:'status', jdEnumMap: OrderStatusMap, formatter: WUI.formatter.enum(OrderStatusMap)">状态</th>
+
+如果状态值为"CR"，则显示为"未付款". 全局变量OrderStatusMap在代码中定义如下（一般在web/app.js中定义）
+
+	var OrderStatusMap = {
+		CR: "未付款", 
+		PA: "待服务"
+	}
+
+常用的YesNoMap是预定义的`0-否,1-是,2-处理中`映射，示例：
+
+	<th data-options="field:'clearFlag', sortable:true, jdEnumMap:YesNoMap, formatter:Formatter.enum(YesNoMap), styler:Formatter.enumStyler({1:'Disabled',0:'Warning'}, 'Warning')">已结算</th>
+
+@see datagrid.formatter
+@see Formatter.enumStyler
+ */
 	enum: function (enumMap, sep) {
 		sep = sep || ',';
 		return function (value, row) {
@@ -2295,9 +2452,59 @@ var Formatter = {
 			return v;
 		}
 	},
-	enumStyler: function (colorMap) {
+/**
+@fn Formatter.enumStyler(colorMap, defaultColor)
+
+为列表的单元格上色，示例：
+
+	<th data-options="field:'status', jdEnumMap: OrderStatusMap, formatter:Formatter.enum(OrderStatusMap), styler:Formatter.enumStyler({PA:'Warning', RE:'Disabled', CR:'#00ff00', null: 'Error'}), sortable:true">状态</th>
+
+颜色可以直接用rgb表示如'#00ff00'，或是颜色名如'red'等，最常用是用系统预定的几个常量'Warning', 'Error', 'Info', 'Disabled'.
+缺省值可通过defaultColor传入。
+
+@see datagrid.styler
+@see Formatter.enumFnStyler 比enumStyler更强大
+ */
+	enumStyler: function (colorMap, defaultColor) {
 		return function (value, row) {
 			var color = colorMap[value];
+			if (color == null && defaultColor)
+				color = defaultColor;
+			if (Color[color])
+				color = Color[color];
+			if (color)
+				return "background-color: " + color;
+		}
+	},
+/**
+@fn Formatter.enumFnStyler(colorMap, defaultColor)
+
+为列表的单元格上色，示例：
+
+	<th data-options="field:'id', sortable:true, sorter:intSort, styler:Formatter.enumFnStyler({'v<10': 'Error', 'v>=10&&v<20': 'Warning'}, 'Info')">编号</th>
+
+每个键是个表达式（其实是个函数），特殊变量v和row分别表示当前列值和当前行。缺省值可通过defaultColor传入。
+
+@see Formatter.enumStyler
+ */
+	enumFnStyler: function (colorMap, defaultColor) {
+		// elem: [fn(v), key]
+		var fnArr = $.map(colorMap, function (v0, k) {
+			// 注意：这里函数参数为v和row，所以字符串中可为使用v表示传入值; 特殊键true表示匹配所有剩下的
+			return [ [function (v, row) { return eval(k) }, v0] ];
+		});
+		console.log(fnArr);
+		return function (value, row) {
+			var color = null;
+			$.each(fnArr, function (i, fn) {
+				if (fn[0](value, row)) {
+					color = fn[1];
+					return false;
+				}
+			});
+			if (color == null && defaultColor)
+				color = defaultColor;
+			
 			if (Color[color])
 				color = Color[color];
 			if (color)
@@ -2475,18 +2682,25 @@ CSS类, 可定义无数据提示的样式
 
 $.extend($.fn.treegrid.defaults, {
 	idField: "id",
-	treeField: "id",
+	treeField: "id", // 只影响显示，在该字段上折叠
 	pagination: false,
+	fatherField: "fatherId", // 该字段为WUI扩展，指向父节点的字段
 	loadFilter: function (data, parentId) {
-		var isLeaf = $(this).treegrid("options").isLeaf;
-		var ret = jdListToTree(data, "fatherId", parentId, isLeaf);
+		var opt = $(this).treegrid("options");
+		var isLeaf = opt.isLeaf;
+		var ret = jdListToTree(data, opt.idField, opt.fatherField, parentId, isLeaf);
 		return ret;
 	},
 	onBeforeLoad: function (row, param) {
 		if (row) { // row非空表示展开父结点操作，须将param改为 {cond?, id} => {cond:"fatherId=1"}
-			param.cond = "fatherId=" + row.id;
+			var opt = $(this).treegrid("options");
+			param.cond = opt.fatherField + "=" + row.id;
 			delete param["id"];
 		}
+	},
+	onLoadSuccess: function (row, data) {
+		// 空数据显示优化
+		$.fn.datagrid.defaults.onLoadSuccess.call(this, data);
 	}
 });
 

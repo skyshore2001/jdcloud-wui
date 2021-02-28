@@ -1385,9 +1385,13 @@ function parseKvList(str, sep, sep2)
 window.Q = self.Q = Q;
 function Q(str, q)
 {
+	if (str == null)
+		return "null";
+	if (typeof str == "number")
+		return str;
 	if (q == null)
 		q = "'";
-	return q + str.replaceAll(q, "\\" + q) + q;
+	return q + str.toString().replaceAll(q, "\\" + q) + q;
 }
 
 function initModule()
@@ -1480,6 +1484,12 @@ function jdModule(name, fn, overrideCtor)
 		}
 	}
 	return ret;
+}
+
+if (! String.prototype.replaceAll) {
+	String.prototype.replaceAll = function (from, to) {
+		return this.replace(new RegExp(from, "g"), to);
+	}
 }
 
 // vi: foldmethod=marker 
