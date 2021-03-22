@@ -1,0 +1,26 @@
+<meta http-equiv="content-type" content="text/html; charset=utf-8">
+<script src="../lib/jquery-1.11.1.js"></script>
+
+<!--script src="../lib/jdcloud-wui-slim.min.js"></script-->
+<!-- WEBCC_BEGIN MERGE -->
+<script src="../src/common.js"></script>
+<script src="../src/commonjq.js"></script>
+<script src="../src/app.js"></script>
+<script src="../src/callSvr.js"></script>
+<script src="../src/wui-slim.js"></script>
+<!-- WEBCC_END -->
+
+<script>
+var APP_TITLE = "测试页";
+var APP_NAME = "emp-adm";
+
+$.extend(WUI.options, {
+	appName: APP_NAME,
+	title: APP_TITLE,
+	onShowLogin: function () {
+		console.log('show login');
+	},
+});
+</script>
+测试页面
+

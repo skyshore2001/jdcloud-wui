@@ -91,3 +91,13 @@
 
 	}
 
+## 轻量版本(slim版)
+
+生成用于集成的版本。
+
+	make slim
+	或
+	make -f Makefile.slim
+
+生成lib/jdcloud-wui-slim.js
+
