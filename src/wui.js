@@ -31,6 +31,7 @@ URL参数会自动加入该对象，例如URL为 `http://{server}/{app}/index.ht
 
 - g_args._debug: 在测试模式下，指定后台的调试等级，有效值为1-9. 参考：后端测试模式 P_TEST_MODE，调试等级 P_DEBUG.
 - g_args.autoLogin: 记住登录信息(token)，下次自动登录；注意：如果是在手机模式下打开，此行为是默认的。示例：http://server/jdcloud/web/?autoLogin
+- g_args.phpdebug: (v6) 设置为1时，以调用接口时激活PHP调试，与vscode/netbeans/vim-vdebug等PHP调试器联合使用。参考：http://oliveche.com/jdcloud-site/phpdebug.html
 
 @see parseQuery URL参数通过该函数获取。
 */
@@ -75,6 +76,7 @@ window.FormMode = {
 - pageHome: 首页的id, 默认为"pageHome"
 - pageFolder: 子页面或对话框所在文件夹, 默认为"page"
 - closeAfterAdd: (=false) 设置为true时，添加数据后关闭窗口。默认行为是添加数据后保留并清空窗口以便连续添加。
+- closeAfterFind: (=false) (v6)设置为true时，查询后关闭窗口。默认行为是查询后窗口不关闭。
 - fuzzyMatch: (=false) 设置为true时，则查询对话框中的文本查询匹配字符串任意部分。
 */
 self.options = {
@@ -214,7 +216,7 @@ function app_alert(msg)
 
 	// 查看jquery-easyui对象，发现OK按钮的class=1-btn
 	setTimeout(function() {
-		var jbtn = jmsg.find(".l-btn");
+		var jbtn = jmsg.parent().find(".l-btn");
 		jbtn.focus();
 		if (alertOpt.timeoutInterval) {
 			setTimeout(function() {
@@ -242,14 +244,14 @@ function app_confirm(msg, fn)
 }
 
 /**
-@fn app_show(msg)
+@fn app_show(msg, title?)
 
 使用jQuery easyui弹出对话框.
 */
 self.app_show = app_show;
-function app_show(msg)
+function app_show(msg, title)
 {
-	$.messager.show({title: self.options.title, msg: msg});
+	$.messager.show({title: title||self.options.title, msg: msg});
 }
 
 /**
@@ -420,8 +422,14 @@ function tryAutoLogin(onHandleLogin, reuseCmd)
 	if (ok)
 		return ok;
 
-	self.options.onShowLogin();
+	self.showLogin();
 	return ok;
+}
+
+self.showLogin = showLogin;
+function showLogin()
+{
+	self.options.onShowLogin();
 }
 
 self.tryAutoLoginAsync = tryAutoLoginAsync;
@@ -437,7 +445,7 @@ function tryAutoLoginAsync(onHandleLogin, reuseCmd)
 	}
 	function fail() {
 		dfd.reject();
-		self.options.onShowLogin();
+		self.showLogin();
 	}
 
 	// first try "User.get"
@@ -483,8 +491,19 @@ function tryAutoLoginAsync(onHandleLogin, reuseCmd)
 处理login相关的操作, 如设置g_data.userInfo, 保存自动登录的token等等.
 
 (v5.5) 如果URL中包含hash（即"#pageIssue"这样），且以"#page"开头，则登录后会自动打开同名的列表页（如"pageIssue"页面）。
+
+@var dfdLogin
+
+用于在登录完成状态下执行操作的Deferred/Promise对象。
+示例：若未登录，则在登录后显示消息；若已登录则直接显示消息
+
+	WUI.dfdLogin.then(function () {
+		app_show("hello");
+	});
+
 */
 self.handleLogin = handleLogin;
+self.dfdLogin = $.Deferred();
 function handleLogin(data)
 {
 	g_data.userInfo = data;
@@ -492,6 +511,24 @@ function handleLogin(data)
 	if (g_args.autoLogin || /android|ipad|iphone/i.test(navigator.userAgent))
 		saveLoginToken(data);
 
+	WUI.applyPermission();
+
+	var jcont = $("body");
+	if (WUI.isSmallScreen()) {
+		$("#menu").attr("data-options", "collapsed:true");
+	}
+	jcont.layout();
+	// bugfix: jcont.layout()会导致panel-header类被去除，再显示login页时则会多显示一个窗口头部
+	$(".loginPanel > .window-header").addClass("panel-header");
+	$("#menu,#main").css("visibility", "");
+
+	$(".my-title").html(document.title);
+	if (data) {
+		$(".user-name").html(data.name || data.uname);
+		$(".user-phone").html(data.phone);
+	}
+
+	self.dfdLogin.resolve();
 	self.showPage(self.options.pageHome);
 	if (location.hash.startsWith("#page")) {
 		WUI.showPage(location.hash.replace('#', ''));
@@ -656,23 +693,53 @@ function mainInit()
 		}
 	});
 
+/**
+@var PageHeaderMenu
+
+页面上方标题栏的右键菜单
+
+扩展示例：
+
+	WUI.PageHeaderMenu.items.push('<div id="reloadUiMeta">刷新Addon</div>');
+	WUI.PageHeaderMenu.reloadUiMeta = function () {
+		UiMeta.reloadUiMeta();
+	}
+
+ */
 	// 标题栏右键菜单
-	var jmenu = $('<div><div id="mnuReload">刷新页面</div><div id="mnuBatch">批量模式</div></div>');
-	jmenu.menu({
-		onClick: function (mnuItem) {
-			var mnuId = mnuItem.id;
-			switch (mnuItem.id) {
-			case "mnuReload":
-				self.reloadPage();
-				self.reloadDialog(true);
-				break;
-			case "mnuBatch":
-				self.toggleBatchMode();
-				break;
-			}
+	self.PageHeaderMenu = {
+		items: [
+			'<div id="mnuReload">刷新页面</div>',
+			'<div id="mnuReloadDlg">刷新对话框</div>',
+			'<div id="mnuBatch">批量模式</div>'
+		],
+
+		// 处理函数
+		mnuReload: function () {
+			self.reloadPage();
+			self.reloadDialog(true);
+		},
+		mnuReloadDlg: function () {
+			var jdlg = self.isBatchMode()? true: null;
+			self.reloadDialog(jdlg);
+		},
+		mnuBatch: function () {
+			console.log(this);
+			self.toggleBatchMode();
 		}
-	});
+	};
+
+	var jmenu = null;
 	function onSpecial(ev) {
+		if (jmenu == null) {
+			jmenu = $('<div>' + self.PageHeaderMenu.items.join('') + '</div>');
+			jmenu.menu({
+				onClick: function (mnuItem) {
+					self.PageHeaderMenu[mnuItem.id].call(mnuItem);
+				}
+			});
+		}
+
 		jmenu.menu('show', {left: ev.pageX, top: ev.pageY});
 		return false;
 	}
@@ -680,6 +747,7 @@ function mainInit()
 	self.doSpecial(self.tabMain.find(".tabs-header"), ".tabs-selected", onSpecial, 3);
 	self.tabMain.find(".tabs-header").on("contextmenu", ".tabs-selected", onSpecial);
 
+/* datagrid宽度自适应，page上似乎自动的；dialog上通过设置width:100%实现。见enhanceDialog/enhancePage
 	// bugfix for datagrid size after resizing
 	var tmr;
 	$(window).on("resize", function () {
@@ -693,13 +761,13 @@ function mainInit()
 			jpage.closest(".panel-body").panel("doLayout", true);
 		}, 200);
 	});
+*/
 
-	// 调整对话框上的datagrid大小
+	// 全局resize.dialog事件
 	function onResizePanel() {
 		//console.log("dialog resize");
-		// 强制datagrid重排
 		var jo = $(this);
-		jo.find(".datagrid").closest(".panel-body:visible").panel("doLayout", true);
+		jo.trigger("resize.dialog");
 	}
 	$.fn.dialog.defaults.onResize = onResizePanel;
 }

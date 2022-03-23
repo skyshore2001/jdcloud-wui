@@ -209,18 +209,34 @@ function leaveWaiting(ctx)
 			-- m_silentCall;
 		if ($.active < 0)
 			$.active = 0;
-		if ($.active-m_silentCall <= 0 && self.isBusy && m_manualBusy == 0) {
-			self.isBusy = 0;
-			var tv = new Date() - m_tmBusy;
-			m_tmBusy = 0;
-			console.log("idle after " + tv + "ms");
+		// 一直等到不忙，避免callSvr/$.ajax混用导致无法hideLoading
+		// 注意：一旦在callSvc回调中异常出错，会在WUI.setOnError中处理($.active=0)，避免一直显示加载。
+		loopDo(function () {
+			if ($.active-m_silentCall > 0 || m_manualBusy != 0)
+				return;
+			if (self.isBusy) {
+				self.isBusy = 0;
+				var tv = new Date() - m_tmBusy;
+				m_tmBusy = 0;
+				console.log("idle after " + tv + "ms");
 
-			// handle idle
-			self.hideLoading();
+				// handle idle
+				self.hideLoading();
+				$(document).trigger("idle");
+			}
 // 			if ($.mobile)
 // 				$.mobile.loading("hide");
-		}
+			return true;
+		});
 	});
+}
+
+// fn()返回true时完成，否则反复执行
+function loopDo(fn)
+{
+	if (fn())
+		return;
+	setTimeout(loopDo.bind(this, fn), 50);
 }
 
 function defAjaxErrProc(xhr, textStatus, e)
@@ -286,8 +302,11 @@ function defDataProc(rv)
 			if (g_data.mockMode)
 				modeStr = "测试模式+模拟模式";
 		}
-		if (modeStr)
-			self.app_alert(modeStr, {timeoutInterval:2000});
+		if (modeStr) {
+			self.dfdLogin.then(function () {
+				self.app_alert(modeStr, {timeoutInterval:2000});
+			});
+		}
 	}
 
 	try {
@@ -329,7 +348,10 @@ function defDataProc(rv)
 			return rv[1];
 		}
 		ctx.dfd && setTimeout(function () {
-			ctx.dfd.reject.call(that, rv[1]);
+			if (!that.noex)
+				ctx.dfd.reject.call(that, rv[1]);
+			else
+				ctx.dfd.resolve.call(that, false);
 		});
 
 		if (this.noex)
@@ -434,7 +456,7 @@ function makeUrl(action, params)
 			action = action[0] + "." + action[1];
 		}
 	}
-	else {
+	else if (action) {
 		var m = action.match(/^(\w+):(\w.*)/);
 		if (m) {
 			ext = m[1];
@@ -443,6 +465,9 @@ function makeUrl(action, params)
 		else {
 			ext = "default";
 		}
+	}
+	else {
+		throw "makeUrl error: no action";
 	}
 
 	// 有makeUrl属性表示已调用过makeUrl
@@ -463,7 +488,7 @@ function makeUrl(action, params)
 	if (fnMakeUrl) {
 		url = fnMakeUrl(action, params);
 	}
-	else if (url = self.options.moduleExt["callSvr"](action)) {
+	else if (self.options.moduleExt && (url = self.options.moduleExt["callSvr"](action)) != null) {
 	}
 	// 缺省接口调用：callSvr('login'),  callSvr('./1.json') 或 callSvr("1.php") (以"./"或"../"等相对路径开头, 或是取".php"文件, 则不去自动拼接serverUrl)
 	else if (action[0] != '.' && action.indexOf(".php") < 0)
@@ -506,6 +531,9 @@ function makeUrl(action, params)
 		params._app = self.options.appName;
 	if (g_args._debug)
 		params._debug = g_args._debug;
+	if (g_args.phpdebug)
+		params.XDEBUG_SESSION_START = 1;
+
 	var ret = mCommon.appendParam(url, $.param(params));
 	return makeUrlObj(ret);
 
@@ -901,7 +929,9 @@ callSvr扩展示例：
 		}
 	}
 
-## jQuery的$.Deferred兼容Promise接口
+## ES6支持：jQuery的$.Deferred兼容Promise接口 / 使用await
+
+支持Promise/Deferred编程风格:
 
 	var dfd = callSvr("...");
 	dfd.then(function (data) {
@@ -913,6 +943,24 @@ callSvr扩展示例：
 	.finally(...)
 
 支持catch/finally等Promise类接口。接口逻辑失败时，dfd.reject()触发fail/catch链。
+
+支持await编程风格，上例可写为：
+
+	// 使用await时callSvr调用失败是无法返回的，加{noex:1}选项可让失败时返回false
+	var rv = callSvr("...", $.noop, null, {noex:1});
+	if (rv === false) {
+		// 失败逻辑 dfd.catch. 取错误信息用WUI.lastError={ac, tm, tv, ret}
+		console.log(WUI.lastError.ret)
+	}
+	else {
+		// 成功逻辑 dfd.then
+	}
+	// finally逻辑
+
+示例：
+
+	let rv = await callSvr("Ordr.query", {res:"count(*) cnt", fmt:"one"})
+	let cnt = rv.cnt
 
 ## 直接取json类文件
 

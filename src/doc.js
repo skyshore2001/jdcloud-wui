@@ -157,7 +157,7 @@
 
 ### 定义对话框的初始化函数
 
-@key example-dialog
+@key example-dialog-event
 
 默认对话框中由于设定了底层对象(my-obj)及属性关联（form中带name属性的组件，已关联对象属性），因而可自动显示和提交数据。
 
@@ -566,10 +566,9 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 可设置该样式来标识哪些字段可以查找。一般设置为黄色。
 
 @key .notForFind 指定非查询条件
-不参与查询的字段，可以用notForFind类标识(为兼容，也支持属性notForFind)，如：
+不参与查询的字段，可以用notForFind类标识，如：
 
 	登录密码: <input class="notForFind" type="password" name="pwd">
-	或者: <input notForFind type="password" name="pwd">
 
 @key .wui-notCond 指定独立查询条件
 
@@ -588,6 +587,7 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 
 - 设置为"s"，表示是字符串，禁用数值区间或日期区间。
 - 设置为"tm"或"dt"，表示是日期时间或日期，可匹配日期匹配。
+- "e"表示enum，mycombobox会自动设置。用于下拉框的值匹配，避免WUI.options.fuzzyMatch=true时对enum字段模糊匹配。
 
 示例：
 
@@ -611,14 +611,14 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 @see hiddenToCheckbox 
 @see checkboxToHidden　(有示例)
 
-### 设计模式：展示层次对象
+### 设计模式：展示关联对象
 
 例如设计有商品表Item, 每个商品属于特定的商户：
 
 	@Item: id, storeId, name
-	storeId:: Integer. 商品所属商户编号。
+	- storeId: Integer. 商品所属商户编号。
 
-也就是说，商户包含商品。要展现商品，可将它放在商户层次之下。
+也就是说，一个商户对应多个商品。要展现商品，可将它放在商户层次之下。
 可以这样设计用户操作：在商户列表上增加一个按钮“查看商品”，点击后打开一个新的列表页，显示该商户的商品列表。
 
 定义两个列表页：
@@ -634,145 +634,51 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 	// 商户列表页
 	function initPageStore()
 	{
-		function showItemPage()
-		{
-			var row = jtbl.datagrid('getSelected');
-			if(row == null){
-				alert("您需要选择需要操作的行");
-				return;
-			}
-			// !!! 调用showPage显示新页 !!!
-			WUI.showPage("pageItem", "商户商品-" + row.name, [row.id]);
-			// 要使每个商户都打开一个商品页面而不是共享一个页面，必须保证第二个参数（页面标题）根据商户不同而不一样。
-			// 第三个参数是传给该页面初始化函数的参数列表，是一个数组。
-		}
-		var btn1 = {text: "查看商品", iconCls: "icon-search", handler: showItemPage};
-
 		...
+		var btn1 = {text: "查看商品", iconCls: "icon-search", handler: showItemPage};
 		jtbl.datagrid({
 			...
 			toolbar: WUI.dg_toolbar(jtbl, jdlg, btn1),
 		});
-	}
 
-	// 商品列表页，注意有一个参数storeId, 并在查询时使用到它。
-	function initPageItem(storeId)
-	{
-		jtbl.datagrid({
-			// 用参数storeId过滤
-			url: WUI.makeUrl("Item.query", {cond: "storeId=" + storeId}),
-			...
-		});
+		function showItemPage() {
+			var row = WUI.getRow(jtbl);
+			if (row == null)
+				return;
+			// !!! 调用showPage显示新页 !!!
+			var pageFilter = {cond: {storeId: row.id}};
+			WUI.showPage("pageItem", {title: "商户商品-" + row.name, pageFilter: pageFilter});
+			// 要使每个商户都打开一个商品页面而不是共享一个页面，必须保证第二个参数（页面标题）根据商户不同而不一样。
+		}
 	}
 
 注意：
 
-调用WUI.showPage时，除了指定页面名，还指定了页面标题(第二参数)和页面初始化参数(第三参数, 一定是一个数组):
+WUI.showPage的第二参数既可以是简单的页面标题(title)，也可以是复杂的showPage选项(showPageOpt)，下面两个调用是相同的：
 
-	WUI.showPage("pageItem", "商户商品-" + row.name, [row.id]);
+	WUI.showPage("pageItem", "商户商品-" + row.name, ...);
+	WUI.showPage("pageItem", {title: "商户商品-" + row.name}, ...);
 
-显然，第二个参数随着商户名称不同而不同，这保证了不同商户打开的商品页面不会共用。
-在商品页面初始化时，第三参数将传递给初始化函数：
+显然，title随着商户名称不同而不同，这保证了不同商户打开的商品页面不会共用。
 
-	function initPageItem(storeId) // storeId=row.id
+而showPageOpt.pageFilter参数会自动加到数据表调用后端的query接口参数中，对列表页进行过滤。
 
 @see showPage
+
 @key .wui-fixedField 固定值字段
 
-当打开对话框时, 标识为.wui-fixedField类的字段会自动从传入的opt.objParam中取值, 如果取到值则将自己设置为只读.
+(v6) 当打开商户关联的商品列表页时，点开商品明细对话框，商户这个字段(storeId)固定为`pageFilter.cond`中storeId的值，不可修改。这称为固定值字段（fixedField）。
 
-此外，在Item页对应的详情对话框上（dlgItem.html页面中），还应设置storeId字段是只读的，在添加、设置和查询时不可被修改，在添加时还应自动填充值。
-(v5.3) 只要在字段上添加wui-fixedField类即可：
+也可以通过WUI.showDlg/WUI.showObjDlg的opt.fixedFields参数来指定固定值字段(值为field=>value映射)，或是通过jdlg设置对话框参数如`jdlg.objParam.fixedFields={storeId: row.id}`。
+
+v5.3引入了wui-fixedField类设置在字段上，v6起已不建议使用。以下仅用于兼容：
+当打开对话框时, 标识为.wui-fixedField类的字段会自动从传入的opt.objParam中取值, 如果取到值则将自己设置为只读.
 
 	<select name="storeId" class="my-combobox wui-fixedField" data-options="ListOptions.Store()"></select>
 
-注意：wui-fixedField在v5.3引入，之前方法是应先设置字段为readonly:
-
-	<select name="storeId" class="my-combobox" data-options="ListOptions.Store()" readonly></select>
-
-（select组件默认不支持readonly属性，框架定义了CSS：为select[readonly]设置`pointer-events:none`达到类似效果。）
-
-然后，在initDlgItem函数中(dlgItem.js文件)，应设置在添加时自动填好该字段：
-
-	function onBeforeShow(ev, formMode, opt)
-		if (formMode == FormMode.forAdd && objParam.storeId) {
-			opt.data.storeId = objParam.storeId;
-		}
-
-### 设计模式：页面间调用
-
-仍以上节数据结构为例，上节是在每个商品行上点“查看商品”，就打开一个新的该商户下的商品列表页，
-现在我们换一种操作方法，改成只用一个商品列表页（默认打开时显示所有商户的商品，可以手工查找过滤），在商户页中点“查看商品”，就自动打开商品列表页并做条件过滤。
-
-先在主页面逻辑中为商品页定义一个接口：（比如在store.js中）
-
-	var PageItem = {
-		// param?: {storeId}
-		show: function (param) {
-			this.filterParam_ = param;
-			WUI.showPage("pageItem");
-		},
-		filterParam_: null
-	};
-
-在商户页中，点击“查看商品”按钮时做过滤：
-
-	function initPageStore()
-	{
-		function showItemPage()
-		{
-			var row = jtbl.datagrid('getSelected');
-			...
-			PageItem.show({storeId: row.id});
-		}
-		var btn1 = {text: "查看商品", iconCls: "icon-search", handler: showItemPage};
-
-		...
-		jtbl.datagrid({
-			...
-			toolbar: WUI.dg_toolbar(jtbl, jdlg, btn1),
-		});
-	}
-
-在商品页中，处理PageItem.filterParam_参数，实现过滤，我们在pageshow回调中处理它，同时把初始化datagrid也移到pageshow中：
-
-	function initPageItem()
-	{
-		var isInit = true;
-		jpage.on("pageshow", pageShow);
-
-		function pageShow() {
-			// 接口变量PageItem.filterParam_用后即焚
-			var param = null;
-			if (PageItem.filterParam_) {
-				param = WUI.getQueryParam(PageItem.filterParam_);
-				PageItem.filterParam_ = null;
-			}
-			// 保证表格初始化只调用一次
-			if (isInit) {
-				jtbl.datagrid({
-					url: WUI.makeUrl("Item.query"),
-					queryParams: param,
-					toolbar: WUI.dg_toolbar(jtbl, jdlg, "export"),
-					onDblClickRow: WUI.dg_dblclick(jtbl, jdlg),
-					sortName: "id",
-					sortOrder: "desc"
-				});
-				isInit = false;
-			}
-			else if (param) {
-				WUI.reload(jtbl, null, param);
-			}
-		}
-	}
-
-注意：
-
-- 例子中通过页面接口，实现页面间的调用请求。
-- 上面用了WUI.reload，在点击列表上的“刷新”时，只会按当前条件刷新，不会刷新出所有数据来，必须点“查找”，清除所有条件后查找，才可以看到所有数据；
- 若想点“刷新”时显示所有数据，则可以将WUI.reload换成调用WUI.reloadTmp。
-
 ## 对话框功能
+
+@key example-dialog
 
 以群发短信功能为例。
 
@@ -801,10 +707,10 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 
 	function showDlgSendSms()
 	{
-		var jdlg = $("#dlgSendSms");
-		WUI.showDlg(jdlg, {
+		WUI.showDlg("#dlgSendSms", {
 			url: WUI.makeUrl("sendSms"),
-			onOk: function (data) {
+			onOk: function (data) {  // (v6.0) 可以直接用字符串 'close'
+				var jdlg = $(this);
 				WUI.closeDlg(jdlg);
 				app_show('操作成功!');
 			}
@@ -825,11 +731,9 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 @see showDlg
 @see app_show
 
-除了直接调用该函数显示对话框外，还有一种更简单的通过a标签href属性指定打开对话框的做法，如：
+点击菜单项显示对话框：
 
-	<a href="?showDlgSendSms" class="easyui-linkbutton" icon="icon-ok">群发短信</a><br/><br/>
-
-点击该按钮，即调用了showDlgSendSms函数打开对话框。
+	<a href="javascript:DlgSendSms.show()" class="easyui-linkbutton" icon="icon-ok">群发短信</a><br/><br/>
 
 可以通过my-initfn属性为对话框指定初始化函数。复杂对话框的逻辑一般都写在初始化函数中。习惯上命令名initDlgXXX，如：
 
@@ -844,6 +748,30 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 		jdlg.find("#btn1").click(btn1_click);
 		...
 	}
+
+### 数据存取型对话框
+
+示例：显示某订单，可设置属性并保存。
+
+假如已做好订单html模板 dlgOrder.html, 调用它：
+
+	var orderId = 99;
+	callSvr("Ordr.get", {id: orderId}, function (data) {
+		WUI.showDlg("#dlgOrder", {
+			modal: false, // 非模态框
+			data: data, // 初始化数据
+			forSet: true, // 与data选项合用，如果无数据修改则不提交
+			dialogOpt: {maximized: true}, // 打开时最大化
+			// reload: true, // 每次都重新加载（测试用）
+			url: WUI.makeUrl("Ordr.set", {id: orderId}), // 提交的URL，form中的内容通过POST请求发到后端。由于设置了opt.forSet=true, 只会提交修改部分。
+			onOk: 'close'
+		})
+	});
+
+由于是典型的对象操作，一般用前述章节的对象对话框来做。上例相当于：
+
+	var orderId = 99;
+	WUI.showObjDlg("#dlgOrder", FormMode.forSet, {id: orderId});
 
 ### 页面传参数给对话框
 
@@ -899,9 +827,22 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 
 设置是否为只读对话框只要加上该类：
 
+	jdlg.addClass("wui-readonly");
+	jdlg.removeClass("wui-readonly");
 	jdlg.toggleClass("wui-readonly", isReadonly);
 
 只读对话框不可输入(在style.css中设定pointer-events为none)，点击确定按钮后直接关闭。
+
+注意：在dialog beforeshow事件中，不应直接设置wui-readonly类，因为框架之后会自动设置，导致前面设置无效。正确做法是设置`opt.objParam.readonly=true`，示例：
+
+	jdlg.on("beforeshow", onBeforeShow);
+	function onBeforeShow(ev, formMode, opt)
+	{
+		var objParam = opt.objParam;
+		var ro = (formMode == FormMode.forSet && !!opt.data.usedFlag);
+		// beforeshow中设置对话框只读
+		objParam.readonly = ro;
+	}
 
 ### 只读字段：使用disabled和readonly属性
 
@@ -913,12 +854,6 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 - readonly：不可手工添加、更新和查询（但可通过代码设置）。示例：
 
 		<input name="total" readonly>
-
-(v5.3) 如果是在展示层次对象（参考[[设计模式：展示层次对象]]章节），某些字段是外部传入的固定值，这时用wui-fixedField类标识：
-
-	<select name="storeId" class="my-combobox wui-fixedField" data-options="ListOptions.Store()"></select>
-
-@see .wui-fixedField
 
 ## 模块化开发
 

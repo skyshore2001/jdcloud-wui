@@ -1151,7 +1151,7 @@ function objarr2list(objarr, fields, sep, sep2)
 self.intSort = intSort;
 function intSort(a, b)
 {
-	return parseInt(a) - parseInt(b);
+	return (parseInt(a)||0) - (parseInt(b)||0);
 }
 
 /**
@@ -1165,7 +1165,7 @@ function intSort(a, b)
 self.numberSort = numberSort;
 function numberSort(a, b)
 {
-	return parseFloat(a) - parseFloat(b);
+	return (parseFloat(a)||0) - (parseFloat(b)||0);
 }
 
 /**
@@ -1299,7 +1299,8 @@ function parseValue(str)
 self.applyTpl = applyTpl;
 function applyTpl(tpl, data)
 {
-	return tpl.replace(/{([^{}]+)}/g, function(m0, m1) {
+	// 支持中文，不能直接用\w匹配
+	return tpl.replace(/{([^{}:,.]+)}/g, function(m0, m1) {
 		return data[m1];
 	});
 }
@@ -1352,16 +1353,22 @@ function kvList2Str(kv, sep, sep2)
 }
 
 /**
-@fn parseKvList(kvListStr, sep, sep2) -> kvMap
+@fn parseKvList(kvListStr, sep, sep2, doReverse?) -> kvMap
 
 解析key-value列表字符串，返回kvMap。
+
+- doReverse: 设置为true时返回反向映射
+
 示例：
 
 	var map = parseKvList("CR:新创建;PA:已付款", ";", ":");
 	// map: {"CR": "新创建", "PA":"已付款"}
+
+	var map = parseKvList("CR:新创建;PA:已付款", ";", ":", true);
+	// map: {"新创建":"CR", "已付款":"PA"}
 */
 self.parseKvList = parseKvList;
-function parseKvList(str, sep, sep2)
+function parseKvList(str, sep, sep2, doReverse)
 {
 	var map = {};
 	$.each(str.split(sep), function (i, e) {
@@ -1370,7 +1377,10 @@ function parseKvList(str, sep, sep2)
 		if (kv.length < 2) {
 			kv[1] = kv[0];
 		}
-		map[kv[0]] = kv[1];
+		if (!doReverse)
+			map[kv[0]] = kv[1];
+		else
+			map[kv[1]] = kv[0];
 	});
 	return map;
 }
@@ -1480,6 +1490,29 @@ function text2html(s, pics)
 		});
 	}
 	return ret;
+}
+
+/**
+@fn extendNoOverride(a, b, ...)
+
+	var a = {a: 1};
+	WUI.extendNoOverride(a, {b: 'aa'}, {a: 99, b: '33', c: 'bb'});
+	// a = {a: 1, b: 'aa', c: 'bb'}
+ */
+self.extendNoOverride = extendNoOverride;
+function extendNoOverride(target)
+{
+	if (!target)
+		return target;
+	$.each(arguments, function (i, e) {
+		if (i == 0 || !$.isPlainObject(e))
+			return;
+		$.each(e, function (k, v) {
+			if (target[k] === undefined)
+				target[k] = v;
+		});
+	});
+	return target;
 }
 
 }/*jdcloud common*/
