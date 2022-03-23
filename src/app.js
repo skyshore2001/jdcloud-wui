@@ -34,31 +34,22 @@ window.E_ABORT=-100;
 
 	<div mui-initfn="initMyPage"><div>
 
+@see evalOptions
 */
 self.evalAttr = evalAttr;
 function evalAttr(jo, name, ctx)
 {
 	var val = jo.attr(name);
 	if (val) {
-		if (val[0] != '{' && val.indexOf(":")>0) {
-			val1 = "({" + val + "})";
-		}
-		else {
-			val1 = "(" + val + ")";
-		}
-		try {
-			val = eval(val1);
-		}
-		catch (ex) {
-			self.app_alert("属性`" + name + "'格式错误: " + val, "e");
-			val = null;
-		}
+		val = self.evalOptions(val, ctx, function (ex) {
+			self.app_alert("属性`" + name + "'格式错误: <br>" + val + "<br>" + ex, "e");
+		});
 	}
 	return val;
 }
 
 /*
-如果逻辑页中的css项没有以"#{pageId}"开头，则自动添加：
+如果css项没有以指定selector开头(示例：移动端页面"#page1", 管理端页面".pageX1", 管理端对话框"#dlgX1")，则自动添加selector限定：
 
 	.aa { color: red} .bb p {color: blue}
 	.aa, .bb { background-color: black }
@@ -80,12 +71,17 @@ function evalAttr(jo, name, ctx)
 		}
 		
 - 不处理"@"开头的选择器，如"media", "@keyframes"等。
+- 特定情况下，可以指定自身，如：
+
+		#page1 {
+		}
+		#page1 > .list {
+		}
+
 */
 self.ctx.fixPageCss = fixPageCss;
 function fixPageCss(css, selector)
 {
-	var prefix = selector + " ";
-
 	var level = 1;
 	var css1 = css.replace(/\/\*(.|\s)*?\*\//g, '')
 	.replace(/([^{}]*)([{}])/g, function (ms, text, brace) {
@@ -98,9 +94,14 @@ function fixPageCss(css, selector)
 
 		// level=1
 		return ms.replace(/((?:^|,)\s*)([^,{}]+)/g, function (ms, ms1, sel) { 
-			if (sel.startsWith(prefix) || sel[0] == '@')
+			if (sel[0] == '@')
 				return ms;
-			return ms1 + prefix + sel;
+			if (sel.startsWith(selector)) {
+				var ch = sel.substr(selector.length, 1);
+				if (ch == '' || ch == ' ' || ch == '.' || ch == '#' || ch == ':' || ch == '>' || ch == '+')
+					return ms;
+			}
+			return ms1 + selector + ' ' + sel;
 		});
 	});
 	return css1;
@@ -140,9 +141,17 @@ function setOnError()
 {
 	var fn = window.onerror;
 	window.onerror = function (msg, script, line, col, errObj) {
+		// 出错后尝试恢复callSvr变量
+		if ($.active || self.isBusy) {
+			setTimeout(function () {
+				$.active = 0;
+				self.isBusy = 0;
+				self.hideLoading();
+			}, 1000);
+		}
 		if (fn && fn.apply(this, arguments) === true)
 			return true;
-		if (errObj instanceof DirectReturn || /abort$/.test(msg) || (!script && !line))
+		if (errObj instanceof DirectReturn || /abort$/.test(msg))
 			return true;
 		if (self.options.skipErrorRegex && self.options.skipErrorRegex.test(msg))
 			return true;
@@ -155,12 +164,6 @@ function setOnError()
 		if (self.syslog)
 			self.syslog("fw", "ERR", content);
 		app_alert(msg, "e");
-		// 出错后尝试恢复callSvr变量
-		setTimeout(function () {
-			$.active = 0;
-			self.isBusy = 0;
-			self.hideLoading();
-		}, 1000);
 	}
 }
 setOnError();
@@ -207,26 +210,39 @@ function enhanceWithin(jp)
 第一次调用，根据jo上设置的data-options属性及指定的defVal初始化，或为`{}`。
 存到jo.prop("muiOptions")上。之后调用，直接返回该属性。
 
-@see getDataOptions
+@see evalAttr
 */
 self.getOptions = getOptions;
 function getOptions(jo, defVal)
 {
 	var opt = jo.prop("muiOptions");
 	if (opt === undefined) {
-		opt = self.getDataOptions(jo, defVal);
+		opt = $.extend({}, defVal, self.evalAttr(jo, "data-options"));
 		jo.prop("muiOptions", opt);
 	}
+	else if ($.isPlainObject(defVal)) {
+		$.each(defVal, function (k, v) {
+			if (opt[k] === undefined)
+				opt[k] = v;
+		});
+	}
 	return opt;
+}
+
+self.setOptions = setOptions;
+function setOptions(jo, val)
+{
+	if ($.isPlainObject(val))
+		jo.prop("muiOptions", val);
 }
 
 //}}}
 
 // 参考 getQueryCond中对v各种值的定义
-function getop(v)
+function getexp(k, v, hint)
 {
 	if (typeof(v) == "number")
-		return "=" + v;
+		return k + "=" + v;
 	var op = "=";
 	var is_like=false;
 	var ms;
@@ -238,30 +254,31 @@ function getop(v)
 	}
 	else if (v.indexOf("*") >= 0 || v.indexOf("%") >= 0) {
 		v = v.replace(/[*]/g, "%");
-		op = " like ";
+		op = " LIKE ";
 	}
 	v = $.trim(v);
 
 	if (v === "null")
 	{
 		if (op == "<>")
-			return " is not null";
-		return " is null";
+			return k + " is not null";
+		return k + " is null";
 	}
 	if (v === "empty")
 		v = "";
-	if (v.length == 0 || v.match(/\D/) || v[0] == '0') {
-		v = v.replace(/'/g, "\\'");
-		if (self.options.fuzzyMatch && op == "=" && v.length>0) {
-			op = " like ";
-			v = "%" + v + "%";
-		}
+
+	var isId = (k=="id" || k.substr(-2)=="Id");
+	if (isId && v.match(/^\d+$/))
+		return k + op + v;
+	var doFuzzy = self.options.fuzzyMatch && op == "=" && !(hint == "e"); // except enum
+	if (doFuzzy) {
+		op = " LIKE ";
+		v = "%" + v + "%";
+	}
 // 		// ???? 只对access数据库: 支持 yyyy-mm-dd, mm-dd, hh:nn, hh:nn:ss
 // 		if (!is_like && v.match(/^((19|20)\d{2}[\/.-])?\d{1,2}[\/.-]\d{1,2}$/) || v.match(/^\d{1,2}:\d{1,2}(:\d{1,2})?$/))
 // 			return op + "#" + v + "#";
-		return op + "'" + v + "'";
-	}
-	return op + v;
+	return k + op + Q(v);
 }
 
 /**
@@ -327,12 +344,15 @@ function getop(v)
 (v5.5) 支持在key中包含查询提示。如"code/s"表示不要自动猜测数值区间或日期区间。
 比如输入'126231-191024'时不会当作查询126231到191024的区间。
 
+(v6) 日期、时间字段查询时，可使用`WUI.getTmRange`函数支持的时间区间如"今天"，"本周"，"本月", "今年", "近3天(小时|周|月|季度|年)”，"前3天(小时|周|月|季度|年)”等。
+
 @see wui-find-hint
 */
 self.queryHint = "查询示例\n" +
 	"文本：\"王小明\", \"王*\"(匹配开头), \"*上海*\"(匹配部分)\n" +
 	"数字：\"5\", \">5\", \"5-10\", \"5-10,12,18\"\n" +
-	"时间：\">=2017-10-1\", \"<2017-10-1 18:00\", \"2017-10\"(10月份区间), \"2017-10-01~2017-11-01\"(10月份区间)\n" +
+	"时间：\">=2017-10-1\", \"<2017-10-1 18:00\", \"2017-10\"(10月), \"2017-7-1~2017-10-1\"(7-9月即3季度)\n" +
+	'支持"今天"，"本周"，"本月", "今年", "近3天(小时|周|月|季度|年)”，"前3天(小时|周|月|季度|年)"等。\n' + 
 	"高级：\"!5\"(排除5),\"1-10 and !5\", \"王*,张*\"(王某或张某), \"empty\"(为空), \"0,null\"(0或未设置)\n";
 
 self.getQueryCond = getQueryCond;
@@ -351,13 +371,6 @@ function getQueryCond(kvList)
 	function handleOne(k,v) {
 		if (v == null || v === "" || v.length==0)
 			return;
-		if ($.isArray(v)) {
-			if (v[0])
-				condArr.push(k + ">='" + v[0] + "'");
-			if (v[1])
-				condArr.push(k + "<'" + v[1] + "'");
-			return;
-		}
 
 		var hint = null;
 		var k1 = k.split('/');
@@ -377,8 +390,8 @@ function getQueryCond(kvList)
 		var str = '';
 		var bracket = false;
 		// NOTE: 根据字段名判断时间类型
-		var isTm = hint == "tm" || /(Tm|^tm)\d*$/.test(k);
-		var isDt = hint == "dt" || /(Dt|^dt)\d*$/.test(k);
+		var isTm = hint == "tm" || /(Tm|^tm|时间)\d*$/.test(k);
+		var isDt = hint == "dt" || /(Dt|^dt|日期)\d*$/.test(k);
 		$.each(arr, function (i, v1) {
 			if ( (i % 2) == 1) {
 				str += ' ' + v1.toUpperCase() + ' ';
@@ -419,6 +432,10 @@ function getQueryCond(kvList)
 							str1 += "(" + k + ">='" + dt1 + "' AND " + k + "<'" + dt2 + "')";
 						}
 					}
+					else if (mt = self.getTmRange(v2)) {
+						str1 += "(" + k + ">='" + mt[0] + "' AND " + k + "<'" + mt[1] + "')";
+						isHandled = true;
+					}
 				}
 				if (!isHandled && hint != "s") {
 					// "2018-5-1~2018-10-1"
@@ -438,7 +455,7 @@ function getQueryCond(kvList)
 					}
 				}
 				if (!isHandled) {
-					str1 += k + getop(v2);
+					str1 += getexp(k, v2, hint);
 				}
 			});
 			if (bracket2)
@@ -525,5 +542,22 @@ function doSpecial(jo, filter, fn, cnt, interval)
 		fn.call(this, ev);
 	});
 }
+
+/**
+@fn execCopy(text)
+
+复制到剪贴板。
+*/
+self.execCopy = execCopy;
+function execCopy(text)
+{
+	$(window).one("copy", function (ev) {
+		ev.originalEvent.clipboardData.setData('text/plain', text);
+		app_show("已复制到剪贴板，按Ctrl-V粘贴。");
+		return false;
+	});
+	document.execCommand("copy");
+}
+
 }
 // vi: foldmethod=marker

@@ -1151,7 +1151,7 @@ function objarr2list(objarr, fields, sep, sep2)
 self.intSort = intSort;
 function intSort(a, b)
 {
-	return parseInt(a) - parseInt(b);
+	return (parseInt(a)||0) - (parseInt(b)||0);
 }
 
 /**
@@ -1165,7 +1165,7 @@ function intSort(a, b)
 self.numberSort = numberSort;
 function numberSort(a, b)
 {
-	return parseFloat(a) - parseFloat(b);
+	return (parseFloat(a)||0) - (parseFloat(b)||0);
 }
 
 /**
@@ -1299,7 +1299,8 @@ function parseValue(str)
 self.applyTpl = applyTpl;
 function applyTpl(tpl, data)
 {
-	return tpl.replace(/{([^{}]+)}/g, function(m0, m1) {
+	// 支持中文，不能直接用\w匹配
+	return tpl.replace(/{([^{}:,.]+)}/g, function(m0, m1) {
 		return data[m1];
 	});
 }
@@ -1352,16 +1353,22 @@ function kvList2Str(kv, sep, sep2)
 }
 
 /**
-@fn parseKvList(kvListStr, sep, sep2) -> kvMap
+@fn parseKvList(kvListStr, sep, sep2, doReverse?) -> kvMap
 
 解析key-value列表字符串，返回kvMap。
+
+- doReverse: 设置为true时返回反向映射
+
 示例：
 
 	var map = parseKvList("CR:新创建;PA:已付款", ";", ":");
 	// map: {"CR": "新创建", "PA":"已付款"}
+
+	var map = parseKvList("CR:新创建;PA:已付款", ";", ":", true);
+	// map: {"新创建":"CR", "已付款":"PA"}
 */
 self.parseKvList = parseKvList;
-function parseKvList(str, sep, sep2)
+function parseKvList(str, sep, sep2, doReverse)
 {
 	var map = {};
 	$.each(str.split(sep), function (i, e) {
@@ -1370,7 +1377,10 @@ function parseKvList(str, sep, sep2)
 		if (kv.length < 2) {
 			kv[1] = kv[0];
 		}
-		map[kv[0]] = kv[1];
+		if (!doReverse)
+			map[kv[0]] = kv[1];
+		else
+			map[kv[1]] = kv[0];
 	});
 	return map;
 }
@@ -1385,9 +1395,13 @@ function parseKvList(str, sep, sep2)
 window.Q = self.Q = Q;
 function Q(str, q)
 {
+	if (str == null)
+		return "null";
+	if (typeof str == "number")
+		return str;
 	if (q == null)
 		q = "'";
-	return q + str.replaceAll(q, "\\" + q) + q;
+	return q + str.toString().replaceAll(q, "\\" + q) + q;
 }
 
 function initModule()
@@ -1404,6 +1418,102 @@ function initModule()
 	}
 }
 initModule();
+
+/**
+@fn text2html(str, pics)
+
+将文本或图片转成html，常用于将筋斗云后端返回的图文内容转成html在网页中显示。示例：
+
+	var item = {id: 1, name: "商品1", content: "商品介绍内容", pics: "100,102"};
+	var html = MUI.text2html(item.content, item.pics);
+	jpage.find("#content").html(html);
+
+文字转html示例：
+
+	var html = MUI.text2html("hello\nworld");
+
+生成html为
+
+	<p>hello</p>
+	<p>world</p>
+
+支持简单的markdown格式，如"# ","## "分别表示一二级标题, "- "表示列表（注意在"#"或"-"后面有英文空格）：
+	
+	# 标题1
+	内容1
+	# 标题2
+	内容2
+
+	- 列表1
+	- 列表2
+
+函数可将图片编号列表转成img列表，如：
+
+	var html = MUI.text2html(null, "100,102");
+
+生成
+
+	<img src="../api.php/att?thumbId=100">
+	<img src="../api.php/att?thumbId=102">
+
+ */
+self.text2html = text2html;
+function text2html(s, pics)
+{
+	var ret = "";
+	if (s) {
+		ret = s.replace(/^(?:([#-]+)\s+)?(.*)$/mg, function (m, begin, text) {
+			if (begin) {
+				if (begin[0] == '#') {
+					n = begin.length;
+					return "<h" + n + ">" + text + "</h" + n + ">";
+				}
+				if (begin[0] == '-') {
+					return "<li>" + text + "</li>";
+				}
+			}
+			// 空段落处理
+			if (text) {
+				text = text.replace(" ", "&nbsp;");
+			}
+			else {
+				text = "&nbsp;";
+			}
+			return "<p>" + text + "</p>";
+		}) + "\n";
+	}
+	if (pics) {
+		var arr = pics.split(/\s*,\s*/);
+		arr.forEach(function (e) {
+			var url = "../api.php/att?thumbId=" + e;
+			ret += "<img src=\"" + url + "\">\n";
+		});
+	}
+	return ret;
+}
+
+/**
+@fn extendNoOverride(a, b, ...)
+
+	var a = {a: 1};
+	WUI.extendNoOverride(a, {b: 'aa'}, {a: 99, b: '33', c: 'bb'});
+	// a = {a: 1, b: 'aa', c: 'bb'}
+ */
+self.extendNoOverride = extendNoOverride;
+function extendNoOverride(target)
+{
+	if (!target)
+		return target;
+	$.each(arguments, function (i, e) {
+		if (i == 0 || !$.isPlainObject(e))
+			return;
+		$.each(e, function (k, v) {
+			if (target[k] === undefined)
+				target[k] = v;
+		});
+	});
+	return target;
+}
 
 }/*jdcloud common*/
 
@@ -1480,6 +1590,12 @@ function jdModule(name, fn, overrideCtor)
 		}
 	}
 	return ret;
+}
+
+if (! String.prototype.replaceAll) {
+	String.prototype.replaceAll = function (from, to) {
+		return this.replace(new RegExp(from, "g"), to);
+	}
 }
 
 // vi: foldmethod=marker 

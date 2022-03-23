@@ -209,18 +209,34 @@ function leaveWaiting(ctx)
 			-- m_silentCall;
 		if ($.active < 0)
 			$.active = 0;
-		if ($.active-m_silentCall <= 0 && self.isBusy && m_manualBusy == 0) {
-			self.isBusy = 0;
-			var tv = new Date() - m_tmBusy;
-			m_tmBusy = 0;
-			console.log("idle after " + tv + "ms");
+		// 一直等到不忙，避免callSvr/$.ajax混用导致无法hideLoading
+		// 注意：一旦在callSvc回调中异常出错，会在WUI.setOnError中处理($.active=0)，避免一直显示加载。
+		loopDo(function () {
+			if ($.active-m_silentCall > 0 || m_manualBusy != 0)
+				return;
+			if (self.isBusy) {
+				self.isBusy = 0;
+				var tv = new Date() - m_tmBusy;
+				m_tmBusy = 0;
+				console.log("idle after " + tv + "ms");
 
-			// handle idle
-			self.hideLoading();
+				// handle idle
+				self.hideLoading();
+				$(document).trigger("idle");
+			}
 // 			if ($.mobile)
 // 				$.mobile.loading("hide");
-		}
+			return true;
+		});
 	});
+}
+
+// fn()返回true时完成，否则反复执行
+function loopDo(fn)
+{
+	if (fn())
+		return;
+	setTimeout(loopDo.bind(this, fn), 50);
 }
 
 function defAjaxErrProc(xhr, textStatus, e)
@@ -230,7 +246,7 @@ function defAjaxErrProc(xhr, textStatus, e)
 		ctx.status = xhr.status;
 		ctx.statusText = xhr.statusText;
 
-		if (xhr.status == 0) {
+		if (xhr.status == 0 && !ctx.noex) {
 			self.app_alert("连不上服务器了，是不是网络连接不给力？", "e");
 		}
 		else if (this.handleHttpError) {
@@ -240,7 +256,7 @@ function defAjaxErrProc(xhr, textStatus, e)
 				this.success && this.success(rv);
 			return;
 		}
-		else {
+		else if (!ctx.noex) {
 			self.app_alert("操作失败: 服务器错误. status=" + xhr.status + "-" + xhr.statusText, "e");
 		}
 
@@ -286,8 +302,11 @@ function defDataProc(rv)
 			if (g_data.mockMode)
 				modeStr = "测试模式+模拟模式";
 		}
-		if (modeStr)
-			self.app_alert(modeStr, {timeoutInterval:2000});
+		if (modeStr) {
+			self.dfdLogin.then(function () {
+				self.app_alert(modeStr, {timeoutInterval:2000});
+			});
+		}
 	}
 
 	try {
@@ -329,7 +348,10 @@ function defDataProc(rv)
 			return rv[1];
 		}
 		ctx.dfd && setTimeout(function () {
-			ctx.dfd.reject.call(that, rv[1]);
+			if (!that.noex)
+				ctx.dfd.reject.call(that, rv[1]);
+			else
+				ctx.dfd.resolve.call(that, false);
 		});
 
 		if (this.noex)
@@ -434,7 +456,7 @@ function makeUrl(action, params)
 			action = action[0] + "." + action[1];
 		}
 	}
-	else {
+	else if (action) {
 		var m = action.match(/^(\w+):(\w.*)/);
 		if (m) {
 			ext = m[1];
@@ -443,6 +465,9 @@ function makeUrl(action, params)
 		else {
 			ext = "default";
 		}
+	}
+	else {
+		throw "makeUrl error: no action";
 	}
 
 	// 有makeUrl属性表示已调用过makeUrl
@@ -462,6 +487,8 @@ function makeUrl(action, params)
 	var fnMakeUrl = self.callSvrExt[ext] && self.callSvrExt[ext].makeUrl;
 	if (fnMakeUrl) {
 		url = fnMakeUrl(action, params);
+	}
+	else if (self.options.moduleExt && (url = self.options.moduleExt["callSvr"](action)) != null) {
 	}
 	// 缺省接口调用：callSvr('login'),  callSvr('./1.json') 或 callSvr("1.php") (以"./"或"../"等相对路径开头, 或是取".php"文件, 则不去自动拼接serverUrl)
 	else if (action[0] != '.' && action.indexOf(".php") < 0)
@@ -504,6 +531,9 @@ function makeUrl(action, params)
 		params._app = self.options.appName;
 	if (g_args._debug)
 		params._debug = g_args._debug;
+	if (g_args.phpdebug)
+		params.XDEBUG_SESSION_START = 1;
+
 	var ret = mCommon.appendParam(url, $.param(params));
 	return makeUrlObj(ret);
 
@@ -674,6 +704,7 @@ callSvr扩展示例：
 
 	MUI.callSvrExt['zhanda'] = {
 		makeUrl: function(ac, param) {
+			// 只需要返回接口url即可，不必拼接param
 			return 'http://hostname/lcapi/' + ac;
 		},
 		dataFilter: function (data) {
@@ -690,11 +721,15 @@ callSvr扩展示例：
 		}
 	};
 
-在调用时，ac参数传入一个数组：
+在调用时，ac参数使用"{扩展名}:{调用名}"的格式：
 
-	callSvr(['token/get-token', 'zhanda'], {user: 'test', password: 'test123'}, function (data) {
+	callSvr('zhanda:token/get-token', {user: 'test', password: 'test123'}, function (data) {
 		console.log(data);
 	});
+
+旧的调用方式ac参数使用数组，现在已不建议使用：
+
+	callSvr(['token/get-token', 'zhanda'], ...);
 
 @key callSvrExt[].makeUrl(ac, param)
 
@@ -720,8 +755,7 @@ callSvr扩展示例：
 @key callSvrExt['default']
 
 (支持版本: v3.1)
-如果要修改callSvr缺省调用方法，可以改写 MUI.callSvrExt['default'].
-例如，定义以下callSvr扩展：
+如果要修改callSvr缺省调用方法，可以改写 MUI.callSvrExt['default']。示例：
 
 	MUI.callSvrExt['default'] = {
 		makeUrl: function(ac) {
@@ -772,14 +806,6 @@ callSvr扩展示例：
 		}
 	};
 
-这样，以下调用
-
-	callSvr(['login', 'default']);
-
-可以简写为：
-
-	callSvr('login');
-
 @key callSvrExt[].beforeSend(opt) 为callSvr或$.ajax选项设置缺省值
 
 如果有ajax选项想设置，可以使用beforeSend回调，例如POST参数使用JSON格式：
@@ -798,6 +824,8 @@ callSvr扩展示例：
 			}
 		}
 	}
+
+可以从opt.ctx_中取到{ac, ext, noex, dfd}等值（如opt.ctx_.ac），可以从opt.url中取到{ac, params}值。
 
 如果要设置请求的HTTP headers，可以用`opt.headers = {header1: "value1", header2: "value2"}`.
 更多选项参考jquery文档：jQuery.ajax的选项。
@@ -901,7 +929,9 @@ callSvr扩展示例：
 		}
 	}
 
-## jQuery的$.Deferred兼容Promise接口
+## ES6支持：jQuery的$.Deferred兼容Promise接口 / 使用await
+
+支持Promise/Deferred编程风格:
 
 	var dfd = callSvr("...");
 	dfd.then(function (data) {
@@ -913,6 +943,24 @@ callSvr扩展示例：
 	.finally(...)
 
 支持catch/finally等Promise类接口。接口逻辑失败时，dfd.reject()触发fail/catch链。
+
+支持await编程风格，上例可写为：
+
+	// 使用await时callSvr调用失败是无法返回的，加{noex:1}选项可让失败时返回false
+	var rv = callSvr("...", $.noop, null, {noex:1});
+	if (rv === false) {
+		// 失败逻辑 dfd.catch. 取错误信息用WUI.lastError={ac, tm, tv, ret}
+		console.log(WUI.lastError.ret)
+	}
+	else {
+		// 成功逻辑 dfd.then
+	}
+	// finally逻辑
+
+示例：
+
+	let rv = await callSvr("Ordr.query", {res:"count(*) cnt", fmt:"one"})
+	let cnt = rv.cnt
 
 ## 直接取json类文件
 
@@ -976,6 +1024,8 @@ function callSvr(ac, params, fn, postParams, userOptions)
 	var ctx = {ac: ac0, tm: new Date()};
 	if (userOptions && userOptions.noLoadingImg)
 		ctx.noLoadingImg = 1;
+	if (userOptions && userOptions.noex)
+		ctx.noex = 1;
 	if (ext) {
 		ctx.ext = ext;
 	}
