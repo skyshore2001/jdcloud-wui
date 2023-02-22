@@ -131,42 +131,37 @@ window.DirectReturn = DirectReturn;
 function DirectReturn() {}
 
 /**
-@fn setOnError()
+@fn windowOnError()
 
-一般框架自动设置onerror函数；如果onerror被其它库改写，应再次调用该函数。
-allow throw("abort") as abort behavior.
+框架自动在脚本出错时弹框报错，并上报服务端(syslog).
+可通过WUI.options.skipErrorRegex忽略指定错误。
  */
-self.setOnError = setOnError;
-function setOnError()
+function windowOnError(ev)
 {
-	var fn = window.onerror;
-	window.onerror = function (msg, script, line, col, errObj) {
-		// 出错后尝试恢复callSvr变量
-		if ($.active || self.isBusy) {
-			setTimeout(function () {
-				$.active = 0;
-				self.isBusy = 0;
-				self.hideLoading();
-			}, 1000);
-		}
-		if (fn && fn.apply(this, arguments) === true)
-			return true;
-		if (errObj instanceof DirectReturn || /abort$/.test(msg))
-			return true;
-		if (self.options.skipErrorRegex && self.options.skipErrorRegex.test(msg))
-			return true;
-		if (errObj === undefined && msg === "[object Object]") // fix for IOS9
-			return true;
-		debugger;
-		var content = msg + " (" + script + ":" + line + ":" + col + ")";
-		if (errObj && errObj.stack)
-			content += "\n" + errObj.stack.toString();
-		if (self.syslog)
-			self.syslog("fw", "ERR", content);
-		app_alert(msg, "e");
+	// 出错后尝试恢复callSvr变量
+	if ($.active || self.isBusy) {
+		setTimeout(function () {
+			$.active = 0;
+			self.isBusy = 0;
+			self.hideLoading();
+		}, 1000);
 	}
+	var msg = ev.message, errObj = ev.error;
+	if (errObj instanceof DirectReturn || /abort$/.test(msg))
+		return true;
+	if (self.options.skipErrorRegex && self.options.skipErrorRegex.test(msg))
+		return true;
+	if (errObj === undefined && msg === "[object Object]") // fix for IOS9
+		return true;
+	debugger;
+	var content = msg + " (" + ev.filename + ":" + ev.lineno + ":" + ev.colno + ")";
+	if (errObj && errObj.stack)
+		content += "\n" + errObj.stack.toString();
+	if (self.syslog)
+		self.syslog("fw", "ERR", content);
+	app_alert(msg, "e");
 }
-setOnError();
+window.addEventListener('error', windowOnError);
 
 // ------ enhanceWithin {{{
 /**
@@ -331,11 +326,11 @@ function getexp(k, v, hint)
 
 在详情页对话框中，切换到查找模式，在任一输入框中均可支持以上格式。
 
-(v5.5) value支持用数组表示范围（前闭后开区间），主要内部使用：
+(v5.5) value支持用数组表示范围（前闭后开区间），特别方便为起始、结束时间生成条件：
 
 	var cond = getQueryCond({tm: ["2019-1-1", "2020-1-1"]}); // 生成 "tm>='2019-1-1' AND tm<'2020-1-1'"
-	var cond = getQueryCond({tm: [null, "2020-1-1"]}); // 生成 "tm<'2020-1-1'"
-	var cond = getQueryCond({tm: [null, null]); // 返回null
+	var cond = getQueryCond({tm: [null, "2020-1-1"]}); // 生成 "tm<'2020-1-1'"。数组中任一值为null或''都一样会被忽略。
+	var cond = getQueryCond({tm: [null, null]); // 返回空串''
 
 @see getQueryParam
 @see getQueryParamFromTable 获取datagrid的当前查询参数
