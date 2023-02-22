@@ -352,13 +352,11 @@ defectId上暂时不设置，之后传参动态设置。
 
 ## 验证要求必填
 
-(v6) my-combobox继承easyui-validatebox，所以可以指定requried选项：
+(v6) my-combobox继承easyui-validatebox，通过添加requried属性来指定必填项，显示时会在字段后自动加红色星号：
 
 	<select name="status" class="my-combobox" data-options="jdEnumMap:OrderStatusMap" required></select>
-	或
-	<select name="status" class="my-combobox" data-options="jdEnumMap:OrderStatusMap, required:true"></select>
 
-在v6之前须显式设置：
+旧用法（不建议使用）：
 
 	<select name="status" class="my-combobox easyui-validatebox" data-options="jdEnumMap:OrderStatusMap, required:true"></select>
 
@@ -410,9 +408,11 @@ function mycombobox(force)
 			opts.urlParams = param;
 			loadOptions();
 		});
-		// bugfix: loadOptions中会设置value_, 这将导致无法选择空行.
-		jo.change(function () {
-			this.value_ = "";
+		// bugfix: loadOptions中会设置value_, 这将导致无法人工选择空行后保存(由于重写了val()函数，设空后val()实际返回的是value_字段，因其值未变，导致保存时会忽略该字段)
+		// 但如果不是人为点击触发的事件则不应清空value_，否则`jo.val(99); jo.trigger("change")`这样的代码将出错，jo.val设置的`value_`值将被jo.trigger清掉。
+		jo.change(function (ev) {
+			if (! ev.isTrigger)
+				this.value_ = "";
 		});
 		jo.on("setOption", function (ev, opt) {
 			if (opt == null)

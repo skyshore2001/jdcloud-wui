@@ -280,8 +280,14 @@ function defDataProc(rv)
 	var ext = ctx.ext;
 
 	// ajax-beforeSend回调中设置
-	if (this.xhr_ && (ext == null || ext == "default") ) {
-		var val = this.xhr_.getResponseHeader("X-Daca-Server-Rev");
+	while (this.xhr_ && (ext == null || ext == "default") ) {
+		var val = this.xhr_.getResponseHeader("X-Powered-By");
+		if (g_data.poweredBy == null)
+			g_data.poweredBy = val;
+		else if (g_data.poweredBy != val)
+			break;
+
+		val = this.xhr_.getResponseHeader("X-Daca-Server-Rev");
 		if (val && g_data.serverRev != val) {
 			if (g_data.serverRev) {
 				mCommon.reloadSite();
@@ -294,19 +300,21 @@ function defDataProc(rv)
 		if (g_data.testMode != val) {
 			g_data.testMode = val;
 			if (g_data.testMode)
-				modeStr = "测试模式";
+				modeStr = T("测试模式");
+			self.options.xparam = 0;
 		}
 		val = mCommon.parseValue(this.xhr_.getResponseHeader("X-Daca-Mock-Mode"));
 		if (g_data.mockMode != val) {
 			g_data.mockMode = val;
 			if (g_data.mockMode)
-				modeStr = "测试模式+模拟模式";
+				modeStr = T("测试模式") + "," + T("模拟模式");
 		}
 		if (modeStr) {
 			self.dfdLogin.then(function () {
 				self.app_alert(modeStr, {timeoutInterval:2000});
 			});
 		}
+		break;
 	}
 
 	try {
@@ -316,7 +324,7 @@ function defDataProc(rv)
 	catch (e)
 	{
 		leaveWaiting(ctx);
-		var msg = "服务器数据错误。";
+		var msg = T("服务器数据错误。");
 		self.app_alert(msg);
 		ctx.dfd.reject.call(this, msg);
 		return;
@@ -379,11 +387,11 @@ function defDataProc(rv)
 			return RV_ABORT;
 		}
 		logError();
-		self.app_alert("操作失败：" + rv[1], "e");
+		self.app_alert(T("操作失败") + ": " + rv[1], "e");
 	}
 	else {
 		logError();
-		self.app_alert("服务器通讯协议异常!", "e"); // 格式不对
+		self.app_alert(T("服务器通讯协议异常!"), "e"); // 格式不对
 	}
 	return RV_ABORT;
 
@@ -483,6 +491,7 @@ function makeUrl(action, params)
 	if (params == null)
 		params = {};
 
+	var xparam = 0;
 	var url;
 	var fnMakeUrl = self.callSvrExt[ext] && self.callSvrExt[ext].makeUrl;
 	if (fnMakeUrl) {
@@ -490,11 +499,11 @@ function makeUrl(action, params)
 	}
 	else if (self.options.moduleExt && (url = self.options.moduleExt["callSvr"](action)) != null) {
 	}
-	// 缺省接口调用：callSvr('login'),  callSvr('./1.json') 或 callSvr("1.php") (以"./"或"../"等相对路径开头, 或是取".php"文件, 则不去自动拼接serverUrl)
-	else if (action[0] != '.' && action.indexOf(".php") < 0)
+	// 缺省接口调用：callSvr('login'),  callSvr('./1.json'), callSvr('/jdserver/stat') 或 callSvr("1.php") (以"/", "./"或"../"等绝对或相对路径开头, 或是取".php"文件, 则不去自动拼接serverUrl)
+	else if (action[0] != '.' && action[0] != '/' && action.indexOf(".php") < 0)
 	{
 		var opt = self.options;
-		var usePathInfo = !opt.serverUrlAc;
+		var usePathInfo = !opt.serverUrlAc && !opt.xparam;
 		if (usePathInfo) {
 			if (opt.serverUrl.slice(-1) == '/')
 				url = opt.serverUrl + action;
@@ -503,8 +512,15 @@ function makeUrl(action, params)
 		}
 		else {
 			url = opt.serverUrl;
-			params[opt.serverUrlAc] = action;
+			var ac = opt.serverUrlAc || "ac";
+			if (! params[ac]) {
+				params[ac] = action;
+			}
+			else { // 如果已有ac参数在用，则改用优先级更多的_ac参数，不覆盖原参数
+				params["_ac"] = action;
+			}
 		}
+		xparam = opt.xparam;
 	}
 	else {
 		if (location.protocol == "file:") {
@@ -534,7 +550,11 @@ function makeUrl(action, params)
 	if (g_args.phpdebug)
 		params.XDEBUG_SESSION_START = 1;
 
-	var ret = mCommon.appendParam(url, $.param(params));
+	var p = $.param(params);
+	// 无参数时，也会设置xp=1，用于通知callSvr对post内容加密
+	if (xparam)
+		p = "xp=" + (p? self.base64Encode(p, true): 1);
+	var ret = mCommon.appendParam(url, p);
 	return makeUrlObj(ret);
 
 	function makeUrlObj(url)
@@ -549,6 +569,7 @@ function makeUrl(action, params)
 			o.action = action;
 			o.params = params;
 		}
+		delete o.params.ac;
 		return o;
 	}
 }
@@ -1076,7 +1097,7 @@ function callSvr(ac, params, fn, postParams, userOptions)
 	}
 
 	// 自动判断是否用json格式
-	if (!opt.contentType && opt.data) {
+	if (opt.contentType == null && opt.data) {
 		var useJson = $.isArray(opt.data);
 		if (!useJson && $.isPlainObject(opt.data)) {
 			$.each(opt.data, function (i, e) {
@@ -1091,14 +1112,38 @@ function callSvr(ac, params, fn, postParams, userOptions)
 		}
 	}
 
+	console.log(callType + ": " + opt.type + " " + ac0);
+	if (ctx.isMock)
+		return callSvrMock(opt, isSyncCall);
+
 	// post json content
 	var isJson = opt.contentType && opt.contentType.indexOf("/json")>0;
 	if (isJson && opt.data instanceof Object)
 		opt.data = JSON.stringify(opt.data);
 
-	console.log(callType + ": " + opt.type + " " + ac0);
-	if (ctx.isMock)
-		return callSvrMock(opt, isSyncCall);
+	if (opt.data && opt.processData !== false && opt.url.indexOf("?xp=") > 0) {
+		if (typeof(opt.data) === "string") {
+			// 猜一下。最好还是应用明确指定
+			if (opt.contentType == null) {
+				var pos;
+				if (opt.data[0] == '{' || opt.data[0] == '[') {
+					opt.contentType = "application/json";
+				}
+				else if ((pos=opt.data.indexOf('=')>0) && pos<100) { // 变量名不超过100B (像`a[b][3]=1`这种就比较长)
+					opt.contentType = "application/x-www-form-urlencoded";
+				}
+				else {
+					opt.contentType = "text/plain";
+				}
+			}
+			opt.data = self.base64Encode(opt.data, true);
+		}
+		else {
+			opt.data = self.base64Encode(JSON.stringify(opt.data), true);
+			opt.contentType = "application/json";
+		}
+		opt.contentType += ";xparam=1";
+	}
 	$.ajax(opt);
 	// dfd.resolve/reject is done in defDataProc
 	return ctx.dfd;

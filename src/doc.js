@@ -581,6 +581,8 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 (v5.3)
 
 - 在对话框中三击（2秒内）字段标题栏，可快速按查询该字段。Ctrl+三击为追加过滤条件。
+(v6.1)也可以在对话框的字段标题上点右键，在菜单中选择“查询该字段”。
+
 - 在页面工具栏中，按住Ctrl(batch模式)点击“刷新”按钮，可清空当前查询条件。
 
 @key wui-find-hint 控制查询条件的生成。(v5.5) 
@@ -694,8 +696,8 @@ v5.3引入了wui-fixedField类设置在字段上，v6起已不建议使用。以
 
 	<div id="dlgSendSms" title="群发短信" style="width:500px;height:300px;">  
 		<form method="POST">
-			手机号：<input name="phone" class="easyui-validatebox" data-options="required:true">
-			发送内容： <textarea rows=5 cols=30 name="content" class="easyui-validatebox"  data-options="required:true"></textarea>
+			手机号：<input name="phone" class="easyui-validatebox" required>
+			发送内容： <textarea rows=5 cols=30 name="content" class="easyui-validatebox" required></textarea>
 		</form>
 	</div>
 

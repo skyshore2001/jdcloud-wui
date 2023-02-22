@@ -4,11 +4,6 @@ function JdcloudWui()
 var self = this;
 var mCommon = jdModule("jdcloud.common");
 
-// 子模块
-JdcloudApp.call(self);
-JdcloudCall.call(self);
-JdcloudPage.call(self);
-
 // ====== global {{{
 /**
 @var isBusy
@@ -18,7 +13,7 @@ JdcloudPage.call(self);
 self.isBusy = false;
 
 /**
-@var g_args
+@var g_args 全局URL参数
 
 应用参数。
 
@@ -29,25 +24,30 @@ URL参数会自动加入该对象，例如URL为 `http://{server}/{app}/index.ht
 
 框架会自动处理一些参数：
 
-- g_args._debug: 在测试模式下，指定后台的调试等级，有效值为1-9. 参考：后端测试模式 P_TEST_MODE，调试等级 P_DEBUG.
+- g_args._debug: 指定后台的调试等级，有效值为1-9. 而且一旦指定，后端将记录debug日志。参考：后端测试模式 P_TEST_MODE，调试等级 P_DEBUG，调试日志 P_DEBUG_LOG
 - g_args.autoLogin: 记住登录信息(token)，下次自动登录；注意：如果是在手机模式下打开，此行为是默认的。示例：http://server/jdcloud/web/?autoLogin
 - g_args.phpdebug: (v6) 设置为1时，以调用接口时激活PHP调试，与vscode/netbeans/vim-vdebug等PHP调试器联合使用。参考：http://oliveche.com/jdcloud-site/phpdebug.html
+- g_args.lang: (v6.1) 指定语言，默认为开发语言"dev"，支持英文"en"（加载lib/lang-en.js）。
 
 @see parseQuery URL参数通过该函数获取。
 */
-window.g_args = {}; // {_debug}
+window.g_args = {};
 
 /**
-@var g_data = {userInfo?}
+@var g_data = {userInfo?, initClient?, hasRole()}
 
 应用全局共享数据。
 
 在登录时，会自动设置userInfo属性为个人信息。所以可以通过 g_data.userInfo==null 来判断是否已登录。
 
-@key g_data.userInfo
+- g_data.userInfo: 登录后，保存用户信息。
+- g_data.hasRole(roleList): 检查用户是否有指定角色，如g_data.hasRole("mgr")，多个角色用逗号分隔如g_data.hasRole("mgr,业务员"). 
+注意：检查权限请用WUI.canDo()函数
+- g_data.initClient: 保存调用initCient接口返回的内容，用于获取后端配置项。
+例如后端全局变量P_initClient中设置的选项会存入g_data.initClient中。常用于用后端配置项控制前端逻辑。
 
 */
-window.g_data = {}; // {userInfo}
+window.g_data = {};
 
 /**
 @var BASE_URL
@@ -119,10 +119,33 @@ self.options = {
 
 详细用法案例，可参考：筋斗云开发实例讲解 - 系统复用与微服务方案。
 */
-	moduleExt: { showPage: $.noop, callSvr: $.noop }
+	moduleExt: { showPage: $.noop, callSvr: $.noop },
+
+/**
+@var WUI.options.xparam
+ */
+	xparam: 1,
+
+/**
+@var MUI.options.useNewThumb
+
+带缩略图的图片编号保存风格。
+
+- 0: 保存小图编号，用att(id)取小图，用att(thumbId)取大图
+- 1: 保存大图编号，用att(id,thumb=1)取小图，用att(id)取大图
+ */
+	useNewThumb: 0
 };
 
 //}}}
+
+parseArgs();
+initLang();
+
+// 子模块
+JdcloudApp.call(self);
+JdcloudCall.call(self);
+JdcloudPage.call(self);
 
 // set g_args
 function parseArgs()
@@ -131,7 +154,77 @@ function parseArgs()
 		g_args = mCommon.parseQuery(location.search.substr(1));
 	}
 }
-parseArgs();
+
+// === language {{{
+/**
+@var LANG 多国语言支持/翻译
+
+系统支持通过URL参数lang指定语言，如指定英文版本：`http://myserver/myapp/web/store.html?lang=en`
+
+如果未指定lang参数，则根据html的lang属性来确定语言，如指定英文版：
+
+	<html lang="en">
+
+默认为开发语言(lang="dev")，以中文为主。英文版下若想切换到开发语言，可以用`http://myserver/myapp/web/store.html?lang=dev`
+g_args.lang中保存着实际使用的语言。
+
+自带英文语言翻译文件lib/lang-en.js，当lang=en时加载它。可扩展它或以它为模板创建其它语言翻译文件。
+语言翻译文件中，设置全局变量LANG，将开发语言翻译为其它语言。
+
+系统会自动为菜单项、页面标题、列表表头标题、对话框标题等查找翻译。
+其它DOM组件若想支持翻译，可手工添加CSS类lang，如:
+
+	<div><label class="lang"><input type="checkbox" value="mgr">最高管理员</label></div>
+
+	<a href="javascript:logout()" class="logout"><span class="lang"><i class="icon-exit"></i>退出系统</span></a>
+
+或在代码中，使用WUI.enhanceLang(jo)来为DOM组件支持翻译，或直接用T(str)翻译字符串。
+注意lang类或enhanceLang函数不能设置组件下子组件的文字，可先取到文字组件再设置如`WUI.enhanceLang(jo.find(".title"))`。
+
+@fn T(s) 字符串翻译
+
+T函数用于将开发语言翻译为当前使用的语言。
+
+@key .lang DOM组件支持翻译
+@fn enhanceLang(jo) DOM组件支持翻译
+
+ */
+function T(s) {
+	if (s == null || LANG == null)
+		return s;
+	var s1 = s;
+	if (s.length > 2 && s.substr(-2) == "管理")
+		s1 = s.substr(0, s.length-2);
+	return LANG[s1] || s;
+}
+
+function initLang() {
+	window.LANG = null;
+	window.T = T;
+	if (!g_args.lang)
+		g_args.lang = document.documentElement.lang || 'dev';
+	if (g_args.lang != 'dev') {
+		mCommon.loadScript("lib/lang-" + g_args.lang + ".js", {async: false});
+		mCommon.loadScript("lib/easyui/locale/easyui-lang-en.js");
+	}
+	else {
+		mCommon.loadScript("lib/easyui/locale/easyui-lang-zh_CN.js");
+	}
+}
+
+self.m_enhanceFn[".lang"] = self.enhanceLang = enhanceLang;
+function enhanceLang(jo)
+{
+	if (LANG == null)
+		return;
+	jo.contents().each(function () {
+		if (this.nodeType == 3) { // text
+			var t = T(this.nodeValue);
+			this.nodeValue = t;
+		}
+	});
+}
+// }}}
 
 /**
 @fn app_alert(msg, [type?=i], [fn?], opt?={timeoutInterval?, defValue?, onCancel()?})
@@ -151,12 +244,14 @@ parseArgs();
 	// 错误框
 	app_alert("操作失败", "e");
 
-	// 确认框(确定/取消)
+	// 确认框(confirm, 确定/取消)
+	// 仅当点击“确定”按钮才会进入回调函数。如果想处理取消事件，可使用opt.onCancel()回调
 	app_alert("立即付款?", "q", function () {
 		WUI.showPage("#pay");
 	});
 
-	// 输入框
+	// 提示输入框(prompt)
+	// 仅当点击“确定”按钮且输入值非空时才会进入回调函数。可使用opt.defValue指定缺省值
 	app_alert("输入要查询的名字:", "p", function (text) {
 		callSvr("Book.query", {cond: "name like '%" + text + "%'"});
 	});
@@ -210,7 +305,7 @@ function app_alert(msg)
 	}
 
 	var icon = {i: "info", w: "warning", e: "error"}[type];
-	var s = {i: "提示", w: "警告", e: "出错"}[type] || "";
+	var s = {i: T("提示"), w: T("警告"), e: T("出错")}[type] || "";
 	var s1 = "<b>[" + s + "]</b>";
 	jmsg = $.messager.alert(self.options.title + " - " + s, s1 + " " + msg, icon, fn);
 
@@ -240,7 +335,7 @@ self.app_confirm = app_confirm;
 function app_confirm(msg, fn)
 {
 	var s = "<div style='font-size:10pt'>" + msg.replace(/\n/g, "<br/>") + "</div>";
-	$.messager.confirm(self.options.title + " - " + "确认", s, fn);
+	$.messager.confirm(self.options.title + " - " + T("确认"), s, fn);
 }
 
 /**
@@ -392,6 +487,10 @@ function deleteLoginToken()
 self.tryAutoLogin = tryAutoLogin;
 function tryAutoLogin(onHandleLogin, reuseCmd)
 {
+	// initClient接口返回了userInfo，表示使用第三方认证，跳过tryAutoLogin
+	if (g_data.initClient && g_data.initClient.userInfo)
+		return;
+
 	var ok = false;
 	var ajaxOpt = {async: false, noex: true};
 
@@ -485,8 +584,8 @@ function tryAutoLoginAsync(onHandleLogin, reuseCmd)
 }
 
 /**
-@fn handleLogin(data)
-@param data 调用API "login"成功后的返回数据.
+@fn handleLogin(userInfo)
+@param userInfo 调用login/Employee.get等接口返回的用户信息数据。
 
 处理login相关的操作, 如设置g_data.userInfo, 保存自动登录的token等等.
 
@@ -538,11 +637,17 @@ function handleLogin(data)
 
 // ------ plugins {{{
 /**
-@fn initClient()
+@fn initClient(param = null)
+
+一般在进入页面时，同步地调用后端initClient接口，获取基本配置信息。
+此后可通过g_data.initClient取这些配置。
+
+若指定param参数(JS对象，如`{token: 123}`)，则作为POST参数调用initClient接口.
+
 */
 self.initClient = initClient;
 var plugins_ = {};
-function initClient()
+function initClient(param)
 {
 	self.callSvrSync('initClient', function (data) {
 		g_data.initClient = data;
@@ -554,7 +659,11 @@ function initClient()
 				mCommon.loadScript(js, {async:true});
 			}
 		});
-	});
+	}, param);
+	if (g_data.initClient && g_data.initClient.userInfo) {
+		WUI.handleLogin(g_data.initClient.userInfo);
+		// NOTE: 会自动跳过tryAutoLogin
+	}
 }
 
 /**
