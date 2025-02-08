@@ -358,7 +358,7 @@ function getexp(k, v, hint)
 
 	var cond = getQueryCond({tm: ["2019-1-1", "2020-1-1"]}); // 生成 "tm>='2019-1-1' AND tm<'2020-1-1'"
 	var cond = getQueryCond({tm: [null, "2020-1-1"]}); // 生成 "tm<'2020-1-1'"。数组中任一值为null或''都一样会被忽略。
-	var cond = getQueryCond({tm: [null, null]); // 返回空串''
+	var cond = getQueryCond({tm: [null, null]}); // 返回空串''
 
 @see getQueryParam
 @see getQueryParamFromTable 获取datagrid的当前查询参数

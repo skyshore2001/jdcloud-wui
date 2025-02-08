@@ -1542,6 +1542,26 @@ function myround(f, n)
 	return parseFloat(f.toFixed(n));
 }
 
+/**
+@class Plugins
+*/
+window.Plugins = {
+	plugins_: {},
+/**
+@fn Plugins.exists(pluginName)
+*/
+	exists: function (pname) {
+		return this.plugins_[pname] !== undefined;
+	},
+
+/**
+@fn Plugins.list()
+*/
+	list: function () {
+		return this.plugins_;
+	}
+};
+
 }/*jdcloud common*/
 
 /**
