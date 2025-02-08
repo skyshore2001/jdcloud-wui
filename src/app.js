@@ -8,7 +8,7 @@ window.E_NOAUTH=2;
 window.E_ABORT=-100;
 
 /**
-@fn evalAttr(jo, name)
+@fn evalAttr(jo, name, ctx?)
 
 返回一个属性做eval后的js值。
 
@@ -200,19 +200,39 @@ function enhanceWithin(jp)
 }
 
 /**
-@fn getOptions(jo, defVal?)
+@fn getOptions(jo, defVal?, ctx?)
 
 第一次调用，根据jo上设置的data-options属性及指定的defVal初始化，或为`{}`。
 存到jo.prop("muiOptions")上。之后调用，直接返回该属性。
 
+通过指定ctx, 可以为属性计算时添加可访问接口, 示例: (eol1Sn属性是需要取下面input中的值)
+
+	<button type="button" class="btnPlcNotify" data-options="newItemFlag:1, eol1Sn:ctx.eolSn">Move In from eol-1</button>
+	<input id="eolSn" value="sn1"> 
+
+取值:
+
+	var data = WUI.getOptions($(this), null, {
+		eol1Sn: jpage.find("eolSn").val()
+	}
+
+当然ctx也可以做成个funciton比如:
+
+	<button type="button" class="btnPlcNotify" data-options="newItemFlag:1, eol1Sn:ctx('#eolSn').val()">Move In from eol-1</button>
+	<input id="eolSn" value="sn1"> 
+
+	var data = WUI.getOptions($(this), null, function (ref) {
+		return jpage.find(ref);
+	});
+
 @see evalAttr
 */
 self.getOptions = getOptions;
-function getOptions(jo, defVal)
+function getOptions(jo, defVal, ctx)
 {
 	var opt = jo.prop("muiOptions");
 	if (opt === undefined) {
-		opt = $.extend({}, defVal, self.evalAttr(jo, "data-options"));
+		opt = $.extend({}, defVal, self.evalAttr(jo, "data-options", ctx));
 		jo.prop("muiOptions", opt);
 	}
 	else if ($.isPlainObject(defVal)) {
@@ -239,23 +259,31 @@ function getexp(k, v, hint)
 	if (typeof(v) == "number")
 		return k + "=" + v;
 	var op = "=";
-	var is_like=false;
+	var is_like = (v.indexOf("*") >= 0);
+	var is_set_op = false;
+	var is_not = false;
 	var ms;
-	if (ms=v.match(/^(<>|>=?|<=?|!=?)/)) {
+	if (ms=v.match(/^(<>|>=?|<=?|!=?|=)/)) {
 		op = ms[1];
 		v = v.substr(op.length);
+		if (op == "!") {
+			is_not = true;
+		}
+		else {
+			is_set_op = true;
+		}
 		if (op == "!" || op == "!=")
 			op = "<>";
 	}
-	else if (v.indexOf("*") >= 0 || v.indexOf("%") >= 0) {
+	if (is_like && !is_set_op) {
 		v = v.replace(/[*]/g, "%");
-		op = " LIKE ";
+		op = (!is_not? " LIKE ": " NOT LIKE ");
 	}
 	v = $.trim(v);
 
 	if (v === "null")
 	{
-		if (op == "<>")
+		if (is_not)
 			return k + " is not null";
 		return k + " is null";
 	}
@@ -265,9 +293,9 @@ function getexp(k, v, hint)
 	var isId = (k=="id" || k.substr(-2)=="Id");
 	if (isId && v.match(/^\d+$/))
 		return k + op + v;
-	var doFuzzy = self.options.fuzzyMatch && op == "=" && !(hint == "e"); // except enum
+	var doFuzzy = self.options.fuzzyMatch && !is_like && !is_set_op && !(hint == "e"); // except enum
 	if (doFuzzy) {
-		op = " LIKE ";
+		op = (!is_not? " LIKE ": " NOT LIKE ");
 		v = "%" + v + "%";
 	}
 // 		// ???? 只对access数据库: 支持 yyyy-mm-dd, mm-dd, hh:nn, hh:nn:ss
@@ -344,7 +372,7 @@ function getexp(k, v, hint)
 @see wui-find-hint
 */
 self.queryHint = "查询示例\n" +
-	"文本：\"王小明\", \"王*\"(匹配开头), \"*上海*\"(匹配部分)\n" +
+	"文本：\"王小明\", \"王*\"(匹配开头), \"*上海*\"(匹配部分), \"!*01\"(不匹配), 不要模糊匹配用=或!=开头\n" +
 	"数字：\"5\", \">5\", \"5-10\", \"5-10,12,18\"\n" +
 	"时间：\">=2017-10-1\", \"<2017-10-1 18:00\", \"2017-10\"(10月), \"2017-7-1~2017-10-1\"(7-9月即3季度)\n" +
 	'支持"今天"，"本周"，"本月", "今年", "近3天(小时|周|月|季度|年)”，"前3天(小时|周|月|季度|年)"等。\n' + 
