@@ -581,7 +581,7 @@ datagrid默认加载数据要求格式为`{total, rows}`，框架已对返回数
 (v5.3)
 
 - 在对话框中三击（2秒内）字段标题栏，可快速按查询该字段。Ctrl+三击为追加过滤条件。
-(v6.1)也可以在对话框的字段标题上点右键，在菜单中选择“查询该字段”。
+(v7)也可以在对话框的字段标题上点右键，在菜单中选择“查询该字段”。
 
 - 在页面工具栏中，按住Ctrl(batch模式)点击“刷新”按钮，可清空当前查询条件。
 
@@ -735,7 +735,7 @@ v5.3引入了wui-fixedField类设置在字段上，v6起已不建议使用。以
 
 点击菜单项显示对话框：
 
-	<a href="javascript:DlgSendSms.show()" class="easyui-linkbutton" icon="icon-ok">群发短信</a><br/><br/>
+	<a href="javascript:;" onclick="DlgSendSms.show()" class="easyui-linkbutton" icon="icon-ok">群发短信</a><br/><br/>
 
 可以通过my-initfn属性为对话框指定初始化函数。复杂对话框的逻辑一般都写在初始化函数中。习惯上命令名initDlgXXX，如：
 
@@ -807,7 +807,7 @@ v5.3引入了wui-fixedField类设置在字段上，v6起已不建议使用。以
 默认pageBizPartner是供应商，如果要显示为"客户"页，需要明确调用showPage。
 
 	<a href="#pageBizPartner">供应商</a>
-	<a href="javascript:WUI.showPage('pageBizPartner', '客户', ['C']);">客户</a>
+	<a href="javascript:;" onclick="WUI.showPage('pageBizPartner', '客户', ['C']);">客户</a>
 
 在initPageBizPartner函数中，为对话框传递参数objParam：
 
@@ -827,24 +827,15 @@ v5.3引入了wui-fixedField类设置在字段上，v6起已不建议使用。以
 (v5.1)
 @key .wui-readonly 只读对话框类名
 
-设置是否为只读对话框只要加上该类：
+可用于判断对话框是否只读。
 
-	jdlg.addClass("wui-readonly");
-	jdlg.removeClass("wui-readonly");
-	jdlg.toggleClass("wui-readonly", isReadonly);
+	var isReadonly = jdlg.hasClass("wui-readonly");
 
 只读对话框不可输入(在style.css中设定pointer-events为none)，点击确定按钮后直接关闭。
 
-注意：在dialog beforeshow事件中，不应直接设置wui-readonly类，因为框架之后会自动设置，导致前面设置无效。正确做法是设置`opt.objParam.readonly=true`，示例：
+@see WUI.setDlgReadonly (v6) 设置对话框只读
 
-	jdlg.on("beforeshow", onBeforeShow);
-	function onBeforeShow(ev, formMode, opt)
-	{
-		var objParam = opt.objParam;
-		var ro = (formMode == FormMode.forSet && !!opt.data.usedFlag);
-		// beforeshow中设置对话框只读
-		objParam.readonly = ro;
-	}
+注意：不应直接设置wui-readonly类，因为框架会根据权限自动设置。
 
 ### 只读字段：使用disabled和readonly属性
 
@@ -1050,4 +1041,10 @@ v5.3引入了wui-fixedField类设置在字段上，v6起已不建议使用。以
 
 参考wui-name.js模块。
 
+## 全屏显示
+
+@key .wui-fullscreen
+
+- 页面标题栏右键，选择“全屏”，可将页面全屏
+- Ctrl-Alt双击元素：全屏显示多行文本框、代码编辑框、页面或对话框，以及有CSS类"wui-fullscreen"的元素。
 */

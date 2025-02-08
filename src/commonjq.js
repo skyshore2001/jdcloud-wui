@@ -587,7 +587,7 @@ function setFormData(jo, data, opt)
 示例：在菜单中加一项“工单工时统计”，动态加载并执行一个JS文件：
 store.html中设置菜单：
 
-				<a href="javascript:WUI.loadScript('page/mod_工单工时统计.js')">工单工时统计</a>
+				<a href="javascript:;" onclick="WUI.loadScript('page/mod_工单工时统计.js')">工单工时统计</a>
 	
 在`page/mod_工单工时统计.js`文件中写报表逻辑，`mod`表示一个JS模块文件，示例：
 
@@ -791,7 +791,7 @@ function loadJson(url, fnOK, options)
 		dataType: "text",
 		jdFilter: false,
 		success: function (data) {
-			val = self.evalOptions(data, null, function (ex) {
+			var val = self.evalOptions(data, null, function (ex) {
 				app_alert("文件" + url + "出错: " + ex, "e");
 			});
 			fnOK.call(this, val);
@@ -1109,7 +1109,7 @@ function compressImg(fileObj, cb, opt)
 	// 火狐7以下版本要用 img.src = fileObj.getAsDataURL();
 	img.src = window.URL.createObjectURL(fileObj);
 	img.onload = function () {
-		var rv = resizeImg(img);
+		var rv = resizeImg();
 		rv.info = "compress " + rv.name + " q=" + rv.quality + ": " + rv.w0 + "x" + rv.h0 + "->" + rv.w + "x" + rv.h + ", " + (rv.size0/1024).toFixed(0) + "KB->" + (rv.size/1024).toFixed(0) + "KB(rate=" + (rv.size / rv.size0 * 100).toFixed(2) + "%,b64=" + (rv.b64size/1024).toFixed(0) + "KB)";
 		console.log(rv.info);
 		cb(rv);
@@ -1388,7 +1388,7 @@ function makeTree(arr, idField, fatherIdField, childrenField)
     var utf8Decode = function (input) {
         var string = "";
         var i = 0;
-        var c = c1 = c2 = 0;
+        var c = 0, c2 = 0, c3 = 0;
         while (i < input.length) {
             c = input.charCodeAt(i);
             if (c < 128) {
@@ -1416,7 +1416,7 @@ function makeTree(arr, idField, fatherIdField, childrenField)
             input = utf8Encode(input);
             var key = keyString;
             if (enhance) {
-                var n = self.randInt(1,63);
+                var n = enhance == 2? (input.length%64 +1): self.randInt(1,63);
                 var n1 = (n+input.length) % 64;
                 key = key.substr(n,64-n) + key.substr(0, n) + ' '; // last is changed to space for trim
                 output = keyString.charAt(n) + key.charAt(n1);

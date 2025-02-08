@@ -2,11 +2,11 @@
 /**
 @module jquery-mycombobox
 
-@fn jQuery.fn.mycombobox(force?=false)
+@fn jQuery.fn.mycombobox(opt?)
 @key .my-combobox 关联选择框
 @var ListOptions 定义关联选择框的数据源
 
-@param force?=false 如果为true, 则调用时强制重新初始化。默认只初始化一次。
+@param opt.force?=false 如果为true, 则调用时强制重新初始化。默认只初始化一次。
 
 关联选择框组件。
 
@@ -14,11 +14,24 @@
 
 	<select name="empId" class="my-combobox" data-options="valueField: 'id', ..."></select>
 
-通过data-options可设置选项: { url, formatter(row), loadFilter(data), valueField, textField, jdEnumMap/jdEnumList }
+通过函数参数opt或组件属性data-options可设置选项: { url, formatter(row), loadFilter(data), valueField, textField, jdEnumMap/jdEnumList }
 
 初始化：
 
 	var jo = $(".my-combobox").mycombobox();
+
+(v6) 使用参数opt直接指定参数，比使用data-options指定参数优先级高：
+
+	var jo = $(".my-combobox").mycombobox({
+		url: WUI.makeUrl("dbinst"),
+		// dbinst返回数组示例`["aa","bb"]`, 转为`[{name:"aa"}, {name:"bb"}]`才可正常显示. i
+		// 数组每1项须是个对象，前两个字段分别用作value和text，如果只有1个字段，则value和text均是这个字段；也可通过valueField和textField分别指定字段名。
+		loadFilter: function (data) {
+			return $.map(data, function (e) {
+				return {name: e};
+			});
+		}
+	});
 
 注意：使用WUI.showPage或WUI.showDlg显示的逻辑页或对话框中如果有my-combobox组件，会自动初始化，无须再调用上述代码。
 
@@ -62,7 +75,7 @@
 
 (v6)也可以用input来代替select，组件会自动处理.
 
-注意查询默认是有分页的（页大小一般为20条），用参数`{pagesz:-1}`使用服务器设置的最大的页大小（后端最大pagesz默认100，可使用maxPageSz参数调节）。
+注意查询默认是有分页的（页大小一般为20条），用参数`{pagesz:-1}`使用服务器设置的最大的页大小（-1表示使用后端默认的pagesz，后端可使用maxPageSz参数调节）。
 为了精确控制返回字段与显示格式，data-options可能更加复杂，习惯上定义一个ListOptions变量包含各种下拉框的数据获取方式，便于多个页面上共享，像这样：
 
 	<select name="empId" class="my-combobox" data-options="ListOptions.Emp()"></select>
@@ -132,6 +145,11 @@
 		"CR": "未付款",
 		"CA": "已取消"
 	};
+
+jdEnumList可以是键值对，如"CR:未付款;CA:已取消"（或写成"CR=未付款 CA=已取消"），与上面OrderStatusMap相同。
+也可以简化为一组值，如"未付款;已取消"（也可写成"未付款 已取消"），它实际表示的是：`{"未付款": "未付款", "已取消": "已取消"}`
+
+@see parseEnumList
 
 ## 用loadFilter调整返回数据
 
@@ -356,6 +374,13 @@ defectId上暂时不设置，之后传参动态设置。
 
 	<select name="status" class="my-combobox" data-options="jdEnumMap:OrderStatusMap" required></select>
 
+默认的select组件不支持设置必填选项（required属性，即使加easyui-validatebox类也不行；easyui-combobox可支持验证，但它默认并未限制选项必须在列表中），加上my-combobox类即可解决：
+
+	<select name="status" class="my-combobox" required>
+		<option value="CR">新创建</option>
+		<option value="RE">已完成</option>
+	</select>
+
 旧用法（不建议使用）：
 
 	<select name="status" class="my-combobox easyui-validatebox" data-options="jdEnumMap:OrderStatusMap, required:true"></select>
@@ -363,7 +388,7 @@ defectId上暂时不设置，之后传参动态设置。
  */
 var m_dataCache = {}; // url => data
 $.fn.mycombobox = mycombobox;
-function mycombobox(force) 
+function mycombobox(userOpts) 
 {
 	var mCommon = jdModule("jdcloud.common");
 	this.each(initCombobox);
@@ -372,6 +397,7 @@ function mycombobox(force)
 	{
 		var jo = $(o);
 		var opts = WUI.getOptions(jo);
+		var force = userOpts && userOpts.force;
 		if (!force && opts.isLoaded_)
 			return;
 		if (jo.attr("required"))
@@ -384,7 +410,9 @@ function mycombobox(force)
 			jo.replaceWith(jo1);
 			jo = jo1;
 			o = jo1[0];
+			opts = WUI.getOptions(jo, opts);
 		}
+		$.extend(opts, userOpts);
 		jo.removeAttr("data-options");
 		jo.addClass("easyui-validatebox");
 		jo.validatebox(opts);
@@ -439,6 +467,9 @@ function mycombobox(force)
 			if (opts.isLoaded_)
 				return;
 			opts.isLoaded_ = true;
+			if (! (opts.jdEnumMap || opts.jdEnumList || opts.url))
+				return;
+
 			jo.prop("value_", jo.val()); // 备份val到value_
 			jo.empty();
 			// 添加空值到首行
@@ -447,7 +478,7 @@ function mycombobox(force)
 				j1.text(opts.emptyText);
 
 			if (opts.jdEnumList) {
-				opts.jdEnumMap = mCommon.parseKvList(opts.jdEnumList, ';', ':');
+				opts.jdEnumMap = parseEnumList(opts.jdEnumList);
 			}
 			if (opts.jdEnumMap) {
 				$.each(opts.jdEnumMap, function (k, v) {
@@ -482,7 +513,7 @@ function mycombobox(force)
 				opts.url_ = url;
 			}
 			if (m_dataCache[url] === undefined) {
-				self.callSvr(url, onLoadOptions);
+				WUI.callSvr(url, onLoadOptions);
 			}
 			else {
 				onLoadOptions(m_dataCache[url]);
@@ -576,6 +607,38 @@ function mycombobox_fixAsyncSetValue()
 			return hook.get.apply(this, arguments);
 		}
 	}
+}
+
+/**
+@fn parseEnumList(str)
+
+将字符串转换为键值对，专用于jdEnumList属性，常见风格示例:
+
+	a:1;b:2
+	a=1 b=2
+
+都对应: 
+
+	{a:"1", b:"2"}
+
+若值中需要转义可以用URL编码，值中有空格一般用"+"替代（也可用"%20"），示例：
+
+	COUNT+总数 SUM+总和
+
+它对应：
+
+	{"COUNT 总数": "COUNT 总数", "SUM 总和": "SUM 总和"}。
+
+@see parseKvList
+*/
+WUI.parseEnumList = parseEnumList;
+function parseEnumList(s)
+{
+	// 第一级：分号或空格，第二级：冒号或等号
+	return WUI.parseKvList(s, /[; ]/, /[:=]/, false, function (kv) {
+		for (var i=0; i<kv.length; ++i)
+			kv[i] = decodeURIComponent(kv[i]).replace('+', ' ');
+	});
 }
 mycombobox_fixAsyncSetValue();
 //}}}

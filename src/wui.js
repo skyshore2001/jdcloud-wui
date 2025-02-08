@@ -26,8 +26,7 @@ URL参数会自动加入该对象，例如URL为 `http://{server}/{app}/index.ht
 
 - g_args._debug: 指定后台的调试等级，有效值为1-9. 而且一旦指定，后端将记录debug日志。参考：后端测试模式 P_TEST_MODE，调试等级 P_DEBUG，调试日志 P_DEBUG_LOG
 - g_args.autoLogin: 记住登录信息(token)，下次自动登录；注意：如果是在手机模式下打开，此行为是默认的。示例：http://server/jdcloud/web/?autoLogin
-- g_args.phpdebug: (v6) 设置为1时，以调用接口时激活PHP调试，与vscode/netbeans/vim-vdebug等PHP调试器联合使用。参考：http://oliveche.com/jdcloud-site/phpdebug.html
-- g_args.lang: (v6.1) 指定语言，默认为开发语言"dev"，支持英文"en"（加载lib/lang-en.js）。
+- g_args.lang: (v7) 指定语言，默认为开发语言"dev"，支持英文"en"（加载lib/lang-en.js）。
 
 @see parseQuery URL参数通过该函数获取。
 */
@@ -107,12 +106,13 @@ self.options = {
 		};
 		return map[name] || name;
 	}
+	// (v7: TODO: 建议使用callSvrExt['default'].makeUrl来替代，不会有重名ac)
 	// 定制模块的接口调用地址
 	WUI.options.moduleExt.callSvr = function (name) {
 		// name为callSvr调用的接口名，返回实际URL地址；示例：
 		var map = {
-			"Ordr__Mes.query" => "../../mes/api/Ordr.query",
-			"Ordr__Item.query" => "../../mes/api/Item.query"
+			"Ordr__Mes.query": "../../mes/api/Ordr.query",
+			"Ordr__Item.query": "../../mes/api/Item.query"
 		}
 		return map[name] || name;
 	}
@@ -123,6 +123,15 @@ self.options = {
 
 /**
 @var WUI.options.xparam
+
+通讯加密。默认为1（开启），在后端接口返回当前是测试模式时，会改为0（关闭）。
+也可以在chrome控制台中直接修改，如MUI.options.xparam=0。
+
+URL参数加密后在URL参数中仅保留xp={加密值}, 即使没有URL参数也会强制加上xp=1以标识开启了加密；
+注意URL加密值每次会不一样，这将破坏浏览器的缓存机制，作为特例，对于以att/pic结尾的接口（如"att", "debugPic"等接口，按惯例为返回文件或图片的接口，一般支持缓存），在makeUrl/callSvc中加密时每次URL保持一致。
+设置WUI.options.xparam=2也会让每次加密后的URL相同。
+
+POST参数也将整体加密，且在contentType中会加上";xparam=1"标记。
  */
 	xparam: 1,
 
@@ -151,7 +160,7 @@ JdcloudPage.call(self);
 function parseArgs()
 {
 	if (location.search) {
-		g_args = mCommon.parseQuery(location.search.substr(1));
+		window.g_args = mCommon.parseQuery(location.search.substr(1));
 	}
 }
 
@@ -176,12 +185,12 @@ g_args.lang中保存着实际使用的语言。
 
 	<div><label class="lang"><input type="checkbox" value="mgr">最高管理员</label></div>
 
-	<a href="javascript:logout()" class="logout"><span class="lang"><i class="icon-exit"></i>退出系统</span></a>
+	<a href="javascript:;" onclick="logout()" class="logout"><span class="lang"><i class="icon-exit"></i>退出系统</span></a>
 
 或在代码中，使用WUI.enhanceLang(jo)来为DOM组件支持翻译，或直接用T(str)翻译字符串。
 注意lang类或enhanceLang函数不能设置组件下子组件的文字，可先取到文字组件再设置如`WUI.enhanceLang(jo.find(".title"))`。
 
-@fn T(s) 字符串翻译
+@fn T(s, defVal?) 字符串翻译
 
 T函数用于将开发语言翻译为当前使用的语言。
 
@@ -189,13 +198,13 @@ T函数用于将开发语言翻译为当前使用的语言。
 @fn enhanceLang(jo) DOM组件支持翻译
 
  */
-function T(s) {
+function T(s, def) {
 	if (s == null || LANG == null)
-		return s;
+		return def || s;
 	var s1 = s;
 	if (s.length > 2 && s.substr(-2) == "管理")
 		s1 = s.substr(0, s.length-2);
-	return LANG[s1] || s;
+	return LANG[s1] || def || s;
 }
 
 function initLang() {
@@ -628,7 +637,7 @@ function handleLogin(data)
 	}
 
 	self.dfdLogin.resolve();
-	self.showPage(self.options.pageHome);
+	self.showPage(self.options.pageHome, self.options.pageHomeOpt);
 	if (location.hash.startsWith("#page")) {
 		WUI.showPage(location.hash.replace('#', ''));
 	}
@@ -818,9 +827,12 @@ function mainInit()
 	// 标题栏右键菜单
 	self.PageHeaderMenu = {
 		items: [
-			'<div id="mnuReload">刷新页面</div>',
+			'<div id="mnuReload" data-options="iconCls:\'icon-reload\'">刷新页面</div>',
 			'<div id="mnuReloadDlg">刷新对话框</div>',
-			'<div id="mnuBatch">批量模式</div>'
+			'<div id="mnuBatch">批量模式</div>',
+			'<div id="mnuCloseTabs" data-options="iconCls:\'icon-clear\'">关闭其它页</div>',
+			'<div id="mnuCloseTabs2">关闭右侧页</div>',
+			'<div id="mnuFullscreen" title="Ctrl+Alt+双击">全屏</div>'
 		],
 
 		// 处理函数
@@ -833,8 +845,30 @@ function mainInit()
 			self.reloadDialog(jdlg);
 		},
 		mnuBatch: function () {
-			console.log(this);
+			// console.log(this);
 			self.toggleBatchMode();
+		},
+		mnuCloseTabs: function (doCloseRight) {
+			var jtabs = self.tabMain;
+			var curIdx = jtabs.tabs("getTabIndex", jtabs.tabs("getSelected"));
+			var arr = jtabs.tabs("tabs");
+			for (var i=arr.length-1; i>curIdx; --i) {
+				jtabs.tabs("close", i);
+			}
+			if (doCloseRight)
+				return;
+			// 首页不关(i=0)
+			for (var i=curIdx-1; i>0; --i) {
+				jtabs.tabs("close", i);
+			}
+		},
+		mnuCloseTabs2: function () {
+			self.PageHeaderMenu.mnuCloseTabs(true);
+		},
+		mnuFullscreen: function () {
+			var jp = self.getActivePage();
+			if (jp.size() > 0)
+				jp[0].requestFullscreen();
 		}
 	};
 

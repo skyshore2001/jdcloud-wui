@@ -85,7 +85,7 @@ function parseQuery(s)
 	if (s != "")
 	{
 		var a = s.split('&')
-		for (i=0; i<a.length; ++i) {
+		for (var i=0; i<a.length; ++i) {
 			var a1 = a[i].split("=");
 			var val = a1[1];
 			if (val === undefined)
@@ -1353,11 +1353,12 @@ function kvList2Str(kv, sep, sep2)
 }
 
 /**
-@fn parseKvList(kvListStr, sep, sep2, doReverse?) -> kvMap
+@fn parseKvList(kvListStr, sep, sep2, doReverse?, onKv?) -> kvMap
 
 解析key-value列表字符串，返回kvMap。
 
 - doReverse: 设置为true时返回反向映射
+- onKv(kv): 如果指定，可函数对数组（必为2项）可进行修改
 
 示例：
 
@@ -1366,9 +1367,15 @@ function kvList2Str(kv, sep, sep2)
 
 	var map = parseKvList("CR:新创建;PA:已付款", ";", ":", true);
 	// map: {"新创建":"CR", "已付款":"PA"}
+
+sep和sep2支持使用正则式，以下处理结果相同：
+
+	var map = parseKvList("CR:新创建;PA:已付款", /[; ]/, /[:=]/);
+	var map2 = parseKvList("CR=新创建 PA=已付款", /[; ]/, /[:=]/);
+
 */
 self.parseKvList = parseKvList;
-function parseKvList(str, sep, sep2, doReverse)
+function parseKvList(str, sep, sep2, doReverse, onKv)
 {
 	var map = {};
 	$.each(str.split(sep), function (i, e) {
@@ -1376,6 +1383,9 @@ function parseKvList(str, sep, sep2, doReverse)
 		//assert(kv.length == 2, "bad kvList: " + str);
 		if (kv.length < 2) {
 			kv[1] = kv[0];
+		}
+		if (onKv) {
+			onKv(kv);
 		}
 		if (!doReverse)
 			map[kv[0]] = kv[1];
@@ -1465,7 +1475,7 @@ function text2html(s, pics)
 		ret = s.replace(/^(?:([#-]+)\s+)?(.*)$/mg, function (m, begin, text) {
 			if (begin) {
 				if (begin[0] == '#') {
-					n = begin.length;
+					var n = begin.length;
 					return "<h" + n + ">" + text + "</h" + n + ">";
 				}
 				if (begin[0] == '-') {
@@ -1513,6 +1523,23 @@ function extendNoOverride(target)
 		});
 	});
 	return target;
+}
+
+/**
+@fn myround(floatValue, digitCnt=6)
+
+与toFixed相比，它返回float数组，不带多余的0位。
+
+	myround(114957.15999999, 4) = 114957.16
+	myround(114957.15999999, 1) = 114957.2
+
+ */
+self.myround = myround
+function myround(f, n)
+{
+	if (n === undefined)
+		n = 6;
+	return parseFloat(f.toFixed(n));
 }
 
 }/*jdcloud common*/
@@ -1665,7 +1692,7 @@ jdserver同时支持http和websocket，建议设置为：（注意顺序）
 	
 */
 function jdPush(app, handleMsg, opt) {
-	opt = Object.assign({
+	opt = $.extend({
 		user: window.g_data && g_data.userInfo && g_data.userInfo.id || ("jduser-" + Math.round(Math.random()*10000)),
 		url: "/jdserver",
 		dataType: "json",
@@ -1734,6 +1761,9 @@ function jdPush(app, handleMsg, opt) {
 			// console.warn('websocket error', ev);
 		};
 		ws.onclose = function (ev) {
+			if (tmrAlive)
+				clearTimeout(tmrAlive);
+			tmrAlive = null;
 			// doClose: 通过proxy.close()关闭后，无须重连
 			// 1000: 正常关闭; 但连jdserver时ws.close()返回1005
 			if (!doClose && ev.code != 1000 && ev.code != 1005) {
@@ -1741,8 +1771,6 @@ function jdPush(app, handleMsg, opt) {
 				reconnect();
 				return;
 			}
-			if (tmrAlive)
-				clearTimeout(tmrAlive);
 			console.log('websocket close');
 		};
 		ws.onmessage = function (ev) {
@@ -1774,6 +1802,23 @@ if (! String.prototype.replaceAll) {
 	String.prototype.replaceAll = function (from, to) {
 		return this.replace(new RegExp(from, "g"), to);
 	}
+}
+
+/**
+@fn String.split2(pattern)
+
+将字符串分为两块。替代JS默认的split函数limit参数的错误设计。
+
+	var str = "lot Lot ID";
+	var kv = str.split2(" "); // ["lot", "Lot ID"]
+	// str.split(" ", 2); // ["lot", "Lot"] 不合要求
+
+ */
+String.prototype.split2 = function (pat) {
+	var m = this.match(pat);
+	if (!m)
+		return [this.toString()];
+	return [this.substr(0, m.index), this.substr(m.index+m[0].length)]
 }
 
 // vi: foldmethod=marker 

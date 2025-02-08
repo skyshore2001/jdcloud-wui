@@ -84,26 +84,14 @@ mockData中每项可以直接是数据，也可以是一个函数：fn(param, po
 
 如果设置了MUI.callSvrExt，调用名(ac)中应包含扩展(ext)的名字，例：
 
-	MUI.callSvrExt['zhanda'] = {...};
-	callSvr(['token/get-token', 'zhanda'], ...);
-
-要模拟该接口，应设置
-
-	MUI.mockData["zhanda:token/get-token"] = ...;
-
-@see callSvrExt
-
-也支持"default"扩展，如：
-
-	MUI.callSvrExt['default'] = {...};
-	callSvr(['token/get-token', 'default'], ...);
-	或
-	callSvr('token/get-token', ...);
+	MUI.callSvrExt['zhanda'] = {...}; // 如果未定义，则找MUI.callSvrExt['default']
+	callSvr('zhanda:token/get-token', ...);
 
 要模拟该接口，可设置
 
-	MUI.mockData["token/get-token"] = ...;
+	MUI.mockData['zhanda:token/get-token'] = ...;
 
+@see callSvrExt
 */
 self.mockData = {};
 
@@ -142,7 +130,7 @@ var ajaxOpt = {
 	//dataType: "text",
 	dataFilter: function (data, type) {
 		if (this.jdFilter) {
-			rv = defDataProc.call(this, data);
+			var rv = defDataProc.call(this, data);
 			if (rv !== RV_ABORT)
 				return rv;
 			-- $.active; // ajax调用中断,这里应做些清理
@@ -337,14 +325,12 @@ function defDataProc(rv)
 
 	leaveWaiting(ctx);
 
-	if (ext) {
-		var filter = self.callSvrExt[ext] && self.callSvrExt[ext].dataFilter;
-		if (filter) {
-			var ret = filter.call(this, rv);
-			if (ret == null || ret === false)
-				self.lastError = ctx;
-			return ret;
-		}
+	var mod = getCallSvrExt(ext);
+	if (mod && mod.dataFilter) {
+		var ret = mod.dataFilter.call(this, rv);
+		if (ret == null || ret === false)
+			self.lastError = ctx;
+		return ret;
 	}
 
 	if (rv && $.isArray(rv) && rv.length >= 2 && typeof rv[0] == "number") {
@@ -370,7 +356,11 @@ function defDataProc(rv)
 		}
 
 		if (rv[0] == E_NOAUTH) {
-			if (self.tryAutoLogin()) {
+			// 第三方认证
+			if (g_data.initClient && g_data.initClient.userInfo) {
+				self.showLogin();
+			}
+			else if (self.tryAutoLogin()) {
 				$.ajax(this);
 			}
 // 				self.popPageStack(0);
@@ -378,7 +368,7 @@ function defDataProc(rv)
 			return RV_ABORT;
 		}
 		else if (rv[0] == E_AUTHFAIL) {
-			var errmsg = rv[1] || "验证失败，请检查输入是否正确!";
+			var errmsg = T(rv[1]) || "验证失败，请检查输入是否正确!";
 			self.app_alert(errmsg, "e");
 			return RV_ABORT;
 		}
@@ -387,7 +377,10 @@ function defDataProc(rv)
 			return RV_ABORT;
 		}
 		logError();
-		self.app_alert(T("操作失败") + ": " + rv[1], "e");
+		var msg = rv[1];
+		if (msg.indexOf("\n") >= 0)
+			msg = "<br><br><xmp style='max-height:50vh ;'>" + msg + "</xmp>";
+		self.app_alert(T("操作失败") + ": " + msg, "e");
 	}
 	else {
 		logError();
@@ -420,6 +413,18 @@ function getBaseUrl()
 	return self.options.serverUrl.replace(/\/[^\/]+$/, '/');
 }
 
+function getCallSvrExt(ext)
+{
+	var mod;
+	if (ext == null || ext == 'default') {
+		mod = self.callSvrExt['default'];
+	}
+	else {
+		mod = self.callSvrExt[ext] || self.callSvrExt['default'];
+	}
+	return mod;
+}
+
 /**
 @fn makeUrl(action, params?)
 
@@ -435,14 +440,6 @@ function getBaseUrl()
 
 	var url = MUI.makeUrl('zhanda:login');
 
-(deprecated) 为兼容旧代码，action可以是一个数组，在WUI环境下表示对象调用:
-
-	WUI.makeUrl(['Ordr', 'query']) 等价于 WUI.makeUrl('Ordr.query');
-
-在MUI环境下表示callSvr扩展调用:
-
-	MUI.makeUrl(['login', 'zhanda']) 等价于 MUI.makeUrl('zhanda:login');
-
 特别地, 如果action是相对路径, 或是'.php'文件, 则不会自动拼接WUI.options.serverUrl:
 
 	callSvr("./1.json"); // 如果是callSvr("1.json") 则url可能是 "../api.php/1.json"这样.
@@ -453,49 +450,42 @@ function getBaseUrl()
 self.makeUrl = makeUrl;
 function makeUrl(action, params)
 {
-	var ext;
-	if ($.isArray(action)) {
-		if (window.MUI) {
-			ext = action[1];
-			action = action[0];
-		}
-		else {
-			ext = "default";
-			action = action[0] + "." + action[1];
-		}
-	}
-	else if (action) {
-		var m = action.match(/^(\w+):(\w.*)/);
-		if (m) {
-			ext = m[1];
-			action = m[2];
-		}
-		else {
-			ext = "default";
-		}
-	}
-	else {
-		throw "makeUrl error: no action";
-	}
-
+	var action0 = action;
 	// 有makeUrl属性表示已调用过makeUrl
-	if (action.makeUrl || /^http/.test(action)) {
+	if (action.makeUrl) {
 		if (params == null)
 			return action;
-		if (action.makeUrl)
-			return makeUrl(action.action, $.extend({}, action.params, params));
-		var url = mCommon.appendParam(action, $.param(params));
-		return makeUrlObj(url);
+		return makeUrl(action.action0, $.extend({}, action.params, params));
 	}
 
+	var ext = null;
+	self.assert(!$.isArray(action)); // 不再支持旧用法: [obj, ac]或[ext, ac]
+	if (!action)
+		throw "makeUrl error: no action";
+	var m = action.match(/^(\w+):(.*)/);
+	if (m && m[1] != 'file' && m[1] != 'http' && m[1] != 'https') {
+		ext = m[1];
+		action = m[2];
+	}
 	if (params == null)
 		params = {};
 
 	var xparam = 0;
 	var url;
-	var fnMakeUrl = self.callSvrExt[ext] && self.callSvrExt[ext].makeUrl;
-	if (fnMakeUrl) {
-		url = fnMakeUrl(action, params);
+	var urlOpt = {ext: ext};
+	var mod = getCallSvrExt(ext);
+	if (mod && mod.makeUrl) {
+		url = mod.makeUrl(action, params, urlOpt);
+		/*
+		if (urlOpt.ac) {
+			action = urlOpt.ac;
+		}
+		if (urlOpt.ext) {
+			ext = urlOpt.ext;
+		}
+		*/
+	}
+	if (url) {
 	}
 	else if (self.options.moduleExt && $.isFunction(self.options.moduleExt["callSvr"]) && (url = self.options.moduleExt["callSvr"](action)) != null) {
 	}
@@ -503,15 +493,16 @@ function makeUrl(action, params)
 	else if (action[0] != '.' && action[0] != '/' && action.indexOf(".php") < 0)
 	{
 		var opt = self.options;
+		var serverUrl = urlOpt.serverUrl || opt.serverUrl;
 		var usePathInfo = !opt.serverUrlAc && !opt.xparam;
 		if (usePathInfo) {
-			if (opt.serverUrl.slice(-1) == '/')
-				url = opt.serverUrl + action;
+			if (serverUrl.slice(-1) == '/')
+				url = serverUrl + action;
 			else
-				url = opt.serverUrl + "/" + action;
+				url = serverUrl + "/" + action;
 		}
 		else {
-			url = opt.serverUrl;
+			url = serverUrl;
 			var ac = opt.serverUrlAc || "ac";
 			if (! params[ac]) {
 				params[ac] = action;
@@ -521,6 +512,8 @@ function makeUrl(action, params)
 			}
 		}
 		xparam = opt.xparam;
+		if (xparam && /(att|pic)$/i.test(action))
+			xparam = 2;
 	}
 	else {
 		if (location.protocol == "file:") {
@@ -547,13 +540,11 @@ function makeUrl(action, params)
 		params._app = self.options.appName;
 	if (g_args._debug)
 		params._debug = g_args._debug;
-	if (g_args.phpdebug)
-		params.XDEBUG_SESSION_START = 1;
 
 	var p = $.param(params);
 	// 无参数时，也会设置xp=1，用于通知callSvr对post内容加密
 	if (xparam)
-		p = "xp=" + (p? self.base64Encode(p, true): 1);
+		p = "xp=" + (p? self.base64Encode(p, xparam): 1);
 	var ret = mCommon.appendParam(url, p);
 	return makeUrlObj(ret);
 
@@ -561,14 +552,10 @@ function makeUrl(action, params)
 	{
 		var o = new String(url);
 		o.makeUrl = true;
-		if (action.makeUrl) {
-			o.action = action.action;
-			o.params = $.extend({}, action.params, params);
-		}
-		else {
-			o.action = action;
-			o.params = params;
-		}
+		o.action = action;
+		o.params = params;
+		o.action0 = action0;
+		o.ext = ext;
 		delete o.params.ac;
 		return o;
 	}
@@ -724,10 +711,13 @@ JS:
 callSvr扩展示例：
 
 	MUI.callSvrExt['zhanda'] = {
-		makeUrl: function(ac, param) {
+		// opt.ext='zhanda'即当前扩展名
+		// 如果不返回url，则走默认逻辑，此时若对方后端也是jdcloud框架，还可设置opt.serverUrl修改接口基础地址
+		makeUrl: function(ac, param, opt) {
 			// 只需要返回接口url即可，不必拼接param
 			return 'http://hostname/lcapi/' + ac;
 		},
+		// this为ajax选项
 		dataFilter: function (data) {
 			if ($.isPlainObject(data) && data.code !== undefined) {
 				if (data.code == 0)
@@ -748,9 +738,9 @@ callSvr扩展示例：
 		console.log(data);
 	});
 
-旧的调用方式ac参数使用数组，现在已不建议使用：
+旧的调用方式ac参数可使用数组，现已废弃：
 
-	callSvr(['token/get-token', 'zhanda'], ...);
+	callSvr(['token/get-token', 'zhanda'], ...); // 出错!
 
 @key callSvrExt[].makeUrl(ac, param)
 
@@ -779,8 +769,15 @@ callSvr扩展示例：
 如果要修改callSvr缺省调用方法，可以改写 MUI.callSvrExt['default']。示例：
 
 	MUI.callSvrExt['default'] = {
-		makeUrl: function(ac) {
-			return '../api.php/' + ac;
+		// 只需返回基本url，不用拼接params;
+		// (v7) 如果不返回url，则走默认逻辑，此时若对方后端也是jdcloud框架，还可设置opt.serverUrl修改接口基础地址
+		// opt.ext是扩展名，比如未定义callSvrExt['shagang']但定义了callSvrExt['default']，当调用callSvr('shagang:Data.qurey')时，opt.ext可取到'shagang'
+		makeUrl: function(ac, params, opt) {
+			return '/app1/api/' + ac;
+			// 示例2:
+			// if (opt.ext) {
+			//	 opt.serverUrl = '/@' + opt.ext + '/firefly-web/server/api';
+			// }
 		},
 		dataFilter: function (data) {
 			var ctx = this.ctx_ || {};
@@ -1000,6 +997,23 @@ callSvr扩展示例：
 
 	$.ajax("../1.php", {success: callback})
 
+## 获取HTTP返回状态码和响应头
+
+在回调中获取this.xhr_对象(即$.ajax()返回对象, 详细可参考$.ajax手册), 通过它的getResponseHeader()方法取响应头, status属性来获取状态码, 示例
+
+	callSvr("User.query", function (data) {
+		console.log("status", this.xhr_.status);
+		var v = this.xhr_.getResponseHeader("X-Powered-By"); // header名字不分区大小写,用"x-powered-by"也可以
+		console.log(v);
+	});
+
+当然也可以通过返回的dfd对象来操作:
+
+	rv = callSvr("User.query");
+	rv.then(function (data) {
+		console.log("status", this.xhr_.status);
+	});
+
 @see $.ajax
 */
 self.callSvr = callSvr;
@@ -1015,41 +1029,20 @@ function callSvr(ac, params, fn, postParams, userOptions)
 	}
 	mCommon.assert(ac != null, "*** bad param `ac`");
 
-	var ext = null;
-	var ac0 = ac.action || ac; // ac可能是makeUrl生成过的
-	var m;
-	if ($.isArray(ac)) {
-		// 兼容[ac, ext]格式, 不建议使用，可用"{ext}:{ac}"替代
-		mCommon.assert(ac.length == 2, "*** bad ac format, require [ac, ext]");
-		ext = ac[1];
-		if (ext != 'default')
-			ac0 = ext + ':' + ac[0];
-		else
-			ac0 = ac[0];
-	}
-	// "{ext}:{ac}"格式，注意区分"http://xxx"格式
-	else if (m = ac.match(/^(\w+):(\w.*)/)) {
-		ext = m[1];
-	}
-	else if (self.callSvrExt['default']) {
-		ext = 'default';
-	}
-
-	var isSyncCall = (userOptions && userOptions.async == false);
+	var isSyncCall = (userOptions && userOptions.async == false) || self.useSyncCall.active;
 	if (m_curBatch && !isSyncCall)
 	{
 		return m_curBatch.addCall({ac: ac, get: params, post: postParams}, fn, userOptions);
 	}
 
 	var url = makeUrl(ac, params);
+	var ac0 = url.action0;
 	var ctx = {ac: ac0, tm: new Date()};
 	if (userOptions && userOptions.noLoadingImg)
 		ctx.noLoadingImg = 1;
 	if (userOptions && userOptions.noex)
 		ctx.noex = 1;
-	if (ext) {
-		ctx.ext = ext;
-	}
+	ctx.ext = url.ext;
 	ctx.dfd = $.Deferred();
 	if (self.mockData && self.mockData[ac0]) {
 		ctx.isMock = true;
@@ -1092,8 +1085,11 @@ function callSvr(ac, params, fn, postParams, userOptions)
 		opt.contentType = false;
 	}
 	$.extend(opt, userOptions);
-	if (ext && self.callSvrExt[ext].beforeSend) {
-		self.callSvrExt[ext].beforeSend(opt);
+	if (isSyncCall)
+		opt.async = false;
+	var mod = getCallSvrExt(url.ext);
+	if (mod && mod.beforeSend) {
+		mod.beforeSend(opt);
 	}
 
 	// 自动判断是否用json格式
@@ -1451,6 +1447,47 @@ function useBatchCall(opt, tv)
 	setTimeout(function () {
 		batch.commit();
 	}, tv);
+}
+
+self.useSyncCall = useSyncCall;
+function useSyncCall(tv)
+{
+	if (useSyncCall.active)
+		return;
+	tv = tv || 0;
+	useSyncCall.active = true;
+	setTimeout(function () {
+		useSyncCall.active = false;
+	}, tv);
+}
+
+/**
+@fn syslog(module, pri, content)
+
+向后端发送日志。后台必须已添加syslog插件。
+日志可在后台Syslog表中查看，客户端信息可查看ApiLog表。
+
+@param module app,fw(framework),page
+@param pri ERR,INF,WARN
+
+示例：
+
+	MUI.syslog("app", "ERR", "fail to pay: " + err.msg);
+
+注意：如果操作失败，本函数不报错。
+ */
+self.syslog = syslog;
+function syslog(module, pri, content)
+{
+	if (! Plugins.exists("syslog"))
+		return;
+
+	try {
+		var postParam = {module: module, pri: pri, content: content};
+		self.callSvr("Syslog.add", $.noop, postParam, {noex:1, noLoadingImg:1});
+	} catch (e) {
+		console.log(e);
+	}
 }
 
 }

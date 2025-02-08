@@ -13,7 +13,7 @@ var m_batchMode = false; // 批量操作模式, 按住Ctrl键。
 是否批量操作模式（即是否按住Ctrl键操作）。
 */
 self.isBatchMode = function () {
-	return m_batchMode;
+	return m_batchMode || (window.event? (window.event.ctrlKey || window.event.metaKey): false);
 }
 
 self.toggleBatchMode = toggleBatchMode;
@@ -27,7 +27,10 @@ function toggleBatchMode(val) {
 	self.tabMain.toggleClass("batchMode", m_batchMode);
 
 	// 允许点击多选
-	var opt = WUI.getActivePage().find(".datagrid-f").datagrid("options");
+	var jtbl = WUI.getActivePage().find(".datagrid-f");
+	if (jtbl.size() == 0)
+		return;
+	var opt = jtbl.datagrid("options");
 	opt.ctrlSelect = !m_batchMode;
 	$.fn.datagrid.defaults.singleSelect = false;
 	$.fn.datagrid.defaults.ctrlSelect = !m_batchMode;
@@ -131,6 +134,7 @@ function reloadTmp(jtbl, url, queryParams)
 
 // 筋斗云协议的若干列表格式转为easyui-datagrid的列表格式
 // 支持 [], { @list}, { @h, @d}格式 => {total, @rows}
+var PAGING_NO_TOTAL = 99999999;
 function jdListToDgList(data)
 {
 	if (!data)
@@ -145,7 +149,7 @@ function jdListToDgList(data)
 	}
 	else if ($.isArray(data.list)) {
 		ret = {
-			total: data.total || data.list.length,
+			total: data.total,
 			rows: data.list
 		};
 	}
@@ -154,9 +158,18 @@ function jdListToDgList(data)
 	{
 		var arr = mCommon.rs2Array(data);
 		ret = {
-			total: data.total || arr.length,
+			total: data.total,
 			rows: arr
 		};
+	}
+
+	if (ret.total === undefined) {
+		if (data.nextkey) {
+			ret.total = PAGING_NO_TOTAL;
+		}
+		else {
+			ret.total = ret.rows.length;
+		}
 	}
 	return ret;
 }
@@ -367,6 +380,7 @@ function callInitfn(jo, paramArr)
 	if (attr == null)
 		return;
 
+	var initfn;
 	try {
 		initfn = eval(attr);
 	}
@@ -395,14 +409,20 @@ function getModulePath(file)
 }
 
 /** 
-@fn showPage(pageName, showPageOpt?={title, target, pageFilter}, paramArr?=[showPageOpt])
+@fn showPage(pageName, title, paramArr|showPageOpt?)
+@fn showPage(pageName, showPageOpt)
 
-- pageName: 由page上的class指定。
-- showPageOpt.title: 如果未指定，则使用page上的title属性. (v6.1) 如果有多语言翻译，此处title是未翻译过的开发语言。
-- paramArr: 调用initfn时使用的参数，是一个数组。如果不指定，则调用initfn直接传入showPageOpt。推荐不指定该参数。
-- force: (v6.1) 如果页面已存在，默认直接跳到该页面，指定`force: 1`会刷新该页面。
+showPageOpt常用选项(v7: 支持并建议在第3参数指定)：
 
-@alias showPage(pageName, title?, paramArr?)
+- title: 标题，如果以"!"结尾，表示每次打开均刷新页面（等同于`force:1`选项）。如果未指定，则使用page上的title属性. (v7) 如果有多语言翻译，此处title是未翻译过的开发语言。
+- pageFilter: 指定列表页过滤条件，见后面示例
+- pageName: 该项由框架自动设置，与page上的class相同。
+- force: (v7) 如果页面已存在，默认直接跳到该页面，指定`force: 1`会刷新该页面, 按住ctrl键打开页面时激活该功能。
+- forceNew: (v7) 强制打开新页面, 会在Tab页标题中添加数字后缀如"_1", 按住shift键打开页面时激活该功能。
+- selected: (v7) 设置为false时, 不激活tab页, 即后台打开页面
+- target: 指定显示在哪个tabs中，见后面示例
+
+参数paramArr为兼容旧用法，不建议使用：调用initfn时使用的参数，是一个数组。如果不指定，则调用initfn直接传入showPageOpt。
 
 新页面以title作为id。
 注意：每个页面都是根据pages下相应pageName复制出来的，显示在一个新的tab页中。相同的title当作同一页面。
@@ -425,30 +445,42 @@ page调用示例:
 	WUI.showPage("pageHome", {title: "%s-" + cityName, cityName: cityName}); //e.g. 显示 "首页-上海"
 
 title用于唯一标识tab，即如果相同title的tab存在则直接切换过去。除非：
-(v5.5) 如果标题以"!"结尾, 则每次都打开新的tab页，(v6.1)等价于指定选项`showPageOpt.force:1`:
+(v5.5) 如果标题以"!"结尾, 则每次都打开新的tab页，(v7)等价于指定选项`showPageOpt.force:1`:
 
 	WUI.showPage("pageHome", "我的首页!");
 	WUI.showPage("pageHome", {title: "我的首页", force:1}); // 同上
+
+(v7) 按住Ctrl点击菜单项打开页面, 也会刷新式打开, 相当于`force:1`选项
+按住Shift点击菜单项, 强制打开新页面, 相当于`forceNew:1`选项;
+如果菜单项是链接页面(指定href为一个url), 则会在新窗口打开(默认是在tab页内即pageIframe中打开).
+
+@key pageIframe
+
+jdcloud-ganlan中内置在tab页打开独立网页（注意被开页面CSP设置及其后端跨域设置）功能，如：
+
+	WUI.showPage("pageIframe", "官网", ["http://yibo.ltd"])
+	// 也可使用绝对或相对路径
+	WUI.showPage("pageIframe", "官网", ["/"])
+
+它在store.html中包含了pageIframe的页面定义，在uimeta.js中定义了页面函数。
 
 ## showPageOpt.pageFilter: (v6) 指定列表页过滤条件(PAGE_FILTER)
 
 示例
 
 	var pageFilter = {cond: {status: "在职"}};
-	WUI.showPage("pageEmployee", {title: "员工", pageFilter: pageFilter});
+	WUI.showPage("pageEmployee", "员工", {pageFilter});
 
 它直接影响页面中的datagrid的查询条件。
 
 选项`_pageFilterOnly`用于影响datagrid查询只用page filter的条件。
 
 	var pageFilter = { cond: {status: "在职"}, _pageFilterOnly: true };
-	WUI.showPage("pageEmployee", {title: "员工", pageFilter: pageFilter});
+	WUI.showPage("pageEmployee", "员工", {pageFilter});
 
 注意：旧应用中通过paramArr[1]来指定pageFilter, 目前兼容该用法，但不推荐使用：
 
 	WUI.showPage("pageEmployee", "员工", [null, pageFilter]); // 旧写法，不推荐使用
-	// 等价于
-	WUI.showPage("pageEmployee", {title: "员工", pageFilter: pageFilter});
 
 ## (v6) 返回deferred对象
 
@@ -467,9 +499,9 @@ showPage返回deferred/promise对象，表示页面加载完成。所以如果�
 
 一般与系统页面pageTab合用，pageTab可显示一个或多个tabs，然后把新页面显示在指定tabs中。示例：
 
-	await WUI.showPage("pageTab", {title: "员工!", tabs:"40%,60%"});
-	WUI.showPage("pageEmployee", {title: "管理员", pageFilter:{cond: {perms:"~mgr"}}, target:"员工_1"});
-	WUI.showPage("pageEmployee", {title: "非管理员", pageFilter:{cond: {perms:"!~mgr"}}, target:"员工_2"});
+	await WUI.showPage("pageTab", "员工!", {tabs:"40%,60%"});
+	WUI.showPage("pageEmployee", "管理员", {pageFilter:{cond: {perms:"~mgr"}}, target:"员工_1"});
+	WUI.showPage("pageEmployee", "非管理员", {pageFilter:{cond: {perms:"!~mgr"}}, target:"员工_2"});
 
 注意：下面两个页面target要依赖于pageTab页面，所以需要加await等待pageTab页面加载完成。
 
@@ -490,7 +522,17 @@ function showPage(pageName, title_or_opt, paramArr)
 		showPageOpt.force = true;
 		showPageOpt.title = title.substr(0, title.length-1);
 	}
+	if (self.isBatchMode()) {
+		showPageOpt.force = true;
+	}
+	if (window.event && window.event.shiftKey) {
+		showPageOpt.forceNew = true;
+	}
 	if (paramArr == null) {
+		paramArr = [showPageOpt];
+	}
+	else if ($.isPlainObject(paramArr)) {
+		$.extend(true, showPageOpt, paramArr);
 		paramArr = [showPageOpt];
 	}
 	// 兼容旧应用，pageFilter=paramArr[1]; 新应用不应再使用
@@ -533,6 +575,14 @@ function showPage(pageName, title_or_opt, paramArr)
 		var title = showPageOpt.title;
 		title = T(title).replace('%s', title0);
 
+		if (showPageOpt.forceNew) {
+			if (window.showPageForceNewCnt == null)
+				window.showPageForceNewCnt = 1;
+			else
+				++ window.showPageForceNewCnt;
+			title += "_" + (window.showPageForceNewCnt);
+		}
+
 		var tt = showPageOpt.target? $("#"+showPageOpt.target): self.tabMain;
 		if (tt.tabs('exists', title)) {
 			if (!showPageOpt.force) {
@@ -553,7 +603,8 @@ function showPage(pageName, title_or_opt, paramArr)
 			title: title,
 			closable: closable,
 			fit: true,
-			content: jtab
+			content: jtab,
+			selected: showPageOpt.selected
 		});
 
 		var jpageNew = jpage.clone().appendTo(jtab);
@@ -641,11 +692,30 @@ function getDgFilter(jtbl, param, ignoreQueryParam)
 		var datagrid = isTreegrid(jtbl)? "treegrid": "datagrid";
 		var dgOpt = jtbl[datagrid]("options");
 		var p1 = dgOpt.url && dgOpt.url.params;
-		if (p1)
-			delete p1._app;
+		if (p1) {
+			p1 = $.extend(true, {}, p1);
+			var arr = ["_app", "res", "orderby", "fname", "page", "pagesz", "fmt"];
+			arr.forEach (function (e) {
+				delete p1[e];
+			});
+		}
 		var p2 = !ignoreQueryParam && dgOpt.queryParams;
 	}
 	return self.extendQueryParam({}, p1, p2, p3, param);
+}
+
+/**
+@fn getPageOpt(jpage)
+
+返回showPage时传入的参数，是一个对象：{title, ...}。
+如果jpage不是页面，则返回null。
+ */
+self.getPageOpt = getPageOpt;
+function getPageOpt(jpage) 
+{
+	var showPageArgs = jpage.data("showPageArgs_");
+	// showPage(0:pageName, 1:opt={pageName, title, pageFilter?}, 2:paramArr?);  e.g. WUI.showPage(pageName, {title: "title", pageFilter: {cond:cond}})
+	return showPageArgs && showPageArgs[1];
 }
 
 /**
@@ -669,10 +739,10 @@ function getDgFilter(jtbl, param, ignoreQueryParam)
 self.getPageFilter = getPageFilter;
 function getPageFilter(jpage, name)
 {
-	var showPageArgs = jpage.data("showPageArgs_");
+	var showPageOpt = getPageOpt(jpage);
 	// showPage(0:pageName, 1:opt={pageName, title, pageFilter?}, 2:paramArr?);  e.g. WUI.showPage(pageName, {title: "title", pageFilter: {cond:cond}})
-	if (showPageArgs && $.isPlainObject(showPageArgs[1].pageFilter)) {
-		var ret = showPageArgs[1].pageFilter;
+	if (showPageOpt && $.isPlainObject(showPageOpt.pageFilter)) {
+		var ret = showPageOpt.pageFilter;
 		if (name) {
 			ret = $.isPlainObject(ret.cond)? ret.cond[name]: null;
 			if (! isFixedField(ret))
@@ -801,7 +871,7 @@ $.fn.okCancel = function (fnOk, fnCancel) {
 对象对话框在更新模式下，按Ctrl-D或右键对话框空白处选择“再次新增”，可复制当前对象，进入添加模式。
 
 支持对子表进行复制，注意仅当子表是允许添加的才会被复制（wui-subobj组件，且设置了valueField和dlg选项）。
-TODO 由于子表支持懒加载，目前有个限制，如果子表尚未加载则无法复制；可手工点击tab页让它加载才能复制。
+(由于子表支持懒加载，当运行“再次新增”时，会自动加载所有子表数据后再复制)
 
 在对话框进入新增模式后，编号(id)会被清除，其它字段保留，
 如果对话框编写过新增时的逻辑，比如自动填写或disable某些字段，这些逻辑会生效。
@@ -833,10 +903,12 @@ function dupDlg(jdlg)
 	jdlg.find(".wui-subobj").each(function () {
 		var jsub = $(this);
 		var subOpt = WUI.getOptions(jsub);
-		var isLoaded = jsub.data("subobjLoaded_"); // TODO: 懒加载的subobj，如何取数据？
 		// 有valueField和dlg属性的子表才能添加
-		if (! (subOpt.valueField && subOpt.dlg && subOpt.dgCall && isLoaded && subOpt.relatedKey))
+		if (! (subOpt.valueField && subOpt.dlg && subOpt.dgCall && subOpt.relatedKey))
 			return;
+
+		subOpt.forceLoadData();
+		// var isLoaded = jsub.data("subobjLoaded_"); // TODO: 懒加载的subobj，如何取数据？
 
 		// 典型主子表，设置有关联字段的可以复制。支持relatedKey类似如: 'invId'或'invId={id}'这种。
 		var ms = subOpt.relatedKey.match(/^([^ =]+)/);
@@ -855,7 +927,9 @@ function dupDlg(jdlg)
 				delete e.id;
 				delete e[relatedKey];
 			});
+			subOpt.forceLoadData();
 			subOpt.dgCall("loadData", rows);
+			//jsub.data("subobjLoaded_", true);
 		}, 50);
 	});
 
@@ -1040,8 +1114,10 @@ if (isSmallScreen()) {
 
 - 查询(FormMode.forFind)
 - 显示及更新(FormMode.forSet)
-- 添加(FormMode.forAdd)
+- 新增(FormMode.forAdd)
 - 删除(FormMode.forDel)，但实际上不会打开对话框
+
+(v7) 按住Shift双击一行、或点击查询/新增/修改按钮，会打开新的对话框，而不是复用默认对话框。
 
 注意：
 
@@ -1270,9 +1346,9 @@ function showDlg(jdlg, opt)
 	if (opt.cancel)
 		return;
 
-	var btns = [{id: "btnOk", text: opt.okLabel, iconCls:'icon-ok', handler: fnOk}];
+	var btns = [{id: "btnOk", text: opt.okLabel, iconCls:'', handler: fnOk}];
 	if (! opt.noCancel) 
-		btns.push({id: "btnCancel", text: opt.cancelLabel, iconCls:'icon-cancel', handler: fnCancel})
+		btns.push({id: "btnCancel", text: opt.cancelLabel, iconCls:'', handler: fnCancel})
 	if ($.isArray(opt.buttons))
 		btns.unshift.apply(btns, opt.buttons);
 
@@ -1293,7 +1369,7 @@ function showDlg(jdlg, opt)
 		title: opt.title
 	}, opt.dialogOpt, WUI.getOptions(jdlg));
 	if (jdlg.is(":visible")) {
-		dlgOpt0 = jdlg.dialog("options");
+		var dlgOpt0 = jdlg.dialog("options");
 		$.extend(dlgOpt, {
 			left: dlgOpt0.left,
 			top: dlgOpt0.top
@@ -1308,6 +1384,7 @@ function showDlg(jdlg, opt)
 	jdlg.dialog(dlgOpt);
 	var perm = jdlg.attr("wui-perm") || jdlg.dialog("options").title;
 	jdlg.toggleClass("wui-readonly", (opt.objParam && opt.objParam.readonly) || !self.canDo(perm, "对话框") || (formMode==FormMode.forSet && !self.canDo(perm, "修改")) );
+	jdlg.parent().addClass("wui-fullscreen"); // ctrl-alt-双击对话框顶部或底部时支持窗口全屏(中间部分本身就支持全屏), 注意对话框须先最大化才能自动缩放
 
 	jdlg.okCancel(fnOk, opt.noCancel? undefined: fnCancel);
 
@@ -1538,25 +1615,6 @@ function addFieldByMeta(jdlg, jp, itemArr)
 	}
 }
 
-// 按住Ctrl/Command键进入批量模式。
-var tmrBatch_;
-$(document).keydown(function (e) {
-	if (e.ctrlKey || e.metaKey) {
-		m_batchMode = true;
-		clearTimeout(tmrBatch_);
-		tmrBatch_ = setTimeout(function () {
-			m_batchMode = false;
-			tmrBatch_ = null;
-		},500);
-	}
-});
-$(window).keyup(function (e) {
-	if (e.ctrlKey || e.metaKey) {
-		m_batchMode = false;
-		clearTimeout(tmrBatch_);
-	}
-});
-
 /**
 @fn batchOp(obj, ac, jtbl, opt={data, acName="操作", onBatchDone, batchOpMode=0, queryParam})
 
@@ -1782,17 +1840,17 @@ function batchOp(obj, ac, jtbl, opt)
 
 	var selArr =  jtbl.datagrid("getChecked");
 	var batchOpMode = opt.batchOpMode;
-	if (!batchOpMode && ! (m_batchMode || selArr.length > 1)) {
+	if (!batchOpMode && ! (self.isBatchMode() || selArr.length > 1)) {
 		return false;
 	}
-	if (batchOpMode === 2 && !m_batchMode && selArr.length == 0) {
+	if (batchOpMode === 2 && !self.isBatchMode() && selArr.length == 0) {
 		self.app_alert(T("请先选择一行。"), "w");
 		return false;
 	}
 
 	var doBatchOnSel = selArr.length > 1 && (selArr[0].id != null || opt.offline);
 	// batchOpMode=2时，未按Ctrl时选中一行也按批量操作
-	if (!doBatchOnSel && batchOpMode === 2 && !m_batchMode && selArr.length == 1 && selArr[0].id != null)
+	if (!doBatchOnSel && batchOpMode === 2 && !self.isBatchMode() && selArr.length == 1 && selArr[0].id != null)
 		doBatchOnSel = true;
 
 	// offline时批量删除单独处理
@@ -1991,7 +2049,7 @@ function getTopDialog()
 注意：对于内部逻辑页无意义。
 
 @var g_data.doUpload
-(v6.1) 为便于在reload页面时定制逻辑，在unload页面时会设置g_data.doUnload变量为true，可以页面pagedestory事件中检测处理，如：
+(v7) 为便于在reload页面时定制逻辑，在unload页面时会设置g_data.doUnload变量为true，可以页面pagedestory事件中检测处理，如：
 
 	jpage.on("pagedestroy", onPageDestroy);
 	function onPageDestroy() {
@@ -2483,6 +2541,30 @@ function doFind(jo, jtbl, doAppendFilter)
 }
 
 /**
+@fn WUI.setDlgReadonly(jdlg, fn(data))
+
+FormMode.forSet模式下，根据数据设置对话框是否只读, 示例:
+
+	WUI.setDlgReadonly(jdlg, function (data) {
+		return (data.clearFlag != 0 || data.年月) && !g_data.hasRole("mgr");
+	});
+
+*/
+self.setDlgReadonly = setDlgReadonly;
+function setDlgReadonly(jdlg, fn)
+{
+	jdlg.on("beforeshow", function (ev, formMode, dlgOpt) {
+		if (formMode != FormMode.forSet)
+			return;
+		var val = fn(dlgOpt.data);
+		if (val !== undefined) {
+			var objParam = jdlg.prop("objParam");
+			objParam.readonly = val;
+		}
+	});
+}
+
+/**
 @fn showObjDlg(jdlg, mode, opt?={jtbl, id, obj})
 
 @param jdlg 可以是jquery对象，也可以是selector字符串或DOM对象，比如 "#dlgOrder". 注意：当对话框保存为单独模块时，jdlg=$("#dlgOrder") 一开始会为空数组，这时也可以调用该函数，且调用后jdlg会被修改为实际加载的对话框对象。
@@ -2570,7 +2652,7 @@ param opt.onOk Function(retData) (v6) 与showDlg的onOk参数一致。在提交�
 		}
 	}
 
-(v6.1) 通过jdlg.prop('objParam')可取到对象对话框的参数。
+(v7) 通过jdlg.prop('objParam')可取到对象对话框的参数。
 
 @param opt.reloadRow() 可用于刷新本对话框关联的表格行数据
 
@@ -2582,6 +2664,15 @@ function showObjDlg(jdlg, mode, opt)
 {
 	if (jdlg.constructor != jQuery)
 		jdlg = $(jdlg);
+	// forceNew: 按住Shift双击点开对话框，或点添加/设置，则打开新对话框
+	if (window.event && window.event.shiftKey && (mode == FormMode.forAdd || mode == FormMode.forSet || mode == FormMode.forFind) && jdlg.selector[0] == '#') {
+		if (window.showDlgForceNewCnt == null)
+			window.showDlgForceNewCnt = 1;
+		else
+			++ window.showDlgForceNewCnt;
+		var sel = jdlg.selector + "_inst_" + window.showDlgForceNewCnt;
+		jdlg = $(sel);
+	}
 	if (loadDialog(jdlg, onLoad, opt))
 		return;
 	function onLoad() {
@@ -2635,13 +2726,13 @@ function showObjDlg(jdlg, mode, opt)
 	var url;
 	if (mode == FormMode.forAdd) {
 		if (! opt.offline)
-			url = self.makeUrl([obj, "add"], jd.url_param);
+			url = self.makeUrl(obj + '.add', jd.url_param);
 //		if (jd.jtbl) 
 //			jd.jtbl.datagrid("clearSelections");
 	}
 	else if (mode == FormMode.forSet) {
 		if (! opt.offline)
-			url = self.makeUrl([obj, "set"], {id: id});
+			url = self.makeUrl(obj + '.set', {id: id});
 	}
 	else if (mode == FormMode.forDel) {
 		if (opt.offline) {
@@ -2744,7 +2835,7 @@ function showObjDlg(jdlg, mode, opt)
 			load_data = $.extend({}, rowData);
 		}
 		else {
-			var load_url = self.makeUrl([obj, 'get'], {id: id});
+			var load_url = self.makeUrl(obj + '.get', {id: id});
 			var data = self.callSvrSync(load_url);
 			if (data == null)
 				return;
@@ -2942,12 +3033,16 @@ function showObjDlg(jdlg, mode, opt)
 	jtbl.datagrid(dgOpt);
 
 特别地，要添加导出数据到Excel文件的功能按钮，可以增加参数"export"作为按钮定义：
-导入可以用"import", 快速查询可以用"qsearch" (这两个以扩展方式在jdcloud-wui-ext.js中定义):
+导入可以用"import", 快速查询可以用"qsearch" (这两个以扩展方式在jdcloud-wui-ext.js中定义)，复制可以用"dup":
 
 	var dgOpt = {
 		...
-		toolbar: WUI.dg_toolbar(jtbl, jdlg, "import", "export", "-", btn1, btn2, "qsearch"),
+		toolbar: WUI.dg_toolbar(jtbl, jdlg, "import", "export", "dup", "-", btn1, btn2, "qsearch"),
 	}
+
+@var toolbar-dup 复制
+
+(v7) 复制一行或多行数据，调用后端{Obj}.dup(id)接口。
 
 @see toolbar-qsearch 模糊查询
 
@@ -3125,38 +3220,51 @@ function setToolbarMenu(jtbl, enableMap)
 $.extend(dg_toolbar, {
 	r: function (ctx) {
 		return {text:'刷新', iconCls:'icon-reload', handler: function() {
-			reload(ctx.jtbl, null, m_batchMode?{}:null);
+			reload(ctx.jtbl, null, self.isBatchMode()?{}:null);
+			return false;
 		}} // Ctrl-点击，清空查询条件后查询。
 	},
 	f: function (ctx) {
 		// 支持用户自定义查询。class是扩展属性，参考 EXT_LINK_BUTTON
 		return {text:'查询', class: 'splitbutton', iconCls:'icon-search', handler: function () {
 			showObjDlg(ctx.jdlg, FormMode.forFind, {jtbl: ctx.jtbl});
+			return false;
 		}, menu: self.createFindMenu(ctx.jtbl) }
 	},
 	a: function (ctx) {
 		return {text:'新增', iconCls:'icon-add', handler: function () {
 			showObjDlg(ctx.jdlg, FormMode.forAdd, {jtbl: ctx.jtbl});
+			return false;
 		}}
 	},
 	s: function (ctx) {
 		return {text:'修改', iconCls:'icon-edit', handler: function () {
 			showObjDlg(ctx.jdlg, FormMode.forSet, {jtbl: ctx.jtbl});
+			return false;
 		}}
 	},
 	d: function (ctx) {
 		return {text:'删除', iconCls:'icon-remove', handler: function () {
 			showObjDlg(ctx.jdlg, FormMode.forDel, {jtbl: ctx.jtbl});
+			return false;
 		}}
 	},
 	'export': function (ctx) {
-		return {text: '导出', class: 'splitbutton', iconCls: 'icon-save', handler: getExportHandler(ctx.jtbl),
-			menu: createExportMenu(ctx.jtbl)
+		var handler = getExportHandler(ctx.jtbl);
+		return {text: '导出', class: 'splitbutton', iconCls: 'icon-save', handler: handler,
+			menu: createExportMenu(handler)
 		}
+	},
+	dup: function (ctx) {
+		return {text:'复制', iconCls:'icon-add', handler: function () {
+			self.GridHeaderMenu.dup(ctx.jtbl);
+			return false;
+		}}
 	}
 });
 
-function createExportMenu(jtbl)
+self.createExportMenu = createExportMenu;
+function createExportMenu(handler)
 {
 	var jmenu = $('<div>' + 
 		'<div data-options="id:\'csv\'">逗号分隔(csv)</div>' + 
@@ -3168,8 +3276,7 @@ function createExportMenu(jtbl)
 	jmenu.menu({
 		onClick: function (item) {
 			console.log(item);
-			var handler = getExportHandler(jtbl, null, {fmt: item.id});
-			handler();
+			handler({exportParam: {fmt: item.id}});
 		}
 	})
 	return jmenu;
@@ -3184,7 +3291,17 @@ function createExportMenu(jtbl)
 */
 self.dg_dblclick = function (jtbl, jdlg)
 {
+	var t0;
 	return function (idx, data) {
+		// bugfix: easyui在手机上用touch事件模拟dblclick，在初次打开数据表并双击时会连续回调两次（电脑上无法重现），导致加载对话框报错(bad initfn xxx)。
+		// 这里设置500ms内不允许多次双击规避。
+		var t1 = new Date();
+		if (t0 && t1-t0 < 500) {
+			console.warn('ignore duplicate dblclick');
+			return;
+		}
+		t0 = t1;
+
 //		jtbl.datagrid("selectRow", idx);
 		showObjDlg(jdlg, FormMode.forSet, {jtbl: jtbl});
 	}
@@ -3211,13 +3328,18 @@ function enhanceAnchor(jo)
 	if (jo.attr("target"))
 		return;
 
-	var title = jo.text();
+	var title = jo.text().trim();
 //	console.log(title);
 	jo.click(function (ev) {
+		var showPageOpt = {title: title};
 		var href = $(this).attr("href");
+		if (href[0] == '!') {
+			href = href.substr(1);
+			showPageOpt.force = 1;
+		}
 		if (href.search(/^#(page\w+)$/) >= 0) {
 			var pageName = RegExp.$1;
-			WUI.showPage.call(this, pageName);
+			WUI.showPage.call(this, pageName, showPageOpt);
 			return false;
 		}
 /*
@@ -3230,8 +3352,16 @@ function enhanceAnchor(jo)
 			return false;
 		}
 */
-		if (href.match(/^https?:\/\//)) {
-			WUI.showPage("pageIframe", title, [href]);
+		if (href.match(/^(http|[\.\/])/)) {
+			if (ev.shiftKey) {
+				// 避免浏览器默认动作将shift在新窗口打开（希望在新tab页打开）
+				setTimeout(function () {
+					window.open(href);
+				});
+			}
+			else {
+				WUI.showPage("pageIframe", showPageOpt, [href]);
+			}
 			return false;
 		}
 	});
@@ -3267,12 +3397,11 @@ function enhanceAnchor(jo)
 self.getExportHandler = getExportHandler;
 function getExportHandler(jtbl, ac, param)
 {
-	param = $.extend({}, {
-		fmt: "excel",
-		pagesz: -1
-	}, param);
-
-	return function () {
+	return function (ev) {
+		var p0 = $.extend({}, {
+			fmt: "excel",
+			pagesz: -1
+		}, param, ev && ev.exportParam);
 		if (ac == null) {
 			if (jtbl.size() == 0 || !jtbl.hasClass("datagrid-f"))
 				throw "error: bad datagrid: \"" + jtbl.selector + "\"";
@@ -3280,18 +3409,18 @@ function getExportHandler(jtbl, ac, param)
 			ac = jtbl[datagrid]("options").url;
 			if (ac == null) {
 				app_alert("该数据表不支持导出", "w");
-				return;
+				return false;
 			}
 		}
-		var p1 = getQueryParamFromTable(jtbl, param);
+		var p1 = getQueryParamFromTable(jtbl, p0);
 		// dont export gres fields. 仅当未指定res时自动设置。
-		if (p1.gres && !(param && param.res))
+		if (p1.gres && !(p0 && p0.res))
 			p1.gresHidden = 1;
 		var debugShow = false;
-		if (m_batchMode) {
+		if (self.isBatchMode()) {
 			var fmt = prompt("输入导出格式: excel csv txt excelcsv html outfile(无导出条数限制), 以!结尾为调试输出", p1.fmt);
 			if (!fmt)
-				return;
+				return false;
 			if (fmt.substr(-1) == "!") {
 				fmt = fmt.substr(0, fmt.length-1);
 				debugShow = true;
@@ -3305,7 +3434,7 @@ function getExportHandler(jtbl, ac, param)
 		console.log("(HINT: debug via Ctrl-Export OR window.open=$.get)");
 		if (debugShow) {
 			$.get(url);
-			return;
+			return false;
 		}
 		window.open(url);
 	}
@@ -3352,25 +3481,18 @@ function getQueryParamFromTable(jtbl, param)
 			param1.orderby += " " + opt.sortOrder;
 	}
 	if (param.res === undefined) {
-		var resArr = [];
-		$.each([opt.frozenColumns[0], opt.columns[0]], function (idx0, cols) {
-			if (cols == null)
-				return;
-			$.each(cols, function (i, e) {
-				if (! e.field || e.field.substr(-1) == "_")
-					return;
-				var one = e.field;
-				if (one != e.title || e.jdEnumMap) {
-					if (/[\s()\[\]\{\}\/\\,<>.!@#$%^&*-+]|^\d/.test(e.title))
-						one += " " + Q(e.title, '"');
-					else
-						one += " " + e.title;
-				}
-				if (e.jdEnumMap) {
-					one += '=' + mCommon.kvList2Str(e.jdEnumMap, ';', ':');
-				}
-				resArr.push(one);
-			});
+		var resArr = self.getDgCols(opt, function (e) {
+			var one = e.field;
+			if (one != e.title || e.jdEnumMap) {
+				if (/[\s()\[\]\{\}\/\\,<>.!@#$%^&*-+]|^\d/.test(e.title))
+					one += " " + Q(e.title, '"');
+				else
+					one += " " + e.title;
+			}
+			if (e.jdEnumMap) {
+				one += '=' + mCommon.kvList2Str(e.jdEnumMap, ';', ':');
+			}
+			return one;
 		});
 		param1.res = resArr.join(',');
 	}
@@ -3389,6 +3511,54 @@ function getQueryParamFromTable(jtbl, param)
 		*/
 	}
 	return param1;
+}
+
+/**
+@fn getDgColMap(jtbl|dgOpt) -> {field => {field,title,jdEnumMap?,...}}
+
+取datagrid/treegrid数据表的字段映射表（不含以"_"结尾的特殊字段）。
+ */
+self.getDgColMap = getDgColMap;
+function getDgColMap(jtbl_or_opt)
+{
+	var map = {};
+	getDgCols(jtbl_or_opt, function (e) {
+		map[e.field] = e;
+	});
+	return map;
+}
+
+/**
+@fn getDgCols(jtbl|dgOpt, fn) -> [{field,title,jdEnumMap?,...}]
+
+取datagrid/treegrid数据表的列信息数组（不含以"_"结尾的特殊字段）。
+如果指定一个处理方法fn(col), 则返回fn返回数据组装为列数组.
+*/
+self.getDgCols = getDgCols;
+function getDgCols(jtbl_or_dgOpt, fn)
+{
+	var dgOpt = jtbl_or_dgOpt;
+	if (jtbl_or_dgOpt instanceof jQuery) { // is jtbl
+		var jtbl = jtbl_or_dgOpt;
+		var datagrid = WUI.isTreegrid(jtbl)? "treegrid": "datagrid";
+		dgOpt = jtbl[datagrid]("options");
+	}
+	var ret = [];
+	$.each([dgOpt.frozenColumns[0], dgOpt.columns[0]], function (idx0, cols) {
+		if (cols == null)
+			return;
+		$.each(cols, function (i, e) {
+			if (! e.field || e.field.substr(-1) == "_")
+				return;
+			if (fn) {
+				ret.push(fn(e));
+			}
+			else {
+				ret.push(e);
+			}
+		});
+	});
+	return ret;
 }
 
 /**
@@ -3430,8 +3600,8 @@ function getDgInfo(jtbl, res)
 	res.param = opt.queryParams;
 	res.ac = opt.url && opt.url.action;
 	if (res.ac) {
-		var m = res.ac.match(/\w+(?=\.query\b)/);
-		res.obj = m && m[0];
+		var m = res.ac.match(/^([A-Z]\w*)(\.query)?$/); // e.g. "Contact.query" or "Contact"
+		res.obj = m && m[1];
 	}
 	if (res.sel !== undefined) {
 		res.sel = jtbl[datagrid]('getSelected');
@@ -3440,16 +3610,7 @@ function getDgInfo(jtbl, res)
 		res.selArr = jtbl[datagrid]("getChecked");
 	}
 	if (res.res !== undefined) {
-		res.res = {};
-		$.each([opt.frozenColumns[0], opt.columns[0]], function (idx0, cols) {
-			if (cols == null)
-				return;
-			$.each(cols, function (i, e) {
-				if (! e.field || e.field.substr(-1) == "_")
-					return;
-				res.res[e.field] = e;
-			});
-		});
+		res.res = getDgColMap(opt);
 	}
 	if (res.dgFilter !== undefined) {
 		res.dgFilter = getDgFilter(jtbl);
@@ -3510,11 +3671,20 @@ var Formatter = {
 相当于picx({thumb:1})。不显示图片列表预览，点击链接显示图片列表。
  */
 	picx: function (opt) {
-		if (opt === null)
+		if (opt == null) // undefined/null
 			opt = {};
 		return function (value, row) {
 			if (value == null)
 				return "(无图)";
+
+			var value1;
+			// value is url, not picId. TODO: 支持多图
+			if (! /^\d+([,:]|$)/.test(value)) {
+				var url = "../" + value;
+				value1 = '<img alt="' + value + '" src="' + url + '">';
+				return '<a target="_black" href="' + url + '">' + value1 + '</a>';
+			}
+			// TODO: 支持多图
 			if (!opt.preview)
 				return '<a target="_black" href="' + linkUrl(value) + '">' + value + '</a>';
 
@@ -3537,6 +3707,7 @@ var Formatter = {
 			return '<a target="_black" href="' + linkUrl(value) + '">' + value1 + '</a>';
 		}
 		function linkUrl(value) {
+			// TODO: 支持点击直接打开图片浏览器
 			if (!opt.thumb) {
 				return WUI.makeUrl("pic", {id:value});
 			}
@@ -3729,9 +3900,10 @@ var Formatter = {
 		if (! value)
 			return;
 		value = Math.ceil(value * 100);
+		var w = (value > 100? 100: value);
 		var htmlstr = '<div class="easyui-progressbar progressbar" style="min-width: 100px;width: 100%; height: 20px;">'
-			+ '<div class="progressbar-value" style="width: ' + value + '%; height: 20px; line-height: 20px;"></div>'
-			+ '<div class="progressbar-text" style="width: ' + value + '%; top: 0;">' + value+ '%</div>'
+			+ '<div class="progressbar-value" style="width: ' + w + '%; height: 20px; line-height: 20px;"></div>'
+			+ '<div class="progressbar-text" style="width: ' + w + '%; top: 0;">' + value+ '%</div>'
 			+ '</div>';
 		return htmlstr;
 	}
@@ -3778,9 +3950,11 @@ function dgLoader(param, success, error)
 	var jo = $(this);
 	var datagrid = self.isTreegrid(jo)? "treegrid": "datagrid";
 	var opts = jo[datagrid]("options");
+	/*
 	if (opts.data) {
-		return defaultDgLoader[datagrid].apply(this, arguments);
+		return $.fn[datagrid].defaults_bak.loadFilter.apply(this, arguments);
 	}
+	*/
 	if (opts.url == null)
 		return false;
 	var param1 = {};
@@ -3858,7 +4032,20 @@ function dgLoadFilter(data)
 	var jtbl = $(this);
 	var dgOpt = jtbl.datagrid("options");
 	if (dgOpt.pagination) {
-		hidePagerAuto(jtbl, doHidePager);
+		var jpager = jtbl.datagrid("getPager");
+		if (ret.total == PAGING_NO_TOTAL && !dgOpt.pagingNoTotal) {
+			jpager.pagination({ layout:['list', 'sep', 'first','prev','manual','next', 'sep', 'refresh'], afterPageText:'页' });
+			dgOpt.pagingNoTotal = true;
+		}
+		// 无total时正确显示最后一页
+		if (dgOpt.pagingNoTotal && isOnePage) {
+			var pagerOpt = jpager.pagination('options');
+			if (pagerOpt.pageNumber != 1) {
+				ret.total = pagerOpt.pageNumber * pagerOpt.pageSize;
+			}
+		}
+
+		hidePagerAuto(jtbl, jpager, doHidePager);
 	}
 	// 支持统计列计算。TODO: 允许自定义统计逻辑与格式
 	if (dgOpt.showFooter && dgOpt.sumFields) {
@@ -3872,14 +4059,14 @@ function dgLoadFilter(data)
 					return s;
 				return s + parseFloat(v);
 			}, 0);
+			stat[field] = self.myround(stat[field], 6);
 		});
 		ret.footer = [stat];
 	}
 	return ret;
 
-	function hidePagerAuto(jtbl, doHidePager) {
+	function hidePagerAuto(jtbl, jpager, doHidePager) {
 		var tmpName = "_restorefn_pager";
-		var jpager = jtbl.datagrid("getPager");
 		var isHidden = jpager.css("display") == "none";
 		if (doHidePager && !isHidden) {
 			var h = jpager.height();
@@ -3923,10 +4110,7 @@ function resetPageNumber(jtbl)
 
 其原因是easyui-datagrid的autoSizeColumn方法有性能问题。当一页行数很多时可尝试使用quickAutoSize选项。
 */
-var defaultDgLoader = {
-	datagrid: $.fn.datagrid.defaults.loader,
-	treegrid: $.fn.treegrid.defaults.loader
-}
+$.fn.datagrid.defaults_bak = $.extend({}, $.fn.datagrid.defaults);
 $.extend($.fn.datagrid.defaults, {
 // 		fit: true,
 // 		width: 1200,
@@ -3952,7 +4136,7 @@ $.extend($.fn.datagrid.defaults, {
 	},
 
 	onLoadSuccess: function (data) {
-		if (data.total) {
+		if (data.total || ($.isArray(data) && data.length > 0)) {
 			// bugfix: 有时无法显示横向滚动条
 			$(this).datagrid("fitColumns");
 		}
@@ -3975,7 +4159,7 @@ CSS类, 可定义无数据提示的样式
 	// 右键点左上角空白列:
 	onHeaderContextMenu: function (ev, field) {
 		var jtbl = $(this);
-		var jmenu = GridHeaderMenu.showMenu({left: ev.pageX, top: ev.pageY, field}, jtbl, field);
+		var jmenu = GridHeaderMenu.showMenu({left: ev.pageX, top: ev.pageY}, jtbl, field);
 
 		ev.preventDefault();
 	},
@@ -3995,7 +4179,8 @@ CSS类, 可定义无数据提示的样式
 
 	// 此回调由扩展datagrid源码得来
 	onInitOptions: function (opt) {
-		var ac = opt.url && opt.url.action;
+		// NOTE: opt.url1 for treegrid (fixed in easyui lib)
+		var ac = opt.url && opt.url.action || (opt.url1 && opt.url1.action);
 		if (ac) {
 			var m = ac.match(/\w+(?=\.query\b)/);
 			var obj = m && m[0];
@@ -4053,11 +4238,11 @@ CSS类, 可定义无数据提示的样式
 var GridHeaderMenu = {
 	showMenu: function (pos, jtbl, field) {
 		// 注意id与函数名的匹配
-		jmenu = $('<div class="mnuGridHeader"></div>');
+		var jmenu = $('<div class="mnuGridHeader"></div>');
 		var items = field? GridHeaderMenu.itemsForField: GridHeaderMenu.items;
 		$.each(items, function (i, e) {
 			var je = $(e);
-			var perm = je.attr("wui-perm") || je.text();
+			var perm = je.attr("wui-perm") || je.text().trim();
 			if (canDo("通用", perm))
 				je.appendTo(jmenu);
 		});
@@ -4071,17 +4256,19 @@ var GridHeaderMenu = {
 	// 表头左侧右键菜单
 	items: [
 		'<div id="showDlgFieldInfo">字段信息</div>',
-		'<div id="filterGrid" data-options="iconCls:\'icon-search\'">自定义查询</div>',
+		'<div id="filterGrid" data-options="iconCls:\'icon-filter\'">数据筛选</div>',
 		'<div id="showDlgDataReport" data-options="iconCls:\'icon-sum\'">自定义报表</div>',
-		'<div id="showDlgQuery">高级查询</div>',
+		'<div id="showDlgQuery" data-options="iconCls:\'icon-search\'">高级查询</div>',
+		'<div id="dup" wui-perm="新增">再次新增</div>',
 		'<div id="import" wui-perm="新增" data-options="iconCls:\'icon-add\'">导入</div>',
-		'<div id="export" data-options="iconCls:\'icon-save\'">导出</div>'
+		'<div id="export" data-options="iconCls:\'icon-save\'">导出</div>',
+		'<div id="copyTable">复制表</div>',
 	],
 	// 列头右键菜单
 	itemsForField: [
 		'<div id="copyCol">复制本列</div>',
 		'<div id="statCol" data-options="iconCls:\'icon-sum\'">统计本列</div>',
-		'<div id="doFindCell" data-options="iconCls:\'icon-search\'">查询本列</div>',
+		'<div id="doFindCell" data-options="iconCls:\'icon-filter\'">筛选本列</div>',
 		'<div id="freezeCol" data-options="iconCls:\'icon-lock\'">冻结列</div>',
 	],
 	// 以下为菜单项处理函数
@@ -4110,20 +4297,41 @@ var GridHeaderMenu = {
 			strArr.push("<b>[排序]</b>\n" + param.orderby);
 
 		// {name/字段名, title/标题, cmt/备注?, example/示例?}
-		var varr = WUI.list2varr(param.res, " ", ",");
-		var resArr = WUI.rs2Array({h:["name","title"], d:varr});
-		var rows = jtbl.datagrid("getData").rows;
+		var resArr = $.map(param.res.split(','), function (e) {
+			var a = e.split2(' ');
+			return {name: a[0], title: a[1]};
+		});
+		var rows, rowStartIdx;
+		if (datagrid == "datagrid") {
+			rows = jtbl.datagrid("getData").rows;
+			var sel = jtbl.datagrid("getSelected");
+			rowStartIdx = sel? jtbl.datagrid("getRowIndex", sel): 0;
+		}
+		else {
+			rows = jtbl.treegrid("getData");
+			var sel = jtbl.treegrid("getSelected") || rows[0];
+			if (sel) {
+				var row = $.extend({}, sel);
+				delete row.children;
+				delete row.state;
+				delete row.checkState;
+				delete row.checked;
+				delete row._parentId;
+				rows = [row];
+			}
+			rowStartIdx = 0;
+		}
 		if (rows.length > 0) {
 			var colMap = {};
 			$.each(resArr, function (i, res) {
 				colMap[ res.name ] = true; // name
-				addExample(rows, res);
+				addExample(rows, res, rowStartIdx);
 			});
-			$.each(rows[0], function (field, val) {
+			$.each(rows[rowStartIdx], function (field, val) {
 				if (colMap[field])
 					return;
 				var res = { name:field, title:"(未使用)"};
-				addExample(rows, res);
+				addExample(rows, res, rowStartIdx);
 				resArr.push(res);
 			});
 		}
@@ -4135,7 +4343,7 @@ var GridHeaderMenu = {
 		if ($("#styleFieldInfo").size() == 0) {
 			var style = "<style id='styleFieldInfo'>" + 
 				".dlgFieldInfo .datagrid-cell { white-space: normal }" +
-				".dlgFieldInfo .example { color: blue; font-size: 0.6em }" +
+				".dlgFieldInfo .example { color: blue; font-size: 0.8em }" +
 				"</style>";
 			$(style).appendTo(document.head);
 		}
@@ -4160,9 +4368,9 @@ var GridHeaderMenu = {
 			});
 		}
 
-		function addExample(rows, res) {
+		function addExample(rows, res, rowStartIdx) {
 			var field = res.name;
-			if (rows[0][field] === undefined) {
+			if (rows[rowStartIdx][field] === undefined) {
 				res.name += "<span style='color:red'>(缺失)</span>";
 			}
 			if (res.title) {
@@ -4170,18 +4378,19 @@ var GridHeaderMenu = {
 			}
 			var arr = [];
 			var MAX_EXAMPLE = 2;
-			var lastOne = null;
-			$.each(rows, function (i, row) {
+			for (var i=rowStartIdx; i<rows.length; ++i) {
+				var row = rows[i];
 				var s = row[field];
 				if ($.isArray(s) || $.isPlainObject(s))
 					s = JSON.stringify(s);
-				if (s && s != lastOne) {
-					arr.push(s);
-					lastOne = s;
-					if (arr.length == MAX_EXAMPLE)
-						return false;
-				}
-			});
+				if (s === null)
+					s = "(null)";
+				else if (s === undefined)
+					s = "(undefined)";
+				arr.push(s);
+				if (arr.length == MAX_EXAMPLE)
+					break;
+			}
 			if (arr.length > 0)
 				res.example = "<span class='example'>" + arr.join('<br>') + "</span>";
 		}
@@ -4189,7 +4398,7 @@ var GridHeaderMenu = {
 
 	filterGrid: function (jtbl) {
 		var param = self.getDgInfo(jtbl).param;
-		app_alert(T("查询条件(cond)? "), "p", function (cond) {
+		app_alert(T("筛选条件(cond)? "), "p", function (cond) {
 			WUI.reload(jtbl, null, {cond: cond});
 		}, {defValue: param && param.cond});
 	},
@@ -4218,6 +4427,51 @@ var GridHeaderMenu = {
 	'export': function (jtbl) {
 		var fn = getExportHandler(jtbl);
 		fn();
+	},
+	dup: function (jtbl) {
+		var param = self.getDgInfo(jtbl);
+		if (!param.obj) {
+			app_alert(T("该数据表不支持再次新增"), "w");
+			return;
+		}
+		var rows = jtbl.datagrid("getSelections");
+		if (rows.length == 0) {
+			app_alert("请选择要复制的行", "w");
+			return;
+		}
+
+		var idArr = $.map(rows, function (e) {
+			return e.id
+		}).sort();
+
+		app_alert("确认要复制" + rows.length + "行数据？将根据所选行复制并生成新行。", "q", function () {
+			dupObj();
+		});
+
+		function dupObj() {
+			callSvr(param.obj + ".dup",{id: idArr.join(',')},function (res) {
+				WUI.reload(jtbl);
+			});
+		}
+	},
+	copyTable: function (jtbl) {
+		var rows = GridHeaderMenu.getRows(jtbl);
+		var colArr = self.getDgCols(jtbl);
+		var arr = rows.map(function (row) {
+			var a = colArr.map(function (e) {
+				var v = row[e.field];
+				if (e.jdEnumMap && e.formatter) {
+					v = e.formatter(v);
+				}
+				return v;
+			});
+			return a.join("\t");
+		});
+		var title = colArr.map(function (e) {
+			return e.title;
+		}).join("\t");
+		var ret = title + "\r\n" + arr.join("\r\n");
+		self.execCopy(ret);
 	},
 
 	dgStatCol: function (rows, field) {
@@ -4257,10 +4511,10 @@ var GridHeaderMenu = {
 		if (stat.numCnt > 0) {
 			stat.info.push(
 				"COUNT(数值项)=" + stat.numCnt,
-				"SUM=" + stat.sum,
+				"SUM=" + self.myround(stat.sum),
 				"MAX=" + stat.max,
 				"MIN=" + stat.min,
-				"AVG=" + stat.sum/stat.numCnt
+				"AVG=" + self.myround(stat.sum/stat.numCnt)
 			)
 		}
 		return stat;
@@ -4276,22 +4530,44 @@ var GridHeaderMenu = {
 		app_show(stat.info.join("<br>"), title);
 	},
 
+	getRows: function (jtbl) {
+		var datagrid = WUI.isTreegrid(jtbl)? "treegrid": "datagrid";
+		var rows = jtbl[datagrid]("getSelections");
+		var dgOpt = jtbl[datagrid]("options");
+		// 非多选时，复制所有数据（包含标题行）; 多选时，只复制已选择行的列数据
+		if (rows.length < 2) {
+			var data = jtbl[datagrid]("getData");
+			if (datagrid == "treegrid") {
+				rows = [];
+				getTreeData(data, rows);
+			}
+			else {
+				rows = data.rows;
+			}
+		}
+		return rows;
+
+		function getTreeData(treeRows, rows) {
+			treeRows.forEach(function (e) {
+				rows.push(e);
+				if ($.isArray(e.children)) {
+					getTreeData(e.children, rows);
+				}
+			});
+		}
+	},
+
 	copyCol: function (jtbl, field) {
-		var rows = jtbl.datagrid("getSelections");
-		var arr = null;
-		if (rows.length < 2) { // 非多选时，复制本列所有数据（包含标题行）
-			var data = jtbl.datagrid("getData");
-			arr = data.rows.map(function (e) {
-				return e[field];
-			});
-			var colTitle = jtbl.datagrid("getColumnOption", field).title;
-			arr.unshift(colTitle);
-		}
-		else { // 多选时，只复制已选择行的列数据
-			arr = rows.map(function (e) {
-				return e[field];
-			});
-		}
+		var rows = GridHeaderMenu.getRows(jtbl);
+		var colOpt = jtbl.datagrid("getColumnOption", field);
+		var arr = rows.map(function (row) {
+			var v = row[field];
+			if (colOpt.jdEnumMap && colOpt.formatter) {
+				v = colOpt.formatter(v);
+			}
+			return v;
+		});
+		arr.unshift(colOpt.title);
 		var ret = arr.join("\r\n");
 		self.execCopy(ret);
 	},
@@ -4366,7 +4642,7 @@ function showDlgQuery(data1, param)
 	var itemArr = [
 		// title, dom, hint?
 		{title: "接口名", dom: "<input name='ac' required>", hint: "示例: Ordr.query"},
-		{title: "参数", dom: '<textarea name="param" rows=8></textarea>', hint: "cond:查询条件, res:返回字段, gres:分组字段, pivot:转置字段, fmt:输出格式(html,excel,txt,list,array,csv等)"},
+		{title: "参数", dom: '<textarea name="param" rows=8></textarea>', hint: "cond:查询条件, res:返回字段, gres:分组字段, pivot:转置字段, fmt:输出格式(html,excel,txt,list,array,csv等), fname:页面名和导出文件名"},
 		{title: "统计图<br>参数", dom: '<textarea name="showChartParam" rows=4></textarea>', 
 			hint: "<a target='_blank' href='https://oliveche.com/jdcloud-site/api_web.html#showDlgChart'>须为数组，原型为[rs2StatOpt, seriesOpt, chartOpt]</a><br>" + 
 				"示例: <span class='example'>[]</span> <span class='example'>[{xcol: [0,1]}]</span>" +
@@ -4411,7 +4687,11 @@ function showDlgQuery(data1, param)
 				window.open(url);
 				return;
 			}
-			WUI.showPage("pageSimple", T("查询结果") + "!", [ url, null, null, showChartParam ]);
+			var title = T("查询结果");
+			if (param.fname) {
+				title += "-" + param.fname;
+			};
+			WUI.showPage("pageSimple", title + "!", [ url, null, null, showChartParam ]);
 //			WUI.closeDlg(this);
 		}
 	});
@@ -4424,6 +4704,7 @@ function showDlgQuery(data1, param)
 	});
 }
 
+$.fn.treegrid.defaults_bak = $.extend({}, $.fn.treegrid.defaults);
 $.extend($.fn.treegrid.defaults, {
 	idField: "id",
 	treeField: "id", // 只影响显示，在该字段上折叠
@@ -4433,6 +4714,8 @@ $.extend($.fn.treegrid.defaults, {
 	singleSelect: false,
 	ctrlSelect: true, // 默认是单选，按ctrl或shift支持多选
 	loadFilter: function (data, parentId) {
+		if ($.isArray(data) && data[0] && $.isArray(data[0].children))
+			return data;
 		var opt = $(this).treegrid("options");
 		var isLeaf = opt.isLeaf;
 		var ret = jdListToTree(data, opt.idField, opt.fatherField, parentId, isLeaf);
@@ -4568,7 +4851,7 @@ var DefaultValidateRules = {
 		validator: function(v) {
 			return /^[0-9.-]+$/.test(v);
 		},
-		message: T("validate.number") || '必须为数字!'
+		message: T("validate.number", "必须为数字!")
 	},
 	/*
 	workday: {
@@ -4580,50 +4863,50 @@ var DefaultValidateRules = {
 	*/
 	idcard: {
 		validator: checkIdCard,
-		message: T("validate.idcard") || '18位身份证号有误!'
+		message: T("validate.idcard", "18位身份证号有误!")
 	},
 	uname: {
 		validator: function (v) {
 			return v.length>=4 && v.length<=16 && /^[a-z]\w+$/i.test(v);
 		},
-		message: T("validate.uname") || "4-16位英文字母或数字，以字母开头，不能出现符号."
+		message: T("validate.uname", "4-16位英文字母或数字，以字母开头，不能出现符号.")
 	},
 	pwd: {
 		validator: function (v) {
 			return (v.length>=4 && v.length<=16) || v.length==32; // 32 for md5 result
 		},
-		message: T("validate.pwd") || "4-16位字母、数字或符号."
+		message: T("validate.pwd", "4-16位字母、数字或符号.")
 	},
 	equalTo: {
 		validator: function (v, param) { // param: [selector]
 			return v==$(this).closest("form").find(param[0]).val();
 		},
-		message: T("validate.equalTo") || "两次输入不一致."
+		message: T("validate.equalTo", "两次输入不一致.")
 	},
 	cellphone: {
 		validator: function (v) {
 			return v.length==11 && !/\D/.test(v);
 		},
-		message: T("validate.cellphone") || "手机号为11位数字"
+		message: T("validate.cellphone", "手机号为11位数字")
 	},
 	datetime: {
 		validator: function (v) {
 			return /\d{4}-\d{1,2}-\d{1,2}( \d{1,2}:\d{1,2}(:\d{1,2})?)?/.test(v);
 		},
-		message: T("validate.datetime") || "格式为\"年-月-日 时:分:秒\"，时间部分可忽略"
+		message: T("validate.datetime", "格式为\"年-月-日 时:分:秒\"，时间部分可忽略")
 	},
 	usercode: {
 		validator: function (v) {
 			return /^[a-zA-Z]/.test(v) || (v.length==11 && !/\D/.test(v)); 
 		},
-		message: T("validate.usercode") || "11位手机号或客户代码"
+		message: T("validate.usercode", "11位手机号或客户代码")
 	}
 };
 
 var validateboxDefaults = {
 	rules: DefaultValidateRules,
 	validateOnCreate: false,
-	missingMessage: "必填项，不可为空"
+	missingMessage: T("必填项，不可为空")
 }
 $.extend(true, $.fn.validatebox.defaults, validateboxDefaults);
 $.extend(true, $.fn.combo.defaults, validateboxDefaults);
