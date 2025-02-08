@@ -644,7 +644,6 @@ function handleLogin(data)
 }
 //}}}
 
-// ------ plugins {{{
 /**
 @fn initClient(param = null)
 
@@ -655,13 +654,12 @@ function handleLogin(data)
 
 */
 self.initClient = initClient;
-var plugins_ = {};
 function initClient(param)
 {
 	self.callSvrSync('initClient', function (data) {
 		g_data.initClient = data;
-		plugins_ = data.plugins || {};
-		$.each(plugins_, function (k, e) {
+		Plugins.plugins_ = data.plugins || {};
+		$.each(Plugins.plugins_, function (k, e) {
 			if (e.js) {
 				// plugin dir
 				var js = BASE_URL + 'plugin/' + k + '/' + e.js;
@@ -674,26 +672,6 @@ function initClient(param)
 		// NOTE: 会自动跳过tryAutoLogin
 	}
 }
-
-/**
-@class Plugins
-*/
-window.Plugins = {
-/**
-@fn Plugins.exists(pluginName)
-*/
-	exists: function (pname) {
-		return plugins_[pname] !== undefined;
-	},
-
-/**
-@fn Plugins.list()
-*/
-	list: function () {
-		return plugins_;
-	}
-};
-//}}}
 
 /**
 @fn setApp(opt)
