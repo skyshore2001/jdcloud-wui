@@ -33,7 +33,7 @@ code {
 </head>
 
 <h1>WUI</h1>
-<div>最后更新：2023-02-22</div>
+<div>最后更新：2025-02-08</div>
 <h2>Modules</h2>
 <div class="toc">
 <p><a href="#WUI">WUI (module)</a></p>
@@ -54,6 +54,7 @@ code {
 <p><a href="#.wui-find-field">.wui-find-field (key)</a></p>
 <p><a href="#.wui-fixedField">.wui-fixedField (key)</a></p>
 <p><a href="#.wui-form-table">.wui-form-table (key)</a></p>
+<p><a href="#.wui-fullscreen">.wui-fullscreen (key)</a></p>
 <p><a href="#.wui-notCond">.wui-notCond (key)</a></p>
 <p><a href="#.wui-page">.wui-page (key)</a></p>
 <p><a href="#.wui-readonly">.wui-readonly (key)</a></p>
@@ -88,12 +89,14 @@ code {
 <p><a href="#Promise">Promise (alias)</a></p>
 <p><a href="#Q">Q (fn)</a></p>
 <p><a href="#STORAGE_PREFIX">STORAGE_PREFIX (var)</a></p>
+<p><a href="#String.split2">String.split2 (fn)</a></p>
 <p><a href="#T">T (fn)</a></p>
 <p><a href="#WUI">WUI (module)</a></p>
 <p><a href="#WUI.getTmRange">WUI.getTmRange (fn)</a></p>
 <p><a href="#WUI.options">WUI.options (var)</a></p>
 <p><a href="#WUI.options.moduleExt">WUI.options.moduleExt (var)</a></p>
 <p><a href="#WUI.options.xparam">WUI.options.xparam (var)</a></p>
+<p><a href="#WUI.setDlgReadonly">WUI.setDlgReadonly (fn)</a></p>
 <p><a href="#[noReset]">[noReset] (key)</a></p>
 <p><a href="#a[href=#page]">a[href=#page] (key)</a></p>
 <p><a href="#ajaxOpt.jdFilter">ajaxOpt.jdFilter (key)</a></p>
@@ -170,6 +173,8 @@ code {
 <p><a href="#getAncestor">getAncestor (fn)</a></p>
 <p><a href="#getBaseUrl">getBaseUrl (fn)</a></p>
 <p><a href="#getCookie">getCookie (fn)</a></p>
+<p><a href="#getDgColMap">getDgColMap (fn)</a></p>
+<p><a href="#getDgCols">getDgCols (fn)</a></p>
 <p><a href="#getDgInfo">getDgInfo (fn)</a></p>
 <p><a href="#getExportHandler">getExportHandler (fn)</a></p>
 <p><a href="#getFormData">getFormData (fn)</a></p>
@@ -178,6 +183,7 @@ code {
 <p><a href="#getFormItemExt">getFormItemExt (var)</a></p>
 <p><a href="#getOptions">getOptions (fn)</a></p>
 <p><a href="#getPageFilter">getPageFilter (fn)</a></p>
+<p><a href="#getPageOpt">getPageOpt (fn)</a></p>
 <p><a href="#getParamFromTable">getParamFromTable (alias)</a></p>
 <p><a href="#getQueryCond">getQueryCond (fn)</a></p>
 <p><a href="#getQueryParam">getQueryParam (fn)</a></p>
@@ -220,11 +226,14 @@ code {
 <p><a href="#mockData">mockData (var)</a></p>
 <p><a href="#my-initfn">my-initfn (key)</a></p>
 <p><a href="#my-obj">my-obj (key)</a></p>
+<p><a href="#myround">myround (fn)</a></p>
 <p><a href="#numberSort">numberSort (fn)</a></p>
 <p><a href="#objParam">objParam (key)</a></p>
 <p><a href="#objarr2list">objarr2list (fn)</a></p>
 <p><a href="#options.pageFolder">options.pageFolder (key)</a></p>
+<p><a href="#pageIframe">pageIframe (key)</a></p>
 <p><a href="#parseDate">parseDate (fn)</a></p>
+<p><a href="#parseEnumList">parseEnumList (fn)</a></p>
 <p><a href="#parseKvList">parseKvList (fn)</a></p>
 <p><a href="#parseQuery">parseQuery (fn)</a></p>
 <p><a href="#parseTime">parseTime (fn)</a></p>
@@ -257,12 +266,14 @@ code {
 <p><a href="#showDlgQuery">showDlgQuery (fn)</a></p>
 <p><a href="#showLoading">showLoading (fn)</a></p>
 <p><a href="#showObjDlg">showObjDlg (fn)</a></p>
-<p><a href="#showPage">showPage (alias)</a></p>
 <p><a href="#showPage">showPage (fn)</a></p>
+<p><a href="#showPage">showPage (fn)</a></p>
+<p><a href="#syslog">syslog (fn)</a></p>
 <p><a href="#tabClose">tabClose (fn)</a></p>
 <p><a href="#tabMain">tabMain (var)</a></p>
 <p><a href="#text2html">text2html (fn)</a></p>
 <p><a href="#tobool">tobool (fn)</a></p>
+<p><a href="#toolbar-dup">toolbar-dup (var)</a></p>
 <p><a href="#treegrid">treegrid (key)</a></p>
 <p><a href="#triggerAsync">triggerAsync (fn)</a></p>
 <p><a href="#tryAutoLogin">tryAutoLogin (fn)</a></p>
@@ -308,6 +319,7 @@ code {
 <p style="margin-left:2em"><a href="#WUI-3.1 页面模板支持">3.1 页面模板支持</a></p>
 <p style="margin-left:2em"><a href="#WUI-3.2 按需加载依赖库">3.2 按需加载依赖库</a></p>
 <p style="margin-left:0em"><a href="#WUI-4 参考文档说明">4 参考文档说明</a></p>
+<p style="margin-left:0em"><a href="#WUI-5 全屏显示">5 全屏显示</a></p>
 </div>
 <p>筋斗云前端框架-Web应用桌面版</p>
 <p>此框架实现与筋斗云服务端接口的无缝整合。在界面上以jquery-easyui库为基础展示列表、Tab页等。<br />
@@ -777,7 +789,7 @@ jtbl.treegrid(dgOpt);</code></pre>
 <ul>
 <li>
 <p>在对话框中三击（2秒内）字段标题栏，可快速按查询该字段。Ctrl+三击为追加过滤条件。<br />
-(v6.1)也可以在对话框的字段标题上点右键，在菜单中选择“查询该字段”。</p>
+(v7)也可以在对话框的字段标题上点右键，在菜单中选择“查询该字段”。</p>
 </li>
 <li>在页面工具栏中，按住Ctrl(batch模式)点击“刷新”按钮，可清空当前查询条件。</li>
 </ul>
@@ -885,7 +897,7 @@ var DlgSendSms = {
 <p class="see"><strong>@see <a href="#showDlg">showDlg</a></strong> </p>
 <p class="see"><strong>@see <a href="#app_show">app_show</a></strong> </p>
 <p>点击菜单项显示对话框：</p>
-<pre><code>&lt;a href="javascript:DlgSendSms.show()" class="easyui-linkbutton" icon="icon-ok"&gt;群发短信&lt;/a&gt;&lt;br/&gt;&lt;br/&gt;</code></pre>
+<pre><code>&lt;a href="javascript:;" onclick="DlgSendSms.show()" class="easyui-linkbutton" icon="icon-ok"&gt;群发短信&lt;/a&gt;&lt;br/&gt;&lt;br/&gt;</code></pre>
 <p>可以通过my-initfn属性为对话框指定初始化函数。复杂对话框的逻辑一般都写在初始化函数中。习惯上命令名initDlgXXX，如：</p>
 <pre><code>&lt;div id="dlgSendSms" title="群发短信" style="width:500px;height:300px;" my-initfn="initDlgSendSms"&gt;
 
@@ -942,7 +954,7 @@ function initDlgBizPartner() {
 <p>菜单中两项：<br />
 默认pageBizPartner是供应商，如果要显示为&quot;客户&quot;页，需要明确调用showPage。</p>
 <pre><code>&lt;a href="#pageBizPartner"&gt;供应商&lt;/a&gt;
-&lt;a href="javascript:WUI.showPage('pageBizPartner', '客户', ['C']);"&gt;客户&lt;/a&gt;</code></pre>
+&lt;a href="javascript:;" onclick="WUI.showPage('pageBizPartner', '客户', ['C']);"&gt;客户&lt;/a&gt;</code></pre>
 <p>在initPageBizPartner函数中，为对话框传递参数objParam：</p>
 <pre><code>type = type || "S";
 var obj = "type=="S"? "Supplier": "Customer";
@@ -955,20 +967,11 @@ jdlg.objParam = {type: type, obj: obj};
 <h5 id="WUI-2.6 只读对话框">2.6 只读对话框</h5>
 <p>(v5.1)</p>
 <p class="key"><strong>@key <a id=".wui-readonly">.wui-readonly</a></strong>  只读对话框类名</p>
-<p>设置是否为只读对话框只要加上该类：</p>
-<pre><code>jdlg.addClass("wui-readonly");
-jdlg.removeClass("wui-readonly");
-jdlg.toggleClass("wui-readonly", isReadonly);</code></pre>
+<p>可用于判断对话框是否只读。</p>
+<pre><code>var isReadonly = jdlg.hasClass("wui-readonly");</code></pre>
 <p>只读对话框不可输入(在style.css中设定pointer-events为none)，点击确定按钮后直接关闭。</p>
-<p>注意：在dialog beforeshow事件中，不应直接设置wui-readonly类，因为框架之后会自动设置，导致前面设置无效。正确做法是设置<code>opt.objParam.readonly=true</code>，示例：</p>
-<pre><code>jdlg.on("beforeshow", onBeforeShow);
-function onBeforeShow(ev, formMode, opt)
-{
-    var objParam = opt.objParam;
-    var ro = (formMode == FormMode.forSet &amp;&amp; !!opt.data.usedFlag);
-    // beforeshow中设置对话框只读
-    objParam.readonly = ro;
-}</code></pre>
+<p class="see"><strong>@see <a href="#WUI.setDlgReadonly">WUI.setDlgReadonly</a></strong>  (v6) 设置对话框只读</p>
+<p>注意：不应直接设置wui-readonly类，因为框架会根据权限自动设置。</p>
 <h5 id="WUI-2.7 只读字段：使用disabled和readonly属性">2.7 只读字段：使用disabled和readonly属性</h5>
 <ul>
 <li>
@@ -1130,7 +1133,13 @@ callSvrSync
 app_alert
 app_confirm
 app_show</code></pre>
-<p>参考wui-name.js模块。</p><hr>
+<p>参考wui-name.js模块。</p>
+<h4 id="WUI-5 全屏显示">5 全屏显示</h4>
+<p class="key"><strong>@key <a id=".wui-fullscreen">.wui-fullscreen</a></strong> </p>
+<ul>
+<li>页面标题栏右键，选择“全屏”，可将页面全屏</li>
+<li>Ctrl-Alt双击元素：全屏显示多行文本框、代码编辑框、页面或对话框，以及有CSS类&quot;wui-fullscreen&quot;的元素。</li>
+</ul><hr>
 <h2 id="assert">@fn assert(cond, dscr?)</h2><hr>
 <h2 id="randInt">@fn randInt(from, to)</h2>
 <p>生成指定区间的随机整数。示例：</p>
@@ -1479,17 +1488,21 @@ var html = applyTpl(tpl, data);
 <p>e.g.</p>
 <pre><code>var str = kvList2Str({"CR":"Created", "PA":"Paid"}, ';', ':');
 // str="CR:Created;PA:Paid"</code></pre><hr>
-<h2 id="parseKvList">@fn parseKvList(kvListStr, sep, sep2, doReverse?) -> kvMap</h2>
+<h2 id="parseKvList">@fn parseKvList(kvListStr, sep, sep2, doReverse?, onKv?) -> kvMap</h2>
 <p>解析key-value列表字符串，返回kvMap。</p>
 <ul>
 <li>doReverse: 设置为true时返回反向映射</li>
+<li>onKv(kv): 如果指定，可函数对数组（必为2项）可进行修改</li>
 </ul>
 <p>示例：</p>
 <pre><code>var map = parseKvList("CR:新创建;PA:已付款", ";", ":");
 // map: {"CR": "新创建", "PA":"已付款"}
 
 var map = parseKvList("CR:新创建;PA:已付款", ";", ":", true);
-// map: {"新创建":"CR", "已付款":"PA"}</code></pre><hr>
+// map: {"新创建":"CR", "已付款":"PA"}</code></pre>
+<p>sep和sep2支持使用正则式，以下处理结果相同：</p>
+<pre><code>var map = parseKvList("CR:新创建;PA:已付款", /[; ]/, /[:=]/);
+var map2 = parseKvList("CR=新创建 PA=已付款", /[; ]/, /[:=]/);</code></pre><hr>
 <h2 id="Q">@fn Q(str, q?="'")</h2>
 <pre><code>Q("abc") -&gt; 'abc'
 Q("a'bc") -&gt; 'a\'bc'</code></pre><hr>
@@ -1520,6 +1533,13 @@ jpage.find("#content").html(html);</code></pre>
 <pre><code>var a = {a: 1};
 WUI.extendNoOverride(a, {b: 'aa'}, {a: 99, b: '33', c: 'bb'});
 // a = {a: 1, b: 'aa', c: 'bb'}</code></pre><hr>
+<h2 id="myround">@fn myround(floatValue, digitCnt=6)</h2>
+<p>与toFixed相比，它返回float数组，不带多余的0位。</p>
+<pre><code>myround(114957.15999999, 4) = 114957.16
+myround(114957.15999999, 1) = 114957.2</code></pre><hr>
+<h2 id="Plugins">@class Plugins</h2><hr>
+<h2 id="Plugins.exists">@fn Plugins.exists(pluginName)</h2><hr>
+<h2 id="Plugins.list">@fn Plugins.list()</h2><hr>
 <h2 id="jdModule">@fn jdModule(name?, fn?)</h2>
 <p>定义JS模块。这是一个全局函数。</p>
 <p>定义一个模块:</p>
@@ -1593,6 +1613,11 @@ rewriterule ^jdserver ws://oliveche.com/jdserver/ [P,L]</code></pre>
 <pre><code>jdPush('app1'); // 默认用户为g_data.userInfo.id
 callSvr('/jdserver/push', {app: 'app1', user: '*', msg: 'hi'});
 // 在控制台可收到hi</code></pre><hr>
+<h2 id="String.split2">@fn String.split2(pattern)</h2>
+<p>将字符串分为两块。替代JS默认的split函数limit参数的错误设计。</p>
+<pre><code>var str = "lot Lot ID";
+var kv = str.split2(" "); // ["lot", "Lot ID"]
+// str.split(" ", 2); // ["lot", "Lot"] 不合要求</code></pre><hr>
 <h2 id="getFormData">@fn getFormData(jo, doGetAll)</h2>
 <p>取DOM对象中带name属性的子对象的内容, 放入一个JS对象中, 以便手工调用callSvr.</p>
 <p>注意: </p>
@@ -1771,7 +1796,7 @@ loadScript("http://otherserver/path/1.js"); // 跨域加载</code></pre>
 </ul>
 <p>示例：在菜单中加一项“工单工时统计”，动态加载并执行一个JS文件：<br />
 store.html中设置菜单：</p>
-<pre><code>            &lt;a href="javascript:WUI.loadScript('page/mod_工单工时统计.js')"&gt;工单工时统计&lt;/a&gt;</code></pre>
+<pre><code>            &lt;a href="javascript:;" onclick="WUI.loadScript('page/mod_工单工时统计.js')"&gt;工单工时统计&lt;/a&gt;</code></pre>
 <p>在<code>page/mod_工单工时统计.js</code>文件中写报表逻辑，<code>mod</code>表示一个JS模块文件，示例：</p>
 <pre><code>function show工单工时统计()
 {
@@ -2008,7 +2033,7 @@ function doNext() { }</code></pre>
         {id: 4, fatherId: 1}
     ]
 ]</code></pre><hr>
-<h2 id="evalAttr">@fn evalAttr(jo, name)</h2>
+<h2 id="evalAttr">@fn evalAttr(jo, name, ctx?)</h2>
 <p>返回一个属性做eval后的js值。</p>
 <p>示例：读取一个对象值：</p>
 <pre><code>var opt = evalAttr(jo, "data-opt");
@@ -2036,9 +2061,23 @@ function doNext() { }</code></pre>
 可通过WUI.options.skipErrorRegex忽略指定错误。</p><hr>
 <h2 id="m_enhanceFn">@var m_enhanceFn</h2><hr>
 <h2 id="enhanceWithin">@fn enhanceWithin(jparent)</h2><hr>
-<h2 id="getOptions">@fn getOptions(jo, defVal?)</h2>
+<h2 id="getOptions">@fn getOptions(jo, defVal?, ctx?)</h2>
 <p>第一次调用，根据jo上设置的data-options属性及指定的defVal初始化，或为<code>{}</code>。<br />
 存到jo.prop(&quot;muiOptions&quot;)上。之后调用，直接返回该属性。</p>
+<p>通过指定ctx, 可以为属性计算时添加可访问接口, 示例: (eol1Sn属性是需要取下面input中的值)</p>
+<pre><code>&lt;button type="button" class="btnPlcNotify" data-options="newItemFlag:1, eol1Sn:ctx.eolSn"&gt;Move In from eol-1&lt;/button&gt;
+&lt;input id="eolSn" value="sn1"&gt; </code></pre>
+<p>取值:</p>
+<pre><code>var data = WUI.getOptions($(this), null, {
+    eol1Sn: jpage.find("eolSn").val()
+}</code></pre>
+<p>当然ctx也可以做成个funciton比如:</p>
+<pre><code>&lt;button type="button" class="btnPlcNotify" data-options="newItemFlag:1, eol1Sn:ctx('#eolSn').val()"&gt;Move In from eol-1&lt;/button&gt;
+&lt;input id="eolSn" value="sn1"&gt; 
+
+var data = WUI.getOptions($(this), null, function (ref) {
+    return jpage.find(ref);
+});</code></pre>
 <p class="see"><strong>@see <a href="#evalAttr">evalAttr</a></strong> </p><hr>
 <h2 id="getQueryCond">@fn getQueryCond(kvList)</h2>
 <p class="var"><strong>@var <a id="queryHint">queryHint</a></strong>  查询用法提示</p>
@@ -2078,7 +2117,7 @@ WUI.getQueryCond(kvList); // 结果同上。</code></pre>
 <p>(v5.5) value支持用数组表示范围（前闭后开区间），特别方便为起始、结束时间生成条件：</p>
 <pre><code>var cond = getQueryCond({tm: ["2019-1-1", "2020-1-1"]}); // 生成 "tm&gt;='2019-1-1' AND tm&lt;'2020-1-1'"
 var cond = getQueryCond({tm: [null, "2020-1-1"]}); // 生成 "tm&lt;'2020-1-1'"。数组中任一值为null或''都一样会被忽略。
-var cond = getQueryCond({tm: [null, null]); // 返回空串''</code></pre>
+var cond = getQueryCond({tm: [null, null]}); // 返回空串''</code></pre>
 <p class="see"><strong>@see <a href="#getQueryParam">getQueryParam</a></strong> </p>
 <p class="see"><strong>@see <a href="#getQueryParamFromTable">getQueryParamFromTable</a></strong>  获取datagrid的当前查询参数</p>
 <p class="see"><strong>@see <a href="#doFind">doFind</a></strong> </p>
@@ -2158,18 +2197,11 @@ callSvr("User.set", {id: user.id}, function () {
 <p>模拟数据可直接返回[code, data]格式的JSON数组，框架会将其序列化成JSON字符串，以模拟实际场景。<br />
 如果要查看调用与返回数据日志，可在浏览器控制台中设置 WUI.options.logAction=true，在控制台中查看日志。</p>
 <p>如果设置了WUI.callSvrExt，调用名(ac)中应包含扩展(ext)的名字，例：</p>
-<pre><code>WUI.callSvrExt['zhanda'] = {...};
-callSvr(['token/get-token', 'zhanda'], ...);</code></pre>
-<p>要模拟该接口，应设置</p>
-<pre><code>WUI.mockData["zhanda:token/get-token"] = ...;</code></pre>
-<p class="see"><strong>@see <a href="#callSvrExt">callSvrExt</a></strong> </p>
-<p>也支持&quot;default&quot;扩展，如：</p>
-<pre><code>WUI.callSvrExt['default'] = {...};
-callSvr(['token/get-token', 'default'], ...);
-或
-callSvr('token/get-token', ...);</code></pre>
+<pre><code>WUI.callSvrExt['zhanda'] = {...}; // 如果未定义，则找WUI.callSvrExt['default']
+callSvr('zhanda:token/get-token', ...);</code></pre>
 <p>要模拟该接口，可设置</p>
-<pre><code>WUI.mockData["token/get-token"] = ...;</code></pre><hr>
+<pre><code>WUI.mockData['zhanda:token/get-token'] = ...;</code></pre>
+<p class="see"><strong>@see <a href="#callSvrExt">callSvrExt</a></strong> </p><hr>
 <h2 id="$.ajax">@key $.ajax</h2>
 <p class="key"><strong>@key <a id="ajaxOpt.jdFilter">ajaxOpt.jdFilter</a></strong>  禁用返回格式合规检查.</p>
 <p>以下调用, 如果1.json符合<code>[code, data]</code>格式, 则只返回处理data部分; 否则将报协议格式错误:</p>
@@ -2203,10 +2235,6 @@ var url = WUI.makeUrl("Ordr.set", params);</code></pre>
 这样可通过url.action得到原始的参数。</p>
 <p>支持callSvr扩展，如：</p>
 <pre><code>var url = WUI.makeUrl('zhanda:login');</code></pre>
-<p>(deprecated) 为兼容旧代码，action可以是一个数组，在WUI环境下表示对象调用:</p>
-<pre><code>WUI.makeUrl(['Ordr', 'query']) 等价于 WUI.makeUrl('Ordr.query');</code></pre>
-<p>在WUI环境下表示callSvr扩展调用:</p>
-<pre><code>WUI.makeUrl(['login', 'zhanda']) 等价于 WUI.makeUrl('zhanda:login');</code></pre>
 <p>特别地, 如果action是相对路径, 或是'.php'文件, 则不会自动拼接WUI.options.serverUrl:</p>
 <pre><code>callSvr("./1.json"); // 如果是callSvr("1.json") 则url可能是 "../api.php/1.json"这样.
 callSvr("./1.php");</code></pre>
@@ -2217,6 +2245,7 @@ callSvr("./1.php");</code></pre>
 <p style="margin-left:0em"><a href="#callSvr-4 适配RESTful API">4 适配RESTful API</a></p>
 <p style="margin-left:0em"><a href="#callSvr-5 ES6支持：jQuery的$.Deferred兼容Promise接口 / 使用await">5 ES6支持：jQuery的$.Deferred兼容Promise接口 / 使用await</a></p>
 <p style="margin-left:0em"><a href="#callSvr-6 直接取json类文件">6 直接取json类文件</a></p>
+<p style="margin-left:0em"><a href="#callSvr-7 获取HTTP返回状态码和响应头">7 获取HTTP返回状态码和响应头</a></p>
 </div>
 <p class="param"><strong>@param ac</strong>  String. action, 交互接口名. 也可以是URL(比如由makeUrl生成)</p>
 <p class="param"><strong>@param params</strong>  Object. URL参数（或称HTTP GET参数）</p>
@@ -2333,10 +2362,13 @@ callSvr("User.get", function (data) {
 }</code></pre>
 <p>callSvr扩展示例：</p>
 <pre><code>WUI.callSvrExt['zhanda'] = {
-    makeUrl: function(ac, param) {
+    // opt.ext='zhanda'即当前扩展名
+    // 如果不返回url，则走默认逻辑，此时若对方后端也是jdcloud框架，还可设置opt.serverUrl修改接口基础地址
+    makeUrl: function(ac, param, opt) {
         // 只需要返回接口url即可，不必拼接param
         return 'http://hostname/lcapi/' + ac;
     },
+    // this为ajax选项
     dataFilter: function (data) {
         if ($.isPlainObject(data) &amp;&amp; data.code !== undefined) {
             if (data.code == 0)
@@ -2354,8 +2386,8 @@ callSvr("User.get", function (data) {
 <pre><code>callSvr('zhanda:token/get-token', {user: 'test', password: 'test123'}, function (data) {
     console.log(data);
 });</code></pre>
-<p>旧的调用方式ac参数使用数组，现在已不建议使用：</p>
-<pre><code>callSvr(['token/get-token', 'zhanda'], ...);</code></pre>
+<p>旧的调用方式ac参数可使用数组，现已废弃：</p>
+<pre><code>callSvr(['token/get-token', 'zhanda'], ...); // 出错!</code></pre>
 <p class="key"><strong>@key <a id="callSvrExt[].makeUrl">callSvrExt[].makeUrl</a></strong> (ac, param)</p>
 <p>根据调用名ac生成url, 注意无需将param放到url中。</p>
 <p>注意：<br />
@@ -2374,8 +2406,15 @@ callSvr("User.get", function (data) {
 <p>(支持版本: v3.1)<br />
 如果要修改callSvr缺省调用方法，可以改写 WUI.callSvrExt['default']。示例：</p>
 <pre><code>WUI.callSvrExt['default'] = {
-    makeUrl: function(ac) {
-        return '../api.php/' + ac;
+    // 只需返回基本url，不用拼接params;
+    // (v7) 如果不返回url，则走默认逻辑，此时若对方后端也是jdcloud框架，还可设置opt.serverUrl修改接口基础地址
+    // opt.ext是扩展名，比如未定义callSvrExt['shagang']但定义了callSvrExt['default']，当调用callSvr('shagang:Data.qurey')时，opt.ext可取到'shagang'
+    makeUrl: function(ac, params, opt) {
+        return '/app1/api/' + ac;
+        // 示例2:
+        // if (opt.ext) {
+        //   opt.serverUrl = '/@' + opt.ext + '/firefly-web/server/api';
+        // }
     },
     dataFilter: function (data) {
         var ctx = this.ctx_ || {};
@@ -2560,6 +2599,18 @@ callSvr("../1.php");</code></pre>
 $.getJSON("../1.php", callback);</code></pre>
 <p>注意下面调用未指定dataType, 不会按筋斗云协议格式处理:</p>
 <pre><code>$.ajax("../1.php", {success: callback})</code></pre>
+<h4 id="callSvr-7 获取HTTP返回状态码和响应头">7 获取HTTP返回状态码和响应头</h4>
+<p>在回调中获取this.xhr_对象(即$.ajax()返回对象, 详细可参考$.ajax手册), 通过它的getResponseHeader()方法取响应头, status属性来获取状态码, 示例</p>
+<pre><code>callSvr("User.query", function (data) {
+    console.log("status", this.xhr_.status);
+    var v = this.xhr_.getResponseHeader("X-Powered-By"); // header名字不分区大小写,用"x-powered-by"也可以
+    console.log(v);
+});</code></pre>
+<p>当然也可以通过返回的dfd对象来操作:</p>
+<pre><code>rv = callSvr("User.query");
+rv.then(function (data) {
+    console.log("status", this.xhr_.status);
+});</code></pre>
 <p class="see"><strong>@see <a href="#$.ajax">$.ajax</a></strong> </p><hr>
 <h2 id="callSvrSync">@fn callSvrSync(ac, [params?], fn?, postParams?, userOptions?)</h2>
 <p class="return"><strong>@return data</strong>  原型规定的返回数据</p>
@@ -2645,6 +2696,14 @@ callSvr("User.get", {res: "id,phone"}, api_UserGet);</code></pre>
 <p>如果WUI.disableBatch=true, 该函数不起作用。</p>
 <p class="see"><strong>@see <a href="#batchCall">batchCall</a></strong> </p>
 <p class="see"><strong>@see <a href="#disableBatch">disableBatch</a></strong> </p><hr>
+<h2 id="syslog">@fn syslog(module, pri, content)</h2>
+<p>向后端发送日志。后台必须已添加syslog插件。<br />
+日志可在后台Syslog表中查看，客户端信息可查看ApiLog表。</p>
+<p class="param"><strong>@param module</strong>  app,fw(framework),page</p>
+<p class="param"><strong>@param pri</strong>  ERR,INF,WARN</p>
+<p>示例：</p>
+<pre><code>WUI.syslog("app", "ERR", "fail to pay: " + err.msg);</code></pre>
+<p>注意：如果操作失败，本函数不报错。</p><hr>
 <h2 id="isBatchMode">@fn isBatchMode()</h2>
 <p>是否批量操作模式（即是否按住Ctrl键操作）。</p><hr>
 <h2 id="getRow">@fn getRow(jtbl) -> row</h2>
@@ -2676,17 +2735,22 @@ WUI.reloadRow(jtbl, row);</code></pre>
 <p>如果要刷新整个表，可用WUI.reload(jtbl)。<br />
 刷新整个页面可用WUI.reloadPage()，但一般只用于调试，不用于生产环境。</p>
 <p>返回Deferred对象，表示加载完成。</p><hr>
-<h2 id="showPage">@fn showPage(pageName, showPageOpt?={title, target, pageFilter}, paramArr?=[showPageOpt])</h2><div class="toc"><p style="margin-left:0em"><a href="#showPage-1 showPageOpt.pageFilter: (v6) 指定列表页过滤条件(PAGE_FILTER)">1 showPageOpt.pageFilter: (v6) 指定列表页过滤条件(PAGE_FILTER)</a></p>
+<h2 id="showPage">@fn showPage(pageName, title, paramArr|showPageOpt?)</h2><div class="toc"><p style="margin-left:0em"><a href="#showPage-1 showPageOpt.pageFilter: (v6) 指定列表页过滤条件(PAGE_FILTER)">1 showPageOpt.pageFilter: (v6) 指定列表页过滤条件(PAGE_FILTER)</a></p>
 <p style="margin-left:0em"><a href="#showPage-2 (v6) 返回deferred对象">2 (v6) 返回deferred对象</a></p>
 <p style="margin-left:0em"><a href="#showPage-3 showPageOpt.target: 指定显示在哪个tabs中">3 showPageOpt.target: 指定显示在哪个tabs中</a></p>
 </div>
+<p class="fn"><strong>@fn <a id="showPage">showPage</a></strong> (pageName, showPageOpt)</p>
+<p>showPageOpt常用选项(v7: 支持并建议在第3参数指定)：</p>
 <ul>
-<li>pageName: 由page上的class指定。</li>
-<li>showPageOpt.title: 如果未指定，则使用page上的title属性. (v6.1) 如果有多语言翻译，此处title是未翻译过的开发语言。</li>
-<li>paramArr: 调用initfn时使用的参数，是一个数组。如果不指定，则调用initfn直接传入showPageOpt。推荐不指定该参数。</li>
-<li>force: (v6.1) 如果页面已存在，默认直接跳到该页面，指定<code>force: 1</code>会刷新该页面。</li>
+<li>title: 标题，如果以&quot;!&quot;结尾，表示每次打开均刷新页面（等同于<code>force:1</code>选项）。如果未指定，则使用page上的title属性. (v7) 如果有多语言翻译，此处title是未翻译过的开发语言。</li>
+<li>pageFilter: 指定列表页过滤条件，见后面示例</li>
+<li>pageName: 该项由框架自动设置，与page上的class相同。</li>
+<li>force: (v7) 如果页面已存在，默认直接跳到该页面，指定<code>force: 1</code>会刷新该页面, 按住ctrl键打开页面时激活该功能。</li>
+<li>forceNew: (v7) 强制打开新页面, 会在Tab页标题中添加数字后缀如&quot;_1&quot;, 按住shift键打开页面时激活该功能。</li>
+<li>selected: (v7) 设置为false时, 不激活tab页, 即后台打开页面</li>
+<li>target: 指定显示在哪个tabs中，见后面示例</li>
 </ul>
-<p class="alias"><strong>@alias <a id="showPage">showPage</a></strong> (pageName, title?, paramArr?)</p>
+<p>参数paramArr为兼容旧用法，不建议使用：调用initfn时使用的参数，是一个数组。如果不指定，则调用initfn直接传入showPageOpt。</p>
 <p>新页面以title作为id。<br />
 注意：每个页面都是根据pages下相应pageName复制出来的，显示在一个新的tab页中。相同的title当作同一页面。<br />
 初始化函数由page上的my-initfn属性指定。</p>
@@ -2701,21 +2765,28 @@ WUI.showPage("pageHome", {title: "我的首页"}); // 同上</code></pre>
 <p>(v5.4) 如果标题中含有&quot;%s&quot;，将替换成原始标题，同时传参到initPage:</p>
 <pre><code>WUI.showPage("pageHome", {title: "%s-" + cityName, cityName: cityName}); //e.g. 显示 "首页-上海"</code></pre>
 <p>title用于唯一标识tab，即如果相同title的tab存在则直接切换过去。除非：<br />
-(v5.5) 如果标题以&quot;!&quot;结尾, 则每次都打开新的tab页，(v6.1)等价于指定选项<code>showPageOpt.force:1</code>:</p>
+(v5.5) 如果标题以&quot;!&quot;结尾, 则每次都打开新的tab页，(v7)等价于指定选项<code>showPageOpt.force:1</code>:</p>
 <pre><code>WUI.showPage("pageHome", "我的首页!");
 WUI.showPage("pageHome", {title: "我的首页", force:1}); // 同上</code></pre>
+<p>(v7) 按住Ctrl点击菜单项打开页面, 也会刷新式打开, 相当于<code>force:1</code>选项<br />
+按住Shift点击菜单项, 强制打开新页面, 相当于<code>forceNew:1</code>选项;<br />
+如果菜单项是链接页面(指定href为一个url), 则会在新窗口打开(默认是在tab页内即pageIframe中打开).</p>
+<p class="key"><strong>@key <a id="pageIframe">pageIframe</a></strong> </p>
+<p>jdcloud-ganlan中内置在tab页打开独立网页（注意被开页面CSP设置及其后端跨域设置）功能，如：</p>
+<pre><code>WUI.showPage("pageIframe", "官网", ["http://yibo.ltd"])
+// 也可使用绝对或相对路径
+WUI.showPage("pageIframe", "官网", ["/"])</code></pre>
+<p>它在store.html中包含了pageIframe的页面定义，在uimeta.js中定义了页面函数。</p>
 <h4 id="showPage-1 showPageOpt.pageFilter: (v6) 指定列表页过滤条件(PAGE_FILTER)">1 showPageOpt.pageFilter: (v6) 指定列表页过滤条件(PAGE_FILTER)</h4>
 <p>示例</p>
 <pre><code>var pageFilter = {cond: {status: "在职"}};
-WUI.showPage("pageEmployee", {title: "员工", pageFilter: pageFilter});</code></pre>
+WUI.showPage("pageEmployee", "员工", {pageFilter});</code></pre>
 <p>它直接影响页面中的datagrid的查询条件。</p>
 <p>选项<code>_pageFilterOnly</code>用于影响datagrid查询只用page filter的条件。</p>
 <pre><code>var pageFilter = { cond: {status: "在职"}, _pageFilterOnly: true };
-WUI.showPage("pageEmployee", {title: "员工", pageFilter: pageFilter});</code></pre>
+WUI.showPage("pageEmployee", "员工", {pageFilter});</code></pre>
 <p>注意：旧应用中通过paramArr[1]来指定pageFilter, 目前兼容该用法，但不推荐使用：</p>
-<pre><code>WUI.showPage("pageEmployee", "员工", [null, pageFilter]); // 旧写法，不推荐使用
-// 等价于
-WUI.showPage("pageEmployee", {title: "员工", pageFilter: pageFilter});</code></pre>
+<pre><code>WUI.showPage("pageEmployee", "员工", [null, pageFilter]); // 旧写法，不推荐使用</code></pre>
 <h4 id="showPage-2 (v6) 返回deferred对象">2 (v6) 返回deferred对象</h4>
 <p>showPage返回deferred/promise对象，表示页面加载完成。所以如果某些操作要依赖于页面完成，可以用：</p>
 <pre><code>var dfd = WUI.showPage(...);
@@ -2726,13 +2797,16 @@ dfd.then(fn);
 fn();</code></pre>
 <h4 id="showPage-3 showPageOpt.target: 指定显示在哪个tabs中">3 showPageOpt.target: 指定显示在哪个tabs中</h4>
 <p>一般与系统页面pageTab合用，pageTab可显示一个或多个tabs，然后把新页面显示在指定tabs中。示例：</p>
-<pre><code>await WUI.showPage("pageTab", {title: "员工!", tabs:"40%,60%"});
-WUI.showPage("pageEmployee", {title: "管理员", pageFilter:{cond: {perms:"~mgr"}}, target:"员工_1"});
-WUI.showPage("pageEmployee", {title: "非管理员", pageFilter:{cond: {perms:"!~mgr"}}, target:"员工_2"});</code></pre>
+<pre><code>await WUI.showPage("pageTab", "员工!", {tabs:"40%,60%"});
+WUI.showPage("pageEmployee", "管理员", {pageFilter:{cond: {perms:"~mgr"}}, target:"员工_1"});
+WUI.showPage("pageEmployee", "非管理员", {pageFilter:{cond: {perms:"!~mgr"}}, target:"员工_2"});</code></pre>
 <p>注意：下面两个页面target要依赖于pageTab页面，所以需要加await等待pageTab页面加载完成。</p>
 <p class="see"><strong>@see <a href="#pageTab">pageTab</a></strong> </p><hr>
 <h2 id="wui-pageFile">@key wui-pageFile</h2>
 <p>动态加载的逻辑页(或对话框)具有该属性，值为源文件名。</p><hr>
+<h2 id="getPageOpt">@fn getPageOpt(jpage)</h2>
+<p>返回showPage时传入的参数，是一个对象：{title, ...}。<br />
+如果jpage不是页面，则返回null。</p><hr>
 <h2 id="getPageFilter">@fn getPageFilter(jpage, name?)</h2>
 <p class="key"><strong>@key <a id="PAGE_FILTER">PAGE_FILTER</a></strong> </p>
 <p>取页面的过滤参数，由框架自动处理.<br />
@@ -2751,7 +2825,7 @@ WUI.showPage("pageEmployee", {title: "非管理员", pageFilter:{cond: {perms:"!
 <p>复制并添加对象。<br />
 对象对话框在更新模式下，按Ctrl-D或右键对话框空白处选择“再次新增”，可复制当前对象，进入添加模式。</p>
 <p>支持对子表进行复制，注意仅当子表是允许添加的才会被复制（wui-subobj组件，且设置了valueField和dlg选项）。<br />
-TODO 由于子表支持懒加载，目前有个限制，如果子表尚未加载则无法复制；可手工点击tab页让它加载才能复制。</p>
+(由于子表支持懒加载，当运行“再次新增”时，会自动加载所有子表数据后再复制)</p>
 <p>在对话框进入新增模式后，编号(id)会被清除，其它字段保留，<br />
 如果对话框编写过新增时的逻辑，比如自动填写或disable某些字段，这些逻辑会生效。</p>
 <p>如果字段在新增时是disabled状态，比如“添加时间”等字段，尽管它仍显示为旧数据且无法修改，<br />
@@ -2900,9 +2974,10 @@ opt.onOk(); // 同上. 回调函数中this为jdlg.</code></pre>
 <ul>
 <li>查询(FormMode.forFind)</li>
 <li>显示及更新(FormMode.forSet)</li>
-<li>添加(FormMode.forAdd)</li>
+<li>新增(FormMode.forAdd)</li>
 <li>删除(FormMode.forDel)，但实际上不会打开对话框</li>
 </ul>
+<p>(v7) 按住Shift双击一行、或点击查询/新增/修改按钮，会打开新的对话框，而不是复用默认对话框。</p>
 <p>注意：</p>
 <ul>
 <li>可通过<code>var formMode = jdlg.jdata().mode;</code>来获取当前对话框模式。</li>
@@ -3230,7 +3305,7 @@ return getFormData(jfrm);</code></pre>
 <p>删除一个页面。一般用于开发过程，在修改外部逻辑页后，调用该函数删除页面。此后载入页面，可以看到更新的内容。</p>
 <p>注意：对于内部逻辑页无意义。</p>
 <p class="var"><strong>@var <a id="g_data.doUpload">g_data.doUpload</a></strong> </p>
-<p>(v6.1) 为便于在reload页面时定制逻辑，在unload页面时会设置g_data.doUnload变量为true，可以页面pagedestory事件中检测处理，如：</p>
+<p>(v7) 为便于在reload页面时定制逻辑，在unload页面时会设置g_data.doUnload变量为true，可以页面pagedestory事件中检测处理，如：</p>
 <pre><code>jpage.on("pagedestroy", onPageDestroy);
 function onPageDestroy() {
     if (g_data.doUnload) {
@@ -3352,6 +3427,11 @@ jo一般为对话框内的form或td，也可以为dialog自身。<br />
 <p>jtbl未指定时，自动取对话框关联的表格；如果未关联，则不做查询。<br />
 doAppendFilter=true时，表示追加过滤条件。</p>
 <p class="see"><strong>@see <a href="#.wui-notCond">.wui-notCond</a></strong>  指定独立查询条件</p><hr>
+<h2 id="WUI.setDlgReadonly">@fn WUI.setDlgReadonly(jdlg, fn(data))</h2>
+<p>FormMode.forSet模式下，根据数据设置对话框是否只读, 示例:</p>
+<pre><code>WUI.setDlgReadonly(jdlg, function (data) {
+    return (data.clearFlag != 0 || data.年月) &amp;&amp; !g_data.hasRole("mgr");
+});</code></pre><hr>
 <h2 id="showObjDlg">@fn showObjDlg(jdlg, mode, opt?={jtbl, id, obj})</h2>
 <p class="param"><strong>@param jdlg</strong>  可以是jquery对象，也可以是selector字符串或DOM对象，比如 "#dlgOrder". 注意：当对话框保存为单独模块时，jdlg=$("#dlgOrder") 一开始会为空数组，这时也可以调用该函数，且调用后jdlg会被修改为实际加载的对话框对象。</p>
 <p class="param"><strong>@param opt.id</strong>  String. 对话框set模式(mode=FormMode.forSet)时可设置，表示从后端加载数据，set/del如缺省则从关联的opt.jtbl中取, add/find时不需要</p>
@@ -3423,7 +3503,7 @@ jtbl.datagrid({
         var objParam = opt.objParam; // {id, mode, jtbl?, offline?...}
     }
 }</code></pre>
-<p>(v6.1) 通过jdlg.prop('objParam')可取到对象对话框的参数。</p>
+<p>(v7) 通过jdlg.prop('objParam')可取到对象对话框的参数。</p>
 <p class="param"><strong>@param opt.reloadRow</strong> () 可用于刷新本对话框关联的表格行数据</p>
 <p>事件参考：</p>
 <p class="see"><strong>@see <a href="#showDlg">showDlg</a></strong> </p><hr>
@@ -3463,11 +3543,13 @@ var dgOpt = {
 };
 jtbl.datagrid(dgOpt);</code></pre>
 <p>特别地，要添加导出数据到Excel文件的功能按钮，可以增加参数&quot;export&quot;作为按钮定义：<br />
-导入可以用&quot;import&quot;, 快速查询可以用&quot;qsearch&quot; (这两个以扩展方式在jdcloud-wui-ext.js中定义):</p>
+导入可以用&quot;import&quot;, 快速查询可以用&quot;qsearch&quot; (这两个以扩展方式在jdcloud-wui-ext.js中定义)，复制可以用&quot;dup&quot;:</p>
 <pre><code>var dgOpt = {
     ...
-    toolbar: WUI.dg_toolbar(jtbl, jdlg, "import", "export", "-", btn1, btn2, "qsearch"),
+    toolbar: WUI.dg_toolbar(jtbl, jdlg, "import", "export", "dup", "-", btn1, btn2, "qsearch"),
 }</code></pre>
+<p class="var"><strong>@var <a id="toolbar-dup">toolbar-dup</a></strong>  复制</p>
+<p>(v7) 复制一行或多行数据，调用后端{Obj}.dup(id)接口。</p>
 <p class="see"><strong>@see <a href="#toolbar-qsearch">toolbar-qsearch</a></strong>  模糊查询</p>
 <p>如果想自行定义导出行为参数，可以参考WUI.getExportHandler</p>
 <p class="see"><strong>@see <a href="#getExportHandler">getExportHandler</a></strong>  导出按钮设置</p>
@@ -3568,6 +3650,11 @@ var btnExport = {text:'导出', iconCls:'icon-save', handler: WUI.getExportHandl
 <p>fname自动根据当前页面的title以及datagrid当前的queryParam自动拼接生成。<br />
 如title是&quot;检测记录报表&quot;, queryParam为&quot;tm&gt;='2020-1-1' and tm&lt;='2020-7-1&quot;，则生成文件名fname=&quot;检测记录报表-2020-1-1-2020-7-1&quot;.</p>
 <p class="see"><strong>@see <a href="#getExportHandler">getExportHandler</a></strong>  导出Excel</p><hr>
+<h2 id="getDgColMap">@fn getDgColMap(jtbl|dgOpt) -> {field => {field,title,jdEnumMap?,...}}</h2>
+<p>取datagrid/treegrid数据表的字段映射表（不含以&quot;_&quot;结尾的特殊字段）。</p><hr>
+<h2 id="getDgCols">@fn getDgCols(jtbl|dgOpt, fn) -> [{field,title,jdEnumMap?,...}]</h2>
+<p>取datagrid/treegrid数据表的列信息数组（不含以&quot;_&quot;结尾的特殊字段）。<br />
+如果指定一个处理方法fn(col), 则返回fn返回数据组装为列数组.</p><hr>
 <h2 id="getDgInfo">@fn getDgInfo(jtbl, res?) -> { opt, isTreegrid, datagrid, url, param, ac, obj, sel?, selArr?, res?, dgFilter? }</h2>
 <p>取datagrid关联信息. 返回字段标记?的须显式指定，如：</p>
 <pre><code>var dg = WUI.getDgInfo(jtbl); // {opt, url, ...}
@@ -3789,8 +3876,7 @@ g_args.dscr="上门洗车"; // 对字符串会自动进行URL解码。</code></p
 <ul>
 <li>g_args._debug: 指定后台的调试等级，有效值为1-9. 而且一旦指定，后端将记录debug日志。参考：后端测试模式 P_TEST_MODE，调试等级 P_DEBUG，调试日志 P_DEBUG_LOG</li>
 <li>g_args.autoLogin: 记住登录信息(token)，下次自动登录；注意：如果是在手机模式下打开，此行为是默认的。示例：<a href="http://server/jdcloud/web/?autoLogin">http://server/jdcloud/web/?autoLogin</a></li>
-<li>g_args.phpdebug: (v6) 设置为1时，以调用接口时激活PHP调试，与vscode/netbeans/vim-vdebug等PHP调试器联合使用。参考：<a href="http://oliveche.com/jdcloud-site/phpdebug.html">http://oliveche.com/jdcloud-site/phpdebug.html</a></li>
-<li>g_args.lang: (v6.1) 指定语言，默认为开发语言&quot;dev&quot;，支持英文&quot;en&quot;（加载lib/lang-en.js）。</li>
+<li>g_args.lang: (v7) 指定语言，默认为开发语言&quot;dev&quot;，支持英文&quot;en&quot;（加载lib/lang-en.js）。</li>
 </ul>
 <p class="see"><strong>@see <a href="#parseQuery">parseQuery</a></strong>  URL参数通过该函数获取。</p><hr>
 <h2 id="g_data">@var g_data = {userInfo?, initClient?, hasRole()}</h2>
@@ -3827,17 +3913,24 @@ WUI.options.moduleExt.showPage = function (name) {
     };
     return map[name] || name;
 }
+// (v7: TODO: 建议使用callSvrExt['default'].makeUrl来替代，不会有重名ac)
 // 定制模块的接口调用地址
 WUI.options.moduleExt.callSvr = function (name) {
     // name为callSvr调用的接口名，返回实际URL地址；示例：
     var map = {
-        "Ordr__Mes.query" =&gt; "../../mes/api/Ordr.query",
-        "Ordr__Item.query" =&gt; "../../mes/api/Item.query"
+        "Ordr__Mes.query": "../../mes/api/Ordr.query",
+        "Ordr__Item.query": "../../mes/api/Item.query"
     }
     return map[name] || name;
 }</code></pre>
 <p>详细用法案例，可参考：筋斗云开发实例讲解 - 系统复用与微服务方案。</p><hr>
-<h2 id="WUI.options.xparam">@var WUI.options.xparam</h2><hr>
+<h2 id="WUI.options.xparam">@var WUI.options.xparam</h2>
+<p>通讯加密。默认为1（开启），在后端接口返回当前是测试模式时，会改为0（关闭）。<br />
+也可以在chrome控制台中直接修改，如WUI.options.xparam=0。</p>
+<p>URL参数加密后在URL参数中仅保留xp={加密值}, 即使没有URL参数也会强制加上xp=1以标识开启了加密；<br />
+注意URL加密值每次会不一样，这将破坏浏览器的缓存机制，作为特例，对于以att/pic结尾的接口（如&quot;att&quot;, &quot;debugPic&quot;等接口，按惯例为返回文件或图片的接口，一般支持缓存），在makeUrl/callSvc中加密时每次URL保持一致。<br />
+设置WUI.options.xparam=2也会让每次加密后的URL相同。</p>
+<p>POST参数也将整体加密，且在contentType中会加上&quot;;xparam=1&quot;标记。</p><hr>
 <h2 id="WUI.options.useNewThumb">@var WUI.options.useNewThumb</h2>
 <p>带缩略图的图片编号保存风格。</p>
 <ul>
@@ -3856,10 +3949,10 @@ g_args.lang中保存着实际使用的语言。</p>
 其它DOM组件若想支持翻译，可手工添加CSS类lang，如:</p>
 <pre><code>&lt;div&gt;&lt;label class="lang"&gt;&lt;input type="checkbox" value="mgr"&gt;最高管理员&lt;/label&gt;&lt;/div&gt;
 
-&lt;a href="javascript:logout()" class="logout"&gt;&lt;span class="lang"&gt;&lt;i class="icon-exit"&gt;&lt;/i&gt;退出系统&lt;/span&gt;&lt;/a&gt;</code></pre>
+&lt;a href="javascript:;" onclick="logout()" class="logout"&gt;&lt;span class="lang"&gt;&lt;i class="icon-exit"&gt;&lt;/i&gt;退出系统&lt;/span&gt;&lt;/a&gt;</code></pre>
 <p>或在代码中，使用WUI.enhanceLang(jo)来为DOM组件支持翻译，或直接用T(str)翻译字符串。<br />
 注意lang类或enhanceLang函数不能设置组件下子组件的文字，可先取到文字组件再设置如<code>WUI.enhanceLang(jo.find(".title"))</code>。</p>
-<p class="fn"><strong>@fn <a id="T">T</a></strong> (s) 字符串翻译</p>
+<p class="fn"><strong>@fn <a id="T">T</a></strong> (s, defVal?) 字符串翻译</p>
 <p>T函数用于将开发语言翻译为当前使用的语言。</p>
 <p class="key"><strong>@key <a id=".lang">.lang</a></strong>  DOM组件支持翻译</p>
 <p class="fn"><strong>@fn <a id="enhanceLang">enhanceLang</a></strong> (jo) DOM组件支持翻译</p><hr>
@@ -3939,9 +4032,6 @@ $(main);</code></pre>
 <p>一般在进入页面时，同步地调用后端initClient接口，获取基本配置信息。<br />
 此后可通过g_data.initClient取这些配置。</p>
 <p>若指定param参数(JS对象，如<code>{token: 123}</code>)，则作为POST参数调用initClient接口.</p><hr>
-<h2 id="Plugins">@class Plugins</h2><hr>
-<h2 id="Plugins.exists">@fn Plugins.exists(pluginName)</h2><hr>
-<h2 id="Plugins.list">@fn Plugins.list()</h2><hr>
 <h2 id="setApp">@fn setApp(opt)</h2>
 <p class="see"><strong>@see <a href="#options">options</a></strong> </p>
 <p>TODO: remove. use $.extend instead.</p><hr>
@@ -3978,16 +4068,27 @@ WUI.PageHeaderMenu.reloadUiMeta = function () {
 <p style="margin-left:0em"><a href="#jquery-mycombobox-6 自动感知对象变动并刷新列表">6 自动感知对象变动并刷新列表</a></p>
 <p style="margin-left:0em"><a href="#jquery-mycombobox-7 验证要求必填">7 验证要求必填</a></p>
 </div>
-<p class="fn"><strong>@fn <a id="jQuery.fn.mycombobox">jQuery.fn.mycombobox</a></strong> (force?=false)</p>
+<p class="fn"><strong>@fn <a id="jQuery.fn.mycombobox">jQuery.fn.mycombobox</a></strong> (opt?)</p>
 <p class="key"><strong>@key <a id=".my-combobox">.my-combobox</a></strong>  关联选择框</p>
 <p class="var"><strong>@var <a id="ListOptions">ListOptions</a></strong>  定义关联选择框的数据源</p>
-<p class="param"><strong>@param force</strong> ?=false 如果为true, 则调用时强制重新初始化。默认只初始化一次。</p>
+<p class="param"><strong>@param opt.force</strong> ?=false 如果为true, 则调用时强制重新初始化。默认只初始化一次。</p>
 <p>关联选择框组件。</p>
 <p>用法：先定义select组件：</p>
 <pre><code>&lt;select name="empId" class="my-combobox" data-options="valueField: 'id', ..."&gt;&lt;/select&gt;</code></pre>
-<p>通过data-options可设置选项: { url, formatter(row), loadFilter(data), valueField, textField, jdEnumMap/jdEnumList }</p>
+<p>通过函数参数opt或组件属性data-options可设置选项: { url, formatter(row), loadFilter(data), valueField, textField, jdEnumMap/jdEnumList }</p>
 <p>初始化：</p>
 <pre><code>var jo = $(".my-combobox").mycombobox();</code></pre>
+<p>(v6) 使用参数opt直接指定参数，比使用data-options指定参数优先级高：</p>
+<pre><code>var jo = $(".my-combobox").mycombobox({
+    url: WUI.makeUrl("dbinst"),
+    // dbinst返回数组示例`["aa","bb"]`, 转为`[{name:"aa"}, {name:"bb"}]`才可正常显示. i
+    // 数组每1项须是个对象，前两个字段分别用作value和text，如果只有1个字段，则value和text均是这个字段；也可通过valueField和textField分别指定字段名。
+    loadFilter: function (data) {
+        return $.map(data, function (e) {
+            return {name: e};
+        });
+    }
+});</code></pre>
 <p>注意：使用WUI.showPage或WUI.showDlg显示的逻辑页或对话框中如果有my-combobox组件，会自动初始化，无须再调用上述代码。</p>
 <p>操作：</p>
 <ul>
@@ -4021,7 +4122,7 @@ url = opt.url_ || opt.url;</code></pre>
 <p>例如，想显示所有员工(Employee)的下拉列表，绑定员工编号字段(id)，显示是员工姓名(name):</p>
 <pre><code>分派给 &lt;select name="empId" class="my-combobox" data-options="url:WUI.makeUrl('Employee.query', {res:'id,name',pagesz:-1})"&gt;&lt;/select&gt;</code></pre>
 <p>(v6)也可以用input来代替select，组件会自动处理.</p>
-<p>注意查询默认是有分页的（页大小一般为20条），用参数<code>{pagesz:-1}</code>使用服务器设置的最大的页大小（后端最大pagesz默认100，可使用maxPageSz参数调节）。<br />
+<p>注意查询默认是有分页的（页大小一般为20条），用参数<code>{pagesz:-1}</code>使用服务器设置的最大的页大小（-1表示使用后端默认的pagesz，后端可使用maxPageSz参数调节）。<br />
 为了精确控制返回字段与显示格式，data-options可能更加复杂，习惯上定义一个ListOptions变量包含各种下拉框的数据获取方式，便于多个页面上共享，像这样：</p>
 <pre><code>&lt;select name="empId" class="my-combobox" data-options="ListOptions.Emp()"&gt;&lt;/select&gt;
 
@@ -4079,6 +4180,9 @@ var ListOptions = {
     "CR": "未付款",
     "CA": "已取消"
 };</code></pre>
+<p>jdEnumList可以是键值对，如&quot;CR:未付款;CA:已取消&quot;（或写成&quot;CR=未付款 CA=已取消&quot;），与上面OrderStatusMap相同。<br />
+也可以简化为一组值，如&quot;未付款;已取消&quot;（也可写成&quot;未付款 已取消&quot;），它实际表示的是：<code>{"未付款": "未付款", "已取消": "已取消"}</code></p>
+<p class="see"><strong>@see <a href="#parseEnumList">parseEnumList</a></strong> </p>
 <h4 id="jquery-mycombobox-3 用loadFilter调整返回数据">3 用loadFilter调整返回数据</h4>
 <p>另一个例子：在返回列表后，可通过loadFilter修改列表，例如添加或删除项：</p>
 <pre><code>&lt;select name="brandId" class="my-combobox" data-options="ListOptions.Brand()" &gt;&lt;/select&gt;</code></pre>
@@ -4256,7 +4360,23 @@ var ListOptions = {
 <h4 id="jquery-mycombobox-7 验证要求必填">7 验证要求必填</h4>
 <p>(v6) my-combobox继承easyui-validatebox，通过添加requried属性来指定必填项，显示时会在字段后自动加红色星号：</p>
 <pre><code>&lt;select name="status" class="my-combobox" data-options="jdEnumMap:OrderStatusMap" required&gt;&lt;/select&gt;</code></pre>
+<p>默认的select组件不支持设置必填选项（required属性，即使加easyui-validatebox类也不行；easyui-combobox可支持验证，但它默认并未限制选项必须在列表中），加上my-combobox类即可解决：</p>
+<pre><code>&lt;select name="status" class="my-combobox" required&gt;
+    &lt;option value="CR"&gt;新创建&lt;/option&gt;
+    &lt;option value="RE"&gt;已完成&lt;/option&gt;
+&lt;/select&gt;</code></pre>
 <p>旧用法（不建议使用）：</p>
 <pre><code>&lt;select name="status" class="my-combobox easyui-validatebox" data-options="jdEnumMap:OrderStatusMap, required:true"&gt;&lt;/select&gt;</code></pre><hr>
+<h2 id="parseEnumList">@fn parseEnumList(str)</h2>
+<p>将字符串转换为键值对，专用于jdEnumList属性，常见风格示例:</p>
+<pre><code>a:1;b:2
+a=1 b=2</code></pre>
+<p>都对应: </p>
+<pre><code>{a:"1", b:"2"}</code></pre>
+<p>若值中需要转义可以用URL编码，值中有空格一般用&quot;+&quot;替代（也可用&quot;%20&quot;），示例：</p>
+<pre><code>COUNT+总数 SUM+总和</code></pre>
+<p>它对应：</p>
+<pre><code>{"COUNT 总数": "COUNT 总数", "SUM 总和": "SUM 总和"}。</code></pre>
+<p class="see"><strong>@see <a href="#parseKvList">parseKvList</a></strong> </p><hr>
 <div style="text-align:center">Generated by jdcloud-gendoc</div>
 </html>
